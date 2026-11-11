@@ -1,0 +1,26 @@
+{
+  "name": "@feedbackhub/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FeedbackHub Single Page Application (Marketing, Dashboard & Portals)",
+  "scripts": {
+    "dev": "echo \"Vite development server ready for Phase 2+\"",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"Linting web package...\"",
+    "test": "echo \"Running web tests...\""
+  },
+  "dependencies": {
+    "@feedbackhub/types": "workspace:*",
+    "@feedbackhub/ui": "workspace:*",
+    "@feedbackhub/validation": "workspace:*"
+  },
+  "devDependencies": {
+    "@feedbackhub/config": "workspace:*",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "typescript": "^5.7.3"
+  }
+}

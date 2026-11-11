@@ -1,0 +1,316 @@
+// ==============================================================================
+// FeedbackHub — Prisma Database Schema
+// Engine: PostgreSQL 16+
+// Multi-Tenant Architecture: Shared Database with Tenant Discriminator & RLS
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------------------------
+// 1. Core Identity & User Models
+// ------------------------------------------------------------------------------
+
+model PlatformUser {
+  id              String   @id @default(uuid()) @db.Uuid
+  email           String   @unique @db.VarChar(255)
+  passwordHash    String   @db.VarChar(255)
+  fullName        String   @db.VarChar(150)
+  avatarUrl       String?  @db.VarChar(512)
+  isSuperAdmin    Boolean  @default(false)
+  isEmailVerified Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  memberships CompanyMembership[]
+  auditLogs   AuditLog[]          @relation("UserAuditLogs")
+  responses   FeedbackResponse[]  @relation("IdentifiedUserResponses")
+
+  @@index([email])
+}
+
+// ------------------------------------------------------------------------------
+// 2. Tenant & Company Models
+// ------------------------------------------------------------------------------
+
+model Company {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @db.VarChar(150)
+  slug           String   @unique @db.VarChar(63) // e.g. "acme" in acme.feedbackhub.com
+  customDomain   String?  @unique @db.VarChar(255) // e.g. "feedback.acme.com"
+  logoUrl        String?  @db.VarChar(512)
+  brandColorHex  String   @default("#8B5CF6") @db.VarChar(7)
+  accentColorHex String   @default("#EC4899") @db.VarChar(7)
+  settings       Json     @default("{\"allowPublicCustomerFeedback\": true, \"allowAnonymousEmployeeFeedback\": true, \"minimumEmployeePrivacyThreshold\": 5}")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  memberships   CompanyMembership[]
+  roles         Role[]
+  feedbackForms FeedbackForm[]
+  responses     FeedbackResponse[]
+  subscription  Subscription?
+  auditLogs     AuditLog[]
+
+  @@index([slug])
+  @@index([customDomain])
+}
+
+model CompanyMembership {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @db.Uuid
+  userId     String   @db.Uuid
+  roleId     String   @db.Uuid
+  jobTitle   String?  @db.VarChar(100)
+  department String?  @db.VarChar(100)
+  status     String   @default("ACTIVE") @db.VarChar(20) // ACTIVE, INVITED, SUSPENDED
+  joinedAt   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, userId])
+  @@index([companyId])
+  @@index([userId])
+}
+
+// ------------------------------------------------------------------------------
+// 3. Granular RBAC Permissions
+// ------------------------------------------------------------------------------
+
+model Role {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String?  @db.Uuid // NULL for system-wide predefined default roles
+  name            String   @db.VarChar(50) // OWNER, ADMIN, MANAGER, VIEWER
+  description     String?  @db.VarChar(255)
+  isSystemDefault Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company     Company?            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  memberships CompanyMembership[]
+  permissions RolePermission[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  code        String @unique @db.VarChar(100) // e.g. "form:create", "response:read"
+  module      String @db.VarChar(50) // "FORMS", "RESPONSES", "SETTINGS", "BILLING"
+  description String @db.VarChar(255)
+
+  roles RolePermission[]
+
+  @@index([module])
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// ------------------------------------------------------------------------------
+// 4. Feedback Forms & Question Design
+// ------------------------------------------------------------------------------
+
+enum FeedbackAudience {
+  CUSTOMER
+  EMPLOYEE
+}
+
+enum AnonymityMode {
+  ANONYMOUS_ONLY
+  IDENTIFIED_ONLY
+  RESPONDENT_CHOICE
+}
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model FeedbackForm {
+  id                         String           @id @default(uuid()) @db.Uuid
+  companyId                  String           @db.Uuid
+  title                      String           @db.VarChar(200)
+  slug                       String           @db.VarChar(100) // unique within company
+  description                String?          @db.Text
+  audienceType               FeedbackAudience @default(CUSTOMER)
+  anonymityMode              AnonymityMode    @default(ANONYMOUS_ONLY)
+  status                     FormStatus       @default(DRAFT)
+  allowMultipleSubmissions   Boolean          @default(false)
+  themeSettings              Json?            // Overrides for colors, banner image
+  publishedAt                DateTime?
+  closedAt                   DateTime?
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
+
+  company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  questions FormQuestion[]
+  responses FeedbackResponse[]
+
+  @@unique([companyId, slug])
+  @@index([companyId, status])
+}
+
+model FormQuestion {
+  id              String   @id @default(uuid()) @db.Uuid
+  formId          String   @db.Uuid
+  questionType    String   @db.VarChar(30) // NPS, CSAT, SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE, MULTIPLE_CHOICE, LIKERT_SCALE
+  title           String   @db.VarChar(500)
+  helpText        String?  @db.VarChar(500)
+  isRequired      Boolean  @default(true)
+  orderIndex      Int      @default(0)
+  validationRules Json?    // Min/max rating, character limits
+  branchingLogic  Json?    // Conditional logic rules
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  form    FeedbackForm         @relation(fields: [formId], references: [id], onDelete: Cascade)
+  options FormQuestionOption[]
+  answers FeedbackAnswer[]
+
+  @@index([formId, orderIndex])
+}
+
+model FormQuestionOption {
+  id         String @id @default(uuid()) @db.Uuid
+  questionId String @db.Uuid
+  label      String @db.VarChar(255)
+  value      String @db.VarChar(255)
+  orderIndex Int    @default(0)
+
+  question FormQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, orderIndex])
+}
+
+// ------------------------------------------------------------------------------
+// 5. Feedback Responses & Answers (Decoupled Anonymous Data)
+// ------------------------------------------------------------------------------
+
+model FeedbackResponse {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @db.Uuid
+  formId           String    @db.Uuid
+  submissionToken  String    @unique @db.VarChar(64) // Cryptographically random opaque token
+  isAnonymous      Boolean   @default(true)
+  
+  // Decoupled respondent info: strictly NULL for anonymous submissions
+  respondentUserId String?   @db.Uuid
+  respondentEmail  String?   @db.VarChar(255)
+  respondentName   String?   @db.VarChar(150)
+  
+  status           String    @default("NEW") @db.VarChar(30) // NEW, IN_REVIEW, IN_PROGRESS, RESOLVED, ARCHIVED
+  sentimentScore   Float?
+  tags             Json?     // Array of category tags
+  submittedAt      DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  form           FeedbackForm     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  respondentUser PlatformUser?    @relation("IdentifiedUserResponses", fields: [respondentUserId], references: [id], onDelete: SetNull)
+  answers        FeedbackAnswer[]
+
+  // Anti-fingerprinting rule: Zero IP or User-Agent columns in this table
+  @@index([companyId, formId])
+  @@index([companyId, submittedAt(sort: Desc)])
+  @@index([companyId, status])
+}
+
+model FeedbackAnswer {
+  id          String   @id @default(uuid()) @db.Uuid
+  responseId  String   @db.Uuid
+  questionId  String   @db.Uuid
+  textValue   String?  @db.Text
+  numberValue Float?
+  booleanValue Boolean?
+  jsonValue   Json?    // Multi-choice selection or structured payload
+  createdAt   DateTime @default(now())
+
+  response FeedbackResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question FormQuestion     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([responseId])
+  @@index([questionId])
+}
+
+// ------------------------------------------------------------------------------
+// 6. Subscriptions & Billing
+// ------------------------------------------------------------------------------
+
+enum PlanTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  companyId              String             @unique @db.Uuid
+  planTier               PlanTier           @default(FREE)
+  status                 SubscriptionStatus @default(ACTIVE)
+  razorpayCustomerId     String?            @db.VarChar(100)
+  razorpaySubscriptionId String?            @db.VarChar(100)
+  monthlyResponseQuota   Int                @default(100)
+  seatQuota              Int                @default(3)
+  currentPeriodStart     DateTime           @default(now())
+  currentPeriodEnd       DateTime           @default(now())
+  canceledAt             DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// ------------------------------------------------------------------------------
+// 7. Security Audit Logging (Append-Only)
+// ------------------------------------------------------------------------------
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String?  @db.Uuid // NULL for system-wide platform actions
+  actorUserId   String?  @db.Uuid // NULL for anonymous or automated system operations
+  action        String   @db.VarChar(100) // e.g. "auth.login", "form.publish", "user.invite"
+  resourceType  String   @db.VarChar(50)  // "Company", "FeedbackForm", "Subscription"
+  resourceId    String?  @db.VarChar(100)
+  previousState Json?
+  newState      Json?
+  ipAddress     String?  @db.VarChar(45)  // Captured only for authenticated admin sessions
+  userAgent     String?  @db.VarChar(512)
+  createdAt     DateTime @default(now())
+
+  company   Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actorUser PlatformUser? @relation("UserAuditLogs", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt(sort: Desc)])
+  @@index([actorUserId])
+}

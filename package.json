@@ -1,0 +1,27 @@
+{
+  "name": "feedbackhub-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FeedbackHub — Multi-tenant B2B SaaS feedback management platform",
+  "author": "FeedbackHub Team",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter \"@feedbackhub/*\" --parallel dev",
+    "build": "pnpm --filter \"@feedbackhub/*\" build",
+    "lint": "pnpm --filter \"@feedbackhub/*\" lint",
+    "test": "pnpm --filter \"@feedbackhub/*\" test",
+    "typecheck": "pnpm --filter \"@feedbackhub/*\" typecheck",
+    "clean": "pnpm -r exec rm -rf node_modules dist .turbo",
+    "db:generate": "pnpm --filter @feedbackhub/database db:generate",
+    "db:migrate": "pnpm --filter @feedbackhub/database db:migrate",
+    "db:seed": "pnpm --filter @feedbackhub/database db:seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
