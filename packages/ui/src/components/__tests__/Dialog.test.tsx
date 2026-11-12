@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import '../../test-setup';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import React, { useState } from 'react';
@@ -16,6 +17,12 @@ import { Button } from '../Button';
 
 afterEach(() => {
   cleanup();
+  if (typeof document !== 'undefined') {
+    document.body.style.pointerEvents = '';
+    document.body.removeAttribute('data-scroll-locked');
+    document.body.removeAttribute('data-radix-scroll-lock');
+    document.body.removeAttribute('aria-hidden');
+  }
 });
 
 describe('Dialog / Modal Component Primitive', () => {

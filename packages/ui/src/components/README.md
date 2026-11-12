@@ -338,6 +338,181 @@ export function DeleteConfirmationDialog() {
 
 ---
 
+### 2.8 Dropdown Menu (`DropdownMenu.tsx`)
+
+Fully accessible, composable dropdown menu built on top of `@radix-ui/react-dropdown-menu`. Supports standard actions, checkable options, radio groups, submenus, keyboard shortcuts, and semantic destructive styling.
+
+- **Radius**: Modern 12–16px menu surface radius (`rounded-xl` / 14px) and 8px item radius (`rounded-lg`).
+- **Surface**: White elevated surface (`bg-surface-card`), subtle border (`border-border`), and multi-layer soft depth (`shadow-soft-md`).
+- **Composable Parts**:
+  - `DropdownMenu`: Root container managing open/closed states.
+  - `DropdownMenuTrigger`: Activator opening the menu (supports `asChild`).
+  - `DropdownMenuPortal`: Portals menu content outside the parent DOM node.
+  - `DropdownMenuContent`: Menu surface with positioning and offset management.
+  - `DropdownMenuItem`: Selectable action with optional `destructive` and `inset` props.
+  - `DropdownMenuCheckboxItem`: Toggleable item with a checkmark indicator.
+  - `DropdownMenuRadioGroup`: Group for mutually exclusive radio items.
+  - `DropdownMenuRadioItem`: Radio option with a dot indicator.
+  - `DropdownMenuLabel`: Accessible section heading.
+  - `DropdownMenuSeparator`: Horizontal divider line.
+  - `DropdownMenuShortcut`: Right-aligned keyboard shortcut hint.
+  - `DropdownMenuGroup`: Container for grouping related menu items.
+  - `DropdownMenuSub`: Root container for nested submenus.
+  - `DropdownMenuSubTrigger`: Activator opening a submenu with a right chevron icon.
+  - `DropdownMenuSubContent`: Surface containing nested submenu options.
+
+#### 1. Basic & Dashboard Action Menu Example
+```tsx
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuGroup,
+  Button
+} from '@feedbackhub/ui';
+
+export function FeedbackFormActionMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm">
+          Actions ▾
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Form Actions</DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={() => handleEdit()}>
+            Edit form
+            <DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => handleDuplicate()}>
+            Duplicate form
+            <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => handleExport()}>
+            Export responses
+            <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem onSelect={() => handleArchive()}>
+            Archive form
+          </DropdownMenuItem>
+          <DropdownMenuItem destructive onSelect={() => handleDelete()}>
+            Delete form
+            <DropdownMenuShortcut>⌘⌫</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+```
+
+#### 2. Checkbox & Radio Selection Example
+```tsx
+import React, { useState } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  Button
+} from '@feedbackhub/ui';
+
+export function FormSettingsMenu() {
+  const [allowAnonymous, setAllowAnonymous] = useState(true);
+  const [emailAlerts, setEmailAlerts] = useState(false);
+  const [targetAudience, setTargetAudience] = useState<'customers' | 'employees' | 'both'>('customers');
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary">Form Settings</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56">
+        <DropdownMenuLabel>Preferences</DropdownMenuLabel>
+        <DropdownMenuCheckboxItem
+          checked={allowAnonymous}
+          onCheckedChange={setAllowAnonymous}
+        >
+          Allow Anonymous Feedback
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={emailAlerts}
+          onCheckedChange={setEmailAlerts}
+        >
+          Instant Email Alerts
+        </DropdownMenuCheckboxItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuLabel>Audience Scope</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={targetAudience} onValueChange={(val) => setTargetAudience(val as any)}>
+          <DropdownMenuRadioItem value="customers">Customers</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="employees">Employees</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="both">Both Audiences</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+```
+
+#### 3. Submenu Example
+```tsx
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  Button
+} from '@feedbackhub/ui';
+
+export function ShareMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline">Share</Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem>Direct Portal Link</DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Export Options</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem>Export CSV</DropdownMenuItem>
+            <DropdownMenuItem>Export JSON</DropdownMenuItem>
+            <DropdownMenuItem>Download QR Code</DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+```
+
+#### Keyboard Accessibility:
+- **Opening**: Click, or press `Enter`, `Space`, or `ArrowDown` while focused on the trigger.
+- **Navigating**: `ArrowDown` moves to the next item; `ArrowUp` moves to the previous item (wraps around).
+- **Submenus**: `ArrowRight` opens a submenu; `ArrowLeft` or `Escape` closes it and returns focus to the subtrigger.
+- **Selecting**: Press `Enter` or `Space` on any active item to select it.
+- **Dismissing**: Press `Escape` or click outside to dismiss the menu and automatically restore focus to the trigger element.
+
+---
+
 ## 3. Extending Primitives
 
 When creating new components in subsequent phases:
