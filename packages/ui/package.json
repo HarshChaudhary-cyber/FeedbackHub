@@ -9,13 +9,18 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./styles/*": "./src/styles/*"
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
     "@feedbackhub/config": "workspace:*",

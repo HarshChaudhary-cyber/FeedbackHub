@@ -140,14 +140,13 @@ pnpm clean
 
 ## 6. Development Status & Current Phase
 
-- **Current Status**: **Phase 1.2 — Dependency & Quality-Check Cleanup** (Complete)
-  - React + Vite SPA (`apps/web`) operational on port 3000 with hostname resolution.
-  - NestJS API Gateway (`apps/api`) operational on port 4000 with `/api/v1/health` and Swagger documentation.
-  - Multi-package pnpm workspace with genuine build, lint, test, and typecheck scripts.
-  - PostgreSQL schema and Prisma client generation verified across all 11 models.
-  - ESLint with `typescript-eslint` supporting TypeScript and TSX files across the monorepo.
-  - Aligned, deduplicated Prisma dependencies (`prisma` & `@prisma/client` v6.19.3).
-- **Next Phase**: **Phase 2 — Design System and UI Foundation**
+- **Current Status**: **Phase 2.1 — Design Tokens & Styling Foundation** (Complete)
+  - Unified design tokens in `@feedbackhub/ui` (colors, typography, radius, shadows, spacing, breakpoints).
+  - CSS Custom Properties with future-ready dark mode architecture foundation.
+  - Tailwind CSS integration in `apps/web` mapped to token custom properties.
+  - Strict rounded UI design language (`20px` dashboard cards, `16px` small cards, pill buttons, `14px` inputs).
+  - `cn()` class-merging helper utility in `@feedbackhub/ui`.
+- **Next Phase**: **Phase 2.2 — Reusable UI Component Primitives**
 
 ---
 

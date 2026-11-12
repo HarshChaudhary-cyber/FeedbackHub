@@ -1,122 +1,86 @@
 import React, { useMemo } from 'react';
 import { resolveHostMode } from './index';
-import { THEME_COLORS, RADIUS_TOKENS } from '@feedbackhub/ui';
 
 export function App() {
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const hostResolution = useMemo(() => resolveHostMode(currentHost), [currentHost]);
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
-        backgroundColor: THEME_COLORS.mainBackground,
-        color: THEME_COLORS.primaryText,
-      }}
-    >
-      <main
-        style={{
-          maxWidth: '560px',
-          width: '100%',
-          backgroundColor: THEME_COLORS.cardBackground,
-          borderRadius: RADIUS_TOKENS.mainDashboardCard,
-          padding: '32px',
-          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.04)',
-          border: `1px solid ${THEME_COLORS.border}`,
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '56px',
-            height: '56px',
-            borderRadius: RADIUS_TOKENS.avatar,
-            backgroundColor: '#F3E8FF',
-            color: THEME_COLORS.primaryPurple,
-            fontSize: '24px',
-            fontWeight: 'bold',
-            marginBottom: '16px',
-          }}
-        >
+    <div className="min-h-screen bg-surface-main text-content-main flex flex-col items-center justify-center p-6 antialiased">
+      <main className="max-w-[560px] w-full bg-surface-card rounded-card-lg p-8 shadow-soft-md border border-border text-center">
+        {/* Brand Avatar Icon */}
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-primary/10 text-brand-primary text-xl font-bold mb-4 shadow-soft-sm">
           FH
         </div>
 
-        <h1
-          style={{
-            margin: '0 0 8px',
-            fontSize: '24px',
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-          }}
-        >
+        {/* Display Typography */}
+        <h1 className="text-2xl font-bold tracking-tight text-content-main mb-2">
           FeedbackHub
         </h1>
 
-        <p
-          style={{
-            margin: '0 0 24px',
-            fontSize: '14px',
-            color: THEME_COLORS.secondaryText,
-            lineHeight: 1.5,
-          }}
-        >
+        <p className="text-sm text-content-secondary leading-relaxed mb-6">
           Multi-tenant B2B SaaS feedback platform.
           <br />
-          Foundation runtime successfully operational.
+          Design tokens &amp; styling foundation established.
         </p>
 
-        <section
-          style={{
-            backgroundColor: THEME_COLORS.mainBackground,
-            borderRadius: RADIUS_TOKENS.smallCard,
-            padding: '16px',
-            marginBottom: '20px',
-            textAlign: 'left',
-            fontSize: '13px',
-          }}
-        >
-          <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: THEME_COLORS.secondaryText }}>Status:</span>
-            <span style={{ color: THEME_COLORS.teal, fontWeight: 600 }}>Active (Phase 1.1)</span>
+        {/* Runtime Context Card */}
+        <section className="bg-surface-main rounded-card-sm p-4 mb-6 text-left text-xs space-y-2.5 border border-border">
+          <div className="flex items-center justify-between">
+            <span className="text-content-secondary font-medium">Phase Status:</span>
+            <span className="inline-flex items-center gap-1.5 text-brand-teal font-semibold">
+              <span className="w-2 h-2 rounded-full bg-brand-teal animate-pulse" />
+              Active (Phase 2.1)
+            </span>
           </div>
-          <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: THEME_COLORS.secondaryText }}>Hostname:</span>
-            <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{currentHost}</span>
+
+          <div className="flex items-center justify-between">
+            <span className="text-content-secondary font-medium">Hostname:</span>
+            <span className="font-mono text-content-main font-semibold">{currentHost}</span>
           </div>
-          <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: THEME_COLORS.secondaryText }}>Resolved Mode:</span>
-            <span
-              style={{
-                backgroundColor: THEME_COLORS.primaryPurple,
-                color: '#FFFFFF',
-                borderRadius: RADIUS_TOKENS.badge,
-                padding: '2px 10px',
-                fontSize: '11px',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-              }}
-            >
+
+          <div className="flex items-center justify-between">
+            <span className="text-content-secondary font-medium">Resolved Routing Mode:</span>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider bg-brand-primary text-white shadow-soft-sm">
               {hostResolution.mode}
             </span>
           </div>
+
           {hostResolution.slug && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: THEME_COLORS.secondaryText }}>Tenant Slug:</span>
-              <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{hostResolution.slug}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-content-secondary font-medium">Tenant Slug:</span>
+              <span className="font-mono font-semibold text-brand-primary">{hostResolution.slug}</span>
             </div>
           )}
         </section>
 
-        <footer style={{ fontSize: '12px', color: THEME_COLORS.secondaryText }}>
-          React 19 + TypeScript + Vite | NestJS API Gateway
+        {/* Visual Token Palette Preview */}
+        <div className="pt-2 border-t border-border">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted mb-3">
+            Core Design Tokens
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-7 h-7 rounded-full bg-brand-primary shadow-soft-sm" title="Primary Purple (#8B5CF6)" />
+              <span className="text-[10px] text-content-muted">Purple</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-7 h-7 rounded-full bg-brand-secondary shadow-soft-sm" title="Secondary Pink (#EC4899)" />
+              <span className="text-[10px] text-content-muted">Pink</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-7 h-7 rounded-full bg-brand-sky shadow-soft-sm" title="Sky Blue (#38BDF8)" />
+              <span className="text-[10px] text-content-muted">Sky</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="w-7 h-7 rounded-full bg-brand-teal shadow-soft-sm" title="Teal Accent (#2DD4BF)" />
+              <span className="text-[10px] text-content-muted">Teal</span>
+            </div>
+          </div>
+        </div>
+
+        <footer className="mt-6 text-xs text-content-muted">
+          Tailwind CSS + Design Tokens | React 19 + Vite
         </footer>
       </main>
     </div>
