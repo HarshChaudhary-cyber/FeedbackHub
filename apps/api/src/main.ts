@@ -1,20 +1,31 @@
-/**
- * FeedbackHub API Application Entry Point
- * Architecture: NestJS Modular REST Gateway
- * Foundation: Phase 1 Stub
- */
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { AppModule } from './app.module';
 
-import { TenantContext } from '@feedbackhub/types';
-import { createCompanySchema } from '@feedbackhub/validation';
+export async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
 
-export function bootstrapApiFoundation() {
-  return {
-    service: 'FeedbackHub API Gateway',
-    version: '0.1.0',
-    status: 'FOUNDATION_INITIALIZED',
-  };
+  app.enableCors();
+  app.setGlobalPrefix('api/v1');
+
+  const config = new DocumentBuilder()
+    .setTitle('FeedbackHub API')
+    .setDescription('FeedbackHub Central REST API Gateway')
+    .setVersion('0.1.0')
+    .addTag('Health', 'System health and status verification')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
+  const port = process.env.PORT || 4000;
+  await app.listen(port);
+  console.log(`FeedbackHub API running at: http://localhost:${port}/api/v1`);
+  console.log(`Swagger documentation at: http://localhost:${port}/api/docs`);
+  return app;
 }
 
-// Ensure TypeScript compilation succeeds
-const _healthCheck = bootstrapApiFoundation();
-export { _healthCheck };
+if (process.env.NODE_ENV !== 'test') {
+  bootstrap();
+}

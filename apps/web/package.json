@@ -3,24 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "description": "FeedbackHub Single Page Application (Marketing, Dashboard & Portals)",
+  "type": "module",
   "scripts": {
-    "dev": "echo \"Vite development server ready for Phase 2+\"",
-    "build": "tsc -p tsconfig.json",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"Linting web package...\"",
-    "test": "echo \"Running web tests...\""
+    "lint": "eslint src",
+    "test": "vitest run"
   },
   "dependencies": {
     "@feedbackhub/types": "workspace:*",
     "@feedbackhub/ui": "workspace:*",
-    "@feedbackhub/validation": "workspace:*"
+    "@feedbackhub/validation": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@feedbackhub/config": "workspace:*",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "typescript": "^5.7.3"
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.7"
   }
 }

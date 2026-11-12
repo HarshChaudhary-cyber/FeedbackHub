@@ -79,15 +79,16 @@ Detailed architectural and engineering blueprints are available in the [`docs/`]
 ## 5. Getting Started (Local Development)
 
 ### Prerequisites
-- Node.js >= 20.0.0
-- pnpm >= 9.0.0
+- Node.js >= 20.0.0 (tested with v24.18.0)
+- pnpm >= 9.0.0 (tested with v12.18.0)
 - Docker Desktop (for PostgreSQL, Redis, MinIO)
 
-### Installation
+### Installation & Quickstart
+
 ```bash
 # 1. Clone repository
-git clone https://github.com/your-org/feedbackhub.git
-cd feedbackhub
+git clone https://github.com/HarshChaudhary-cyber/FeedbackHub.git
+cd FeedbackHub
 
 # 2. Copy environment variables
 cp .env.example .env
@@ -95,18 +96,55 @@ cp .env.example .env
 # 3. Install dependencies across all workspace packages
 pnpm install
 
-# 4. Start local backing services
+# 4. (If prompted by pnpm v10+) Approve allowed build scripts
+pnpm approve-builds --all
+
+# 5. Start local backing services (PostgreSQL, Redis, MinIO)
 docker compose up -d
 
-# 5. Run database migrations and generate Prisma client
+# 6. Generate Prisma client
 pnpm db:generate
+```
+
+### Running Applications
+
+```bash
+# Start both Frontend and Backend concurrently
+pnpm dev
+
+# Or start individually:
+pnpm dev:web    # React 19 + Vite app on http://localhost:3000
+pnpm dev:api    # NestJS REST API on http://localhost:4000/api/v1 (Swagger at /api/docs)
+```
+
+### Verification & Quality Scripts
+
+```bash
+# Type check all workspace packages
+pnpm typecheck
+
+# Lint entire workspace with ESLint
+pnpm lint
+
+# Run unit tests across workspace with Vitest
+pnpm test
+
+# Build all packages and applications for production
+pnpm build
+
+# Cross-platform cleanup of build outputs and node_modules
+pnpm clean
 ```
 
 ---
 
 ## 6. Development Status & Current Phase
 
-- **Current Phase**: **Phase 1 — Product Foundation and Architecture** (Complete)
+- **Current Status**: **Phase 1.1 — Runnable Monorepo Foundation** (Complete)
+  - React + Vite SPA (`apps/web`) operational on port 3000 with hostname resolution.
+  - NestJS API Gateway (`apps/api`) operational on port 4000 with `/api/v1/health` and Swagger documentation.
+  - Multi-package pnpm workspace with genuine build, lint, test, and typecheck scripts.
+  - PostgreSQL schema and Prisma client generation verified.
 - **Next Phase**: **Phase 2 — Design System and UI Foundation**
 
 ---

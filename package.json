@@ -11,17 +11,23 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev": "pnpm --filter \"@feedbackhub/*\" --parallel dev",
-    "build": "pnpm --filter \"@feedbackhub/*\" build",
-    "lint": "pnpm --filter \"@feedbackhub/*\" lint",
-    "test": "pnpm --filter \"@feedbackhub/*\" test",
-    "typecheck": "pnpm --filter \"@feedbackhub/*\" typecheck",
-    "clean": "pnpm -r exec rm -rf node_modules dist .turbo",
+    "dev": "pnpm --filter @feedbackhub/web --filter @feedbackhub/api --parallel dev",
+    "dev:web": "pnpm --filter @feedbackhub/web dev",
+    "dev:api": "pnpm --filter @feedbackhub/api dev",
+    "build": "pnpm -r run build",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "pnpm -r run typecheck",
+    "clean": "node scripts/clean.mjs",
     "db:generate": "pnpm --filter @feedbackhub/database db:generate",
     "db:migrate": "pnpm --filter @feedbackhub/database db:migrate",
     "db:seed": "pnpm --filter @feedbackhub/database db:seed"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "@eslint/js": "^9.21.0",
+    "eslint": "^9.21.0",
+    "globals": "^15.14.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7"
   }
 }
