@@ -8,3 +8,4 @@ export * from './components/Input';
 export * from './components/Textarea';
 export * from './components/Badge';
 export * from './components/Avatar';
+export * from './components/Dialog';

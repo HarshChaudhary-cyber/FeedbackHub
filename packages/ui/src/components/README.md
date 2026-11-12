@@ -15,6 +15,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Primary Buttons** | `var(--radius-btn-primary)` | Pill-shaped (`rounded-full`) |
 | **Secondary Buttons** | `var(--radius-btn-secondary)` | 12px (`rounded-xl`) |
 | **Inputs & Textareas** | `var(--radius-input)` | 14px (`rounded-[14px]`) |
+| **Modal Windows & Dialogs** | `var(--radius-modal)` | 24px (`rounded-[24px]`) |
 | **Main Cards** | `var(--radius-card-lg)` | 20px (`rounded-[20px]`) |
 | **Small Cards** | `var(--radius-card-sm)` | 16px (`rounded-2xl`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
@@ -212,6 +213,127 @@ import { Avatar } from '@feedbackhub/ui';
   name="Sarah Connor"
   size="lg"
 />
+```
+
+---
+
+### 2.7 Dialog & Modal (`Dialog.tsx`)
+
+Fully accessible, composable modal dialog built on `@radix-ui/react-dialog`. Automatically traps focus, locks background scroll, restores focus on dismiss, and supports both controlled and uncontrolled open states.
+
+- **Radius**: Strict 24px modal corner radius (`rounded-[24px]` / `rounded-modal`).
+- **Surface**: White elevated surface (`bg-surface-card`), subtle border (`border-border`), and multi-layer soft depth (`shadow-soft-lg`).
+- **Composable Subcomponents**:
+  - `Dialog`: Root container managing open/closed state.
+  - `DialogTrigger`: Interactive trigger opening the modal (`asChild` supported).
+  - `DialogPortal`: Portals overlay and content to `document.body`.
+  - `DialogOverlay`: Semi-transparent backdrop with subtle blur (`backdrop-blur-sm`).
+  - `DialogContent`: Centered modal surface with built-in accessible close button (`aria-label="Close"`), auto-scrollable viewport (`max-h-[85vh] overflow-y-auto`), and responsive width (`w-[calc(100%-2rem)] max-w-lg`).
+  - `DialogHeader`: Header layout for title and description.
+  - `DialogTitle`: Accessible modal title linked via `aria-labelledby`.
+  - `DialogDescription`: Accessible description linked via `aria-describedby`.
+  - `DialogFooter`: Action button row with responsive column-reverse mobile stacking.
+  - `DialogClose`: Accessible trigger for dismissing the dialog.
+
+#### Uncontrolled Example:
+```tsx
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+  Button
+} from '@feedbackhub/ui';
+
+<Dialog>
+  <DialogTrigger asChild>
+    <Button variant="primary">Create Feedback Form</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Create New Survey</DialogTitle>
+      <DialogDescription>
+        Choose a template or build custom questions for your respondents.
+      </DialogDescription>
+    </DialogHeader>
+    <div className="py-4">
+      {/* Form content here */}
+    </div>
+    <DialogFooter>
+      <DialogClose asChild>
+        <Button variant="secondary">Cancel</Button>
+      </DialogClose>
+      <Button variant="primary">Continue</Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+#### Controlled Example with Cancel & Confirm Actions:
+```tsx
+import React, { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+  Button
+} from '@feedbackhub/ui';
+
+export function DeleteConfirmationDialog() {
+  const [open, setOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteSurveyAction();
+      setOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="destructive" onClick={() => setOpen(true)}>
+        Delete Survey
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you absolutely sure?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. All responses collected for this feedback form will be permanently archived.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" disabled={isDeleting}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              variant="destructive"
+              loading={isDeleting}
+              onClick={handleConfirmDelete}
+            >
+              Confirm Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 ```
 
 ---
