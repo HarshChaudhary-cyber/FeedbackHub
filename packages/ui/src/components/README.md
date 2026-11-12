@@ -18,6 +18,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Modal Windows & Dialogs** | `var(--radius-modal)` | 24px (`rounded-[24px]`) |
 | **Main Cards** | `var(--radius-card-lg)` | 20px (`rounded-[20px]`) |
 | **Small Cards** | `var(--radius-card-sm)` | 16px (`rounded-2xl`) |
+| **Checkboxes** | `5px` | Modern soft square (`rounded-[5px]`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -681,6 +682,124 @@ export function ValidatedSurveyRouting() {
   - `Enter` or `Space` commits the highlighted option.
   - `Escape` dismisses the dropdown and returns focus to the trigger.
 - **Focus Restoration**: Focus is automatically restored to the `SelectTrigger` upon selection or dismissal.
+
+---
+
+### 2.10 Checkbox (`Checkbox.tsx`)
+
+Fully accessible, composable checkbox component built on `@radix-ui/react-checkbox`. Supports controlled and uncontrolled states, indeterminate status, disabled state, required semantics, error states, and standard form integration.
+
+- **Geometry**: Compact 16px square (`h-4 w-4`) with 5px rounded corners (`rounded-[5px]`).
+- **Surface**: Neutral card background (`bg-surface-card border-border`) when unchecked; Primary Purple (`bg-brand-primary border-brand-primary text-white`) when checked or indeterminate.
+- **Indicator**: Dual SVG indicators (crisp checkmark for `checked`, horizontal dash for `indeterminate`). State is never communicated by color alone.
+- **Focus Ring**: Prominent semantic ring (`focus-visible:ring-brand-primary focus-visible:ring-offset-1`).
+
+#### 1. Basic Uncontrolled Example with Label
+```tsx
+import { Checkbox } from '@feedbackhub/ui';
+
+export function TermsCheckbox() {
+  return (
+    <div className="flex items-center gap-2.5">
+      <Checkbox id="terms-consent" defaultChecked name="terms" value="accepted" />
+      <label htmlFor="terms-consent" className="text-sm font-normal text-content-main cursor-pointer select-none">
+        I accept the FeedbackHub terms and privacy policy
+      </label>
+    </div>
+  );
+}
+```
+
+#### 2. Controlled Checkbox Example
+```tsx
+import { useState } from 'react';
+import { Checkbox, type CheckedState } from '@feedbackhub/ui';
+
+export function NotificationsToggle() {
+  const [notify, setNotify] = useState<CheckedState>(false);
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <Checkbox
+        id="weekly-digest"
+        checked={notify}
+        onCheckedChange={setNotify}
+      />
+      <label htmlFor="weekly-digest" className="text-sm font-medium text-content-main cursor-pointer select-none">
+        Receive weekly feedback sentiment digest
+      </label>
+    </div>
+  );
+}
+```
+
+#### 3. Indeterminate Parent Checkbox Example
+```tsx
+import { useState } from 'react';
+import { Checkbox, type CheckedState } from '@feedbackhub/ui';
+
+export function CategorySelectionGroup() {
+  const [items, setItems] = useState({
+    bug: true,
+    feature: false,
+    praise: false,
+  });
+
+  const allChecked = Object.values(items).every(Boolean);
+  const isIndeterminate = Object.values(items).some(Boolean) && !allChecked;
+  const parentChecked: CheckedState = isIndeterminate ? 'indeterminate' : allChecked;
+
+  const handleParentChange = (nextState: CheckedState) => {
+    const target = nextState === true;
+    setItems({ bug: target, feature: target, praise: target });
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="select-all"
+          checked={parentChecked}
+          onCheckedChange={handleParentChange}
+        />
+        <label htmlFor="select-all" className="text-sm font-semibold text-content-main cursor-pointer">
+          Select all categories
+        </label>
+      </div>
+
+      <div className="ml-6 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="cat-bug"
+            checked={items.bug}
+            onCheckedChange={(c) => setItems((s) => ({ ...s, bug: c === true }))}
+          />
+          <label htmlFor="cat-bug" className="text-sm text-content-secondary cursor-pointer">
+            Bug Reports
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="cat-feature"
+            checked={items.feature}
+            onCheckedChange={(c) => setItems((s) => ({ ...s, feature: c === true }))}
+          />
+          <label htmlFor="cat-feature" className="text-sm text-content-secondary cursor-pointer">
+            Feature Requests
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+#### Accessibility Notes:
+- **Semantic Role**: Emits `role="checkbox"`.
+- **States**: Accurately reports `aria-checked="true"`, `aria-checked="false"`, or `aria-checked="mixed"` (for indeterminate).
+- **Keyboard Operation**: Can be toggled using the `Space` key.
+- **Disabled State**: Uses `disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-transparent`.
+- **Error Semantics**: Supports `error` prop which sets `aria-invalid="true"` and applies `border-semantic-error`.
 
 ---
 
