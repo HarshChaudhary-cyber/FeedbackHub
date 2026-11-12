@@ -80,4 +80,86 @@ describe('Textarea Primitive', () => {
     render(<Textarea label="Ref Textarea" ref={textareaRef} />);
     expect(textareaRef.current).toBeInstanceOf(HTMLTextAreaElement);
   });
+
+  describe('Accessibility & aria-describedby combinations', () => {
+    it('1. helper text only: helper is rendered and its ID is referenced', () => {
+      render(
+        <Textarea
+          id="custom-textarea-1"
+          label="Single Helper Textarea"
+          helperText="Max 500 characters"
+        />
+      );
+
+      const textarea = screen.getByLabelText(/single helper textarea/i);
+      const helper = screen.getByText('Max 500 characters');
+
+      expect(helper).toBeTruthy();
+      expect(helper.id).toBe('custom-textarea-1-helper');
+      expect(textarea.getAttribute('aria-describedby')).toBe('custom-textarea-1-helper');
+      expect(textarea.getAttribute('aria-invalid')).toBeNull();
+    });
+
+    it('2. error only: error is rendered and its ID is referenced', () => {
+      render(
+        <Textarea
+          id="custom-textarea-2"
+          label="Single Error Textarea"
+          error="Response is required"
+        />
+      );
+
+      const textarea = screen.getByLabelText(/single error textarea/i);
+      const errorMsg = screen.getByRole('alert');
+
+      expect(errorMsg).toBeTruthy();
+      expect(errorMsg.id).toBe('custom-textarea-2-error');
+      expect(textarea.getAttribute('aria-describedby')).toBe('custom-textarea-2-error');
+      expect(textarea.getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('3. both error and helper text: error is rendered, helper is hidden, and aria-describedby does not contain hidden helper ID', () => {
+      render(
+        <Textarea
+          id="custom-textarea-3"
+          label="Conflicted Textarea"
+          helperText="Hidden instruction text"
+          error="Exceeded character limit"
+        />
+      );
+
+      const textarea = screen.getByLabelText(/conflicted textarea/i);
+      const errorMsg = screen.getByRole('alert');
+
+      // Error message is rendered
+      expect(errorMsg).toBeTruthy();
+      expect(errorMsg.textContent).toBe('Exceeded character limit');
+      expect(errorMsg.id).toBe('custom-textarea-3-error');
+
+      // Helper message is NOT in the DOM
+      expect(screen.queryByText('Hidden instruction text')).toBeNull();
+
+      // aria-describedby strictly references the error, not the hidden helper
+      const describedBy = textarea.getAttribute('aria-describedby');
+      expect(describedBy).toBe('custom-textarea-3-error');
+      expect(describedBy).not.toContain('custom-textarea-3-helper');
+      expect(textarea.getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('4. external aria-describedby: supplied ID is preserved alongside rendered message IDs', () => {
+      render(
+        <Textarea
+          id="custom-textarea-4"
+          label="External Described Textarea"
+          aria-describedby="external-counter-id"
+          helperText="Formatting instructions"
+        />
+      );
+
+      const textarea = screen.getByLabelText(/external described textarea/i);
+      const describedBy = textarea.getAttribute('aria-describedby');
+
+      expect(describedBy).toBe('external-counter-id custom-textarea-4-helper');
+    });
+  });
 });

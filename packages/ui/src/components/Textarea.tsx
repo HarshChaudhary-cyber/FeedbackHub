@@ -39,12 +39,14 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
     const hasError = Boolean(error);
     const errorMessage = typeof error === 'string' ? error : undefined;
+    const isShowingError = hasError && Boolean(errorMessage);
+    const isShowingHelper = Boolean(helperText) && !isShowingError;
 
-    // Accessible described-by linking
+    // Accessible described-by linking only for elements actually rendered in the DOM
     const describedByList: string[] = [];
     if (ariaDescribedBy) describedByList.push(ariaDescribedBy);
-    if (hasError && errorMessage) describedByList.push(errorId);
-    if (helperText) describedByList.push(helperId);
+    if (isShowingError) describedByList.push(errorId);
+    if (isShowingHelper) describedByList.push(helperId);
     const resolvedDescribedBy =
       describedByList.length > 0 ? describedByList.join(' ') : undefined;
 
@@ -99,7 +101,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         />
 
         {/* Error message takes visual priority */}
-        {hasError && errorMessage ? (
+        {isShowingError ? (
           <p
             id={errorId}
             role="alert"
@@ -107,7 +109,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           >
             <span>{errorMessage}</span>
           </p>
-        ) : helperText ? (
+        ) : isShowingHelper ? (
           <p
             id={helperId}
             className="text-xs text-content-secondary mt-0.5"

@@ -49,12 +49,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const hasError = Boolean(error);
     const errorMessage = typeof error === 'string' ? error : undefined;
+    const isShowingError = hasError && Boolean(errorMessage);
+    const isShowingHelper = Boolean(helperText) && !isShowingError;
 
-    // Build accessible describedby string
+    // Build accessible describedby string only for elements actually rendered in the DOM
     const describedByList: string[] = [];
     if (ariaDescribedBy) describedByList.push(ariaDescribedBy);
-    if (hasError && errorMessage) describedByList.push(errorId);
-    if (helperText) describedByList.push(helperId);
+    if (isShowingError) describedByList.push(errorId);
+    if (isShowingHelper) describedByList.push(helperId);
     const resolvedDescribedBy =
       describedByList.length > 0 ? describedByList.join(' ') : undefined;
 
@@ -117,7 +119,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {/* Error message takes visual priority over helper text */}
-        {hasError && errorMessage ? (
+        {isShowingError ? (
           <p
             id={errorId}
             role="alert"
@@ -125,7 +127,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           >
             <span>{errorMessage}</span>
           </p>
-        ) : helperText ? (
+        ) : isShowingHelper ? (
           <p
             id={helperId}
             className="text-xs text-content-secondary mt-0.5"
