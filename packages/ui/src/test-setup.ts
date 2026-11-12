@@ -42,6 +42,7 @@ afterEach(() => {
   if (typeof document !== 'undefined') {
     document.body.style.pointerEvents = '';
     document.body.removeAttribute('data-radix-scroll-lock');
+    document.body.removeAttribute('data-scroll-locked');
     document.body.removeAttribute('aria-hidden');
     // Remove any leftover Radix portals from document.body
     const radixPortals = document.querySelectorAll(

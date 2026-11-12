@@ -10,3 +10,4 @@ export * from './components/Badge';
 export * from './components/Avatar';
 export * from './components/Dialog';
 export * from './components/DropdownMenu';
+export * from './components/Select';

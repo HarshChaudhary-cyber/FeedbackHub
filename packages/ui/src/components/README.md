@@ -513,6 +513,177 @@ export function ShareMenu() {
 
 ---
 
+### 2.9 Select (`Select.tsx`)
+
+Fully accessible, composable select dropdown built on `@radix-ui/react-select`. Supports placeholders, controlled/uncontrolled values, disabled items/states, error validation styling, group labels, separators, and scroll overflow buttons.
+
+- **Radius**: Strict 14px rounded corners (`rounded-[14px]`) matching `Input` and `Textarea` design tokens.
+- **Surface**: White elevated surface (`bg-surface-card bg-white`), subtle border (`border-border`), and multi-layer soft depth (`shadow-soft-md`).
+- **Composable Parts**:
+  - `Select`: Root state container managing selection.
+  - `SelectGroup`: Groups related options together.
+  - `SelectValue`: Renders selected value text or placeholder.
+  - `SelectTrigger`: Interactive button opening the dropdown with 14px radius, chevron icon, and optional `error` state.
+  - `SelectContent`: Portaled dropdown list container (`popper` positioning, `z-50`).
+  - `SelectLabel`: Accessible group header.
+  - `SelectItem`: Individual selectable option with checkmark SVG indicator.
+  - `SelectSeparator`: Visual divider line.
+  - `SelectScrollUpButton`: Scroll button appearing when options overflow upwards.
+  - `SelectScrollDownButton`: Scroll button appearing when options overflow downwards.
+
+#### 1. Basic Usage Example
+```tsx
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@feedbackhub/ui';
+
+export function FeedbackCategorySelect() {
+  return (
+    <Select defaultValue="product">
+      <SelectTrigger aria-label="Feedback Category">
+        <SelectValue placeholder="Select a category" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="product">Product Feedback</SelectItem>
+        <SelectItem value="service">Customer Support</SelectItem>
+        <SelectItem value="billing">Billing & Pricing</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+```
+
+#### 2. Controlled Usage Example
+```tsx
+import React, { useState } from 'react';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@feedbackhub/ui';
+
+export function PrioritySelector() {
+  const [priority, setPriority] = useState('medium');
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-content-main">
+        Feedback Priority
+      </label>
+      <Select value={priority} onValueChange={setPriority}>
+        <SelectTrigger aria-label="Priority">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="low">Low Priority</SelectItem>
+          <SelectItem value="medium">Medium Priority</SelectItem>
+          <SelectItem value="high">High Priority</SelectItem>
+        </SelectContent>
+      </Select>
+      <span className="text-xs text-content-secondary">
+        Current selection: {priority}
+      </span>
+    </div>
+  );
+}
+```
+
+#### 3. Disabled Option & Group Labels Example
+```tsx
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectGroup,
+  SelectLabel,
+  SelectItem,
+  SelectSeparator,
+} from '@feedbackhub/ui';
+
+export function MetricsSelector() {
+  return (
+    <Select defaultValue="nps">
+      <SelectTrigger aria-label="Survey Metric Type">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectLabel>Customer Feedback</SelectLabel>
+          <SelectItem value="nps">Net Promoter Score (NPS)</SelectItem>
+          <SelectItem value="csat">Customer Satisfaction (CSAT)</SelectItem>
+        </SelectGroup>
+        <SelectSeparator />
+        <SelectGroup>
+          <SelectLabel>Employee Feedback</SelectLabel>
+          <SelectItem value="enps">Employee NPS (eNPS)</SelectItem>
+          <SelectItem value="360" disabled>
+            360 Review (Enterprise Only)
+          </SelectItem>
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  );
+}
+```
+
+#### 4. Label & Error Validation State Example
+```tsx
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@feedbackhub/ui';
+
+export function ValidatedSurveyRouting() {
+  const errorMessage = "Please select a routing destination";
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="route-select" className="text-xs font-semibold text-content-main">
+        Routing Destination <span className="text-semantic-error">*</span>
+      </label>
+      <Select>
+        <SelectTrigger
+          id="route-select"
+          error={errorMessage}
+          aria-describedby="routing-error-msg"
+        >
+          <SelectValue placeholder="Choose team..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="triage">Triage Team</SelectItem>
+          <SelectItem value="exec">Executive Escalations</SelectItem>
+        </SelectContent>
+      </Select>
+      <p id="routing-error-msg" role="alert" className="text-xs text-semantic-error font-medium">
+        {errorMessage}
+      </p>
+    </div>
+  );
+}
+```
+
+#### Accessibility Notes:
+- **ARIA Roles**: Trigger exposes `role="combobox"` with `aria-haspopup="listbox"` and `aria-expanded`.
+- **Keyboard Control**:
+  - `ArrowDown` or `Space` / `Enter` opens the dropdown from the trigger.
+  - `ArrowDown` / `ArrowUp` navigates through options.
+  - `Home` / `End` jumps to the first / last option.
+  - `Enter` or `Space` commits the highlighted option.
+  - `Escape` dismisses the dropdown and returns focus to the trigger.
+- **Focus Restoration**: Focus is automatically restored to the `SelectTrigger` upon selection or dismissal.
+
+---
+
 ## 3. Extending Primitives
 
 When creating new components in subsequent phases:
