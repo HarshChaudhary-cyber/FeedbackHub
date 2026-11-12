@@ -43,7 +43,7 @@ export const SelectTrigger = React.forwardRef<
       aria-invalid={resolvedAriaInvalid}
       className={cn(
         // Strict 14px rounded corners matching Input & Textarea tokens
-        'flex h-10 w-full items-center justify-between rounded-[14px] bg-surface-card bg-white px-3.5 py-2 text-sm text-content-main shadow-soft-sm transition-smooth select-none cursor-pointer',
+        'flex h-10 w-full items-center justify-between rounded-[14px] bg-surface-card px-3.5 py-2 text-sm text-content-main shadow-soft-sm transition-smooth select-none cursor-pointer',
         'border placeholder:text-content-muted',
         hasError
           ? 'border-semantic-error text-semantic-error focus:ring-semantic-error'
@@ -156,9 +156,9 @@ export const SelectContent = React.forwardRef<
       position={position}
       sideOffset={sideOffset}
       className={cn(
-        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-surface-card bg-white text-content-main shadow-soft-md transition-smooth',
+        'relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-xl border border-border bg-surface-card text-content-main shadow-soft-md transition-smooth',
         position === 'popper' &&
-          'data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1',
+          'max-h-[var(--radix-select-content-available-height)] data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1',
         className
       )}
       {...props}
@@ -168,7 +168,7 @@ export const SelectContent = React.forwardRef<
         className={cn(
           'p-1',
           position === 'popper' &&
-            'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]'
+            'w-full min-w-[var(--radix-select-trigger-width)] max-h-[var(--radix-select-content-available-height)]'
         )}
       >
         {children}
@@ -220,7 +220,7 @@ export const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       'relative flex w-full cursor-pointer select-none items-center rounded-lg py-1.5 pl-8 pr-2.5 text-sm font-normal text-content-main outline-none transition-colors',
-      'focus:bg-slate-100 focus:text-content-main',
+      'focus:bg-slate-100/80 focus:text-content-main',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className
     )}

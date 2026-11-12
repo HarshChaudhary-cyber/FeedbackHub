@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import '../../test-setup';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 import React, { useState } from 'react';
 import {
   Select,
@@ -447,5 +447,362 @@ describe('Select Component Primitive', () => {
     const content = screen.getByTestId('scroll-content');
     expect(content).toBeTruthy();
     expect(screen.getAllByRole('option').length).toBe(25);
+  });
+
+  it('19. navigates sequentially forward between options with ArrowDown key', async () => {
+    render(
+      <Select>
+        <SelectTrigger aria-label="Sequential Down">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="opt1">Option One</SelectItem>
+          <SelectItem value="opt2">Option Two</SelectItem>
+          <SelectItem value="opt3">Option Three</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /sequential down/i });
+    fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+
+    const items = screen.getAllByRole('option');
+    act(() => {
+      items[0].focus();
+    });
+    expect(document.activeElement).toBe(items[0]);
+
+    act(() => {
+      fireEvent.keyDown(items[0], { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[1]);
+    });
+
+    act(() => {
+      fireEvent.keyDown(items[1], { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[2]);
+    });
+  });
+
+  it('20. navigates sequentially backward between options with ArrowUp key', async () => {
+    render(
+      <Select>
+        <SelectTrigger aria-label="Sequential Up">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="step1">Step 1</SelectItem>
+          <SelectItem value="step2">Step 2</SelectItem>
+          <SelectItem value="step3">Step 3</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /sequential up/i });
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+
+    const items = screen.getAllByRole('option');
+    act(() => {
+      items[2].focus();
+    });
+    expect(document.activeElement).toBe(items[2]);
+
+    act(() => {
+      fireEvent.keyDown(items[2], { key: 'ArrowUp', code: 'ArrowUp' });
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[1]);
+    });
+
+    act(() => {
+      fireEvent.keyDown(items[1], { key: 'ArrowUp', code: 'ArrowUp' });
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[0]);
+    });
+  });
+
+  it('21. jumps directly to the first enabled option with Home key', async () => {
+    render(
+      <Select>
+        <SelectTrigger aria-label="Home Navigation">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="first">First Option</SelectItem>
+          <SelectItem value="middle">Middle Option</SelectItem>
+          <SelectItem value="last">Last Option</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /home navigation/i });
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+
+    const items = screen.getAllByRole('option');
+    act(() => {
+      items[2].focus();
+    });
+    expect(document.activeElement).toBe(items[2]);
+
+    act(() => {
+      fireEvent.keyDown(items[2], { key: 'Home', code: 'Home' });
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[0]);
+    });
+  });
+
+  it('22. jumps directly to the last enabled option with End key', async () => {
+    render(
+      <Select>
+        <SelectTrigger aria-label="End Navigation">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="item-a">Alpha</SelectItem>
+          <SelectItem value="item-b">Beta</SelectItem>
+          <SelectItem value="item-c">Omega</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /end navigation/i });
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+
+    const items = screen.getAllByRole('option');
+    act(() => {
+      items[0].focus();
+    });
+    expect(document.activeElement).toBe(items[0]);
+
+    act(() => {
+      fireEvent.keyDown(items[0], { key: 'End', code: 'End' });
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[2]);
+    });
+  });
+
+  it('23. selects the highlighted option using Space key', async () => {
+    const handleSelect = vi.fn();
+
+    render(
+      <Select onValueChange={handleSelect}>
+        <SelectTrigger aria-label="Space Selection">
+          <SelectValue placeholder="Select method" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="credit">Credit Card</SelectItem>
+          <SelectItem value="paypal">PayPal</SelectItem>
+          <SelectItem value="wire">Wire Transfer</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /space selection/i });
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+
+    const items = screen.getAllByRole('option');
+    act(() => {
+      items[1].focus();
+    });
+
+    act(() => {
+      fireEvent.keyDown(items[1], { key: ' ', code: 'Space' });
+    });
+
+    expect(handleSelect).toHaveBeenCalledWith('paypal');
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+  });
+
+  it('24. skips disabled options during keyboard ArrowDown navigation', async () => {
+    render(
+      <Select>
+        <SelectTrigger aria-label="Skip Disabled">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="avail1">Available Plan A</SelectItem>
+          <SelectItem value="unavail" disabled>
+            Unavailable Legacy Plan
+          </SelectItem>
+          <SelectItem value="avail2">Available Plan B</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /skip disabled/i });
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+
+    const items = screen.getAllByRole('option');
+    act(() => {
+      items[0].focus();
+    });
+    expect(document.activeElement).toBe(items[0]);
+
+    act(() => {
+      fireEvent.keyDown(items[0], { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+    // Should skip index 1 (disabled) and land on index 2 directly
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[2]);
+    });
+  });
+
+  it('25. navigates smoothly across grouped options with keyboard', async () => {
+    render(
+      <Select>
+        <SelectTrigger aria-label="Region Select">
+          <SelectValue placeholder="Region" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>North America</SelectLabel>
+            <SelectItem value="us-east">US East</SelectItem>
+            <SelectItem value="us-west">US West</SelectItem>
+          </SelectGroup>
+          <SelectSeparator />
+          <SelectGroup>
+            <SelectLabel>Europe</SelectLabel>
+            <SelectItem value="eu-central">EU Central</SelectItem>
+            <SelectItem value="eu-west">EU West</SelectItem>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByRole('combobox', { name: /region select/i });
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+
+    const items = screen.getAllByRole('option');
+    // items[1] is 'us-west' (last item of group 1)
+    act(() => {
+      items[1].focus();
+    });
+    expect(document.activeElement).toBe(items[1]);
+
+    // Press ArrowDown to cross separator into group 2
+    act(() => {
+      fireEvent.keyDown(items[1], { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(items[2]);
+    });
+    expect(items[2].textContent).toContain('EU Central');
+  });
+
+  it('26. restores focus specifically to the trigger button when Escape is pressed while dropdown is open', async () => {
+    render(
+      <Select>
+        <SelectTrigger aria-label="Escape Test Trigger" data-testid="escape-trigger">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="e1">Item Alpha</SelectItem>
+          <SelectItem value="e2">Item Beta</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByTestId('escape-trigger');
+    act(() => {
+      trigger.focus();
+    });
+    expect(document.activeElement).toBe(trigger);
+
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
+    });
+    expect(screen.getByRole('listbox')).toBeTruthy();
+
+    const items = screen.getAllByRole('option');
+    act(() => {
+      items[0].focus();
+    });
+    expect(document.activeElement).toBe(items[0]);
+
+    act(() => {
+      fireEvent.keyDown(items[0], { key: 'Escape', code: 'Escape' });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
+
+  it('27. renders multiple options naturally in the viewport without single-trigger height constraint', () => {
+    render(
+      <Select defaultOpen>
+        <SelectTrigger aria-label="Multi Option Viewport">
+          <SelectValue placeholder="Select" />
+        </SelectTrigger>
+        <SelectContent data-testid="multi-viewport-content">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <SelectItem key={i} value={`opt-${i}`}>
+              Dropdown Category Item #{i + 1}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+
+    const options = screen.getAllByRole('option');
+    expect(options.length).toBe(12);
+
+    // Verify that the Viewport does NOT contain the legacy buggy trigger-height constraint
+    const content = screen.getByTestId('multi-viewport-content');
+    expect(content.innerHTML).not.toContain('h-[var(--radix-select-trigger-height)]');
+    // Verify it applies available height
+    expect(content.className).toContain('max-h-[var(--radix-select-content-available-height)]');
+  });
+
+  it('28. applies Radix available content height and trigger width CSS variables without redundant background classes', () => {
+    // Note: In jsdom, layout geometry (clientWidth/clientHeight) is not computed by a real browser engine.
+    // This test verifies DOM structure, design token class assignments, and Radix CSS custom property integration.
+    render(
+      <Select defaultOpen>
+        <SelectTrigger aria-label="Token Test" data-testid="token-trigger">
+          <SelectValue placeholder="Tokens" />
+        </SelectTrigger>
+        <SelectContent data-testid="token-content">
+          <SelectItem value="item-1">Clean Token Item</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByTestId('token-trigger');
+    // Ensure bg-surface-card is present and redundant bg-white is removed
+    expect(trigger.className).toContain('bg-surface-card');
+    expect(trigger.className).not.toContain('bg-surface-card bg-white');
+
+    const content = screen.getByTestId('token-content');
+    expect(content.className).toContain('bg-surface-card');
+    expect(content.className).not.toContain('bg-surface-card bg-white');
+    expect(content.className).toContain('max-h-[var(--radix-select-content-available-height)]');
+
+    const item = screen.getByRole('option', { name: /clean token item/i });
+    expect(item.className).toContain('focus:bg-slate-100/80');
   });
 });

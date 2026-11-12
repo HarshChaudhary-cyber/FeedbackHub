@@ -518,13 +518,13 @@ export function ShareMenu() {
 Fully accessible, composable select dropdown built on `@radix-ui/react-select`. Supports placeholders, controlled/uncontrolled values, disabled items/states, error validation styling, group labels, separators, and scroll overflow buttons.
 
 - **Radius**: Strict 14px rounded corners (`rounded-[14px]`) matching `Input` and `Textarea` design tokens.
-- **Surface**: White elevated surface (`bg-surface-card bg-white`), subtle border (`border-border`), and multi-layer soft depth (`shadow-soft-md`).
+- **Surface**: White elevated surface (`bg-surface-card`), subtle border (`border-border`), and multi-layer soft depth (`shadow-soft-md`).
 - **Composable Parts**:
   - `Select`: Root state container managing selection.
   - `SelectGroup`: Groups related options together.
   - `SelectValue`: Renders selected value text or placeholder.
   - `SelectTrigger`: Interactive button opening the dropdown with 14px radius, chevron icon, and optional `error` state.
-  - `SelectContent`: Portaled dropdown list container (`popper` positioning, `z-50`).
+  - `SelectContent`: Portaled dropdown list container (`popper` positioning, `z-50`, bounded by `--radix-select-content-available-height` and `--radix-select-trigger-width`).
   - `SelectLabel`: Accessible group header.
   - `SelectItem`: Individual selectable option with checkmark SVG indicator.
   - `SelectSeparator`: Visual divider line.
