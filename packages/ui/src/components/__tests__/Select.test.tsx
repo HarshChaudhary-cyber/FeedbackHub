@@ -171,6 +171,8 @@ describe('Select Component Primitive', () => {
     const trigger = screen.getByRole('combobox', { name: /disabled select/i }) as HTMLButtonElement;
     expect(trigger.disabled).toBe(true);
     expect(trigger.className).toContain('disabled:cursor-not-allowed');
+    expect(trigger.className).toContain('disabled:bg-transparent');
+    expect(trigger.className).not.toContain('disabled:bg-slate-50');
 
     fireEvent.keyDown(trigger, { key: 'ArrowDown', code: 'ArrowDown' });
     expect(screen.queryByRole('listbox')).toBeNull();
@@ -803,6 +805,49 @@ describe('Select Component Primitive', () => {
     expect(content.className).toContain('max-h-[var(--radix-select-content-available-height)]');
 
     const item = screen.getByRole('option', { name: /clean token item/i });
-    expect(item.className).toContain('focus:bg-slate-100/80');
+    expect(item.className).toContain('focus:bg-[var(--color-hover-overlay)]');
+  });
+
+  it('29. enforces strict design token consistency for interaction states without hardcoded slate classes', () => {
+    const { unmount } = render(
+      <Select disabled>
+        <SelectTrigger aria-label="Token Consistency Trigger" data-testid="token-consistency-trigger">
+          <SelectValue placeholder="Pick token" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="opt-a">Token Option A</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    const trigger = screen.getByTestId('token-consistency-trigger');
+    // Semantic border tokens on trigger
+    expect(trigger.className).toContain('border-border');
+    expect(trigger.className).toContain('hover:border-border');
+    // Disabled state uses neutral transparency rather than hardcoded slate-50
+    expect(trigger.className).toContain('disabled:bg-transparent');
+    expect(trigger.className).not.toContain('disabled:bg-slate-50');
+    expect(trigger.className).not.toContain('hover:border-slate-300');
+
+    unmount();
+
+    render(
+      <Select defaultOpen>
+        <SelectTrigger aria-label="Open Token Trigger">
+          <SelectValue placeholder="Open" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="opt-a" data-testid="token-consistency-item">
+            Token Option A
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    // Item focus background uses shared hover overlay variable rather than hardcoded slate
+    const item = screen.getByTestId('token-consistency-item');
+    expect(item.className).toContain('focus:bg-[var(--color-hover-overlay)]');
+    expect(item.className).not.toContain('focus:bg-slate-100');
+    expect(item.className).not.toContain('focus:bg-slate-100/80');
   });
 });

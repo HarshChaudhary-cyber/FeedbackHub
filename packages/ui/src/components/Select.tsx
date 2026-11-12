@@ -47,9 +47,9 @@ export const SelectTrigger = React.forwardRef<
         'border placeholder:text-content-muted',
         hasError
           ? 'border-semantic-error text-semantic-error focus:ring-semantic-error'
-          : 'border-border hover:border-slate-300 focus:ring-brand-primary',
+          : 'border-border hover:border-border focus:ring-brand-primary',
         'focus:outline-none focus:ring-2 focus:ring-offset-1',
-        'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-transparent',
         '[&>span]:line-clamp-1 text-left',
         className
       )}
@@ -220,7 +220,7 @@ export const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       'relative flex w-full cursor-pointer select-none items-center rounded-lg py-1.5 pl-8 pr-2.5 text-sm font-normal text-content-main outline-none transition-colors',
-      'focus:bg-slate-100/80 focus:text-content-main',
+      'focus:bg-[var(--color-hover-overlay)] focus:text-content-main',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className
     )}
