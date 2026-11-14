@@ -440,20 +440,149 @@ describe('Slider Component Primitive', () => {
     expect(sliderThumb.className).not.toContain('border-slate-300');
   });
 
-  it('21. handles PageUp and PageDown large step increments when supported', async () => {
+  it('21. handles PageUp and PageDown large step increments with boundary clamping', async () => {
     const user = userEvent.setup();
-    render(<Slider defaultValue={[50]} min={0} max={100} step={1} aria-label="Page keys" />);
-    const slider = screen.getByRole('slider', { name: /page keys/i });
+    render(
+      <Slider
+        defaultValue={[50]}
+        min={0}
+        max={100}
+        step={1}
+        aria-label="Page keys test"
+      />
+    );
+    const slider = screen.getByRole('slider', { name: /page keys test/i });
 
     act(() => {
       slider.focus();
     });
+
+    // Radix Slider multiplies step by 10 for PageUp/PageDown
     await user.keyboard('{PageUp}');
-    const valAfterUp = Number(slider.getAttribute('aria-valuenow'));
-    expect(valAfterUp).toBeGreaterThanOrEqual(50);
+    expect(slider.getAttribute('aria-valuenow')).toBe('60');
 
     await user.keyboard('{PageDown}');
-    const valAfterDown = Number(slider.getAttribute('aria-valuenow'));
-    expect(valAfterDown).toBeLessThanOrEqual(valAfterUp);
+    expect(slider.getAttribute('aria-valuenow')).toBe('50');
+
+    // Multiple PageUp steps
+    await user.keyboard('{PageUp}');
+    await user.keyboard('{PageUp}');
+    expect(slider.getAttribute('aria-valuenow')).toBe('70');
+  });
+
+  it('22. single slider with error exposes aria-invalid="true" on its slider thumb', () => {
+    render(
+      <Slider
+        error="This selection is required"
+        defaultValue={[50]}
+        aria-label="Single slider with error"
+      />
+    );
+    const thumb = screen.getByRole('slider', { name: /single slider with error/i });
+    expect(thumb.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('23. range slider with error exposes aria-invalid="true" on every thumb', () => {
+    render(
+      <Slider
+        error="Invalid range selection"
+        defaultValue={[25, 75]}
+        thumbAriaLabels={['Min score', 'Max score']}
+      />
+    );
+    const thumbs = screen.getAllByRole('slider');
+    expect(thumbs.length).toBe(2);
+    thumbs.forEach((thumb) => {
+      expect(thumb.getAttribute('aria-invalid')).toBe('true');
+    });
+  });
+
+  it('24. preserves explicitly supplied aria-invalid values over error prop defaults', () => {
+    render(
+      <div>
+        <Slider
+          aria-invalid="false"
+          error="Ignored error"
+          defaultValue={[50]}
+          aria-label="Explicit false slider"
+        />
+        <Slider defaultValue={[50]}>
+          <SliderTrack>
+            <SliderRange />
+          </SliderTrack>
+          <SliderThumb aria-invalid="grammar" aria-label="Grammar thumb" />
+        </Slider>
+      </div>
+    );
+    const falseThumb = screen.getByRole('slider', { name: /explicit false slider/i });
+    expect(falseThumb.getAttribute('aria-invalid')).toBe('false');
+
+    const grammarThumb = screen.getByRole('slider', { name: /grammar thumb/i });
+    expect(grammarThumb.getAttribute('aria-invalid')).toBe('grammar');
+  });
+
+  it('25. applies semantic error tokens to thumbs and removes brand border when error exists', () => {
+    render(
+      <Slider
+        error="Invalid value"
+        defaultValue={[50]}
+        aria-label="Error styling test"
+      />
+    );
+    const thumb = screen.getByRole('slider', { name: /error styling test/i });
+    expect(thumb.className).toContain('border-semantic-error');
+    expect(thumb.className).toContain('focus-visible:ring-semantic-error');
+    expect(thumb.className).not.toContain('border-brand-primary');
+    expect(thumb.className).not.toContain('border-red-500');
+  });
+
+  it('26. normal sliders without error do not receive invalid state or error styling', () => {
+    render(<Slider defaultValue={[50]} aria-label="Valid slider" />);
+    const thumb = screen.getByRole('slider', { name: /valid slider/i });
+    expect(thumb.getAttribute('aria-invalid')).toBeNull();
+    expect(thumb.className).toContain('border-brand-primary');
+    expect(thumb.className).toContain('focus-visible:ring-brand-primary');
+    expect(thumb.className).not.toContain('border-semantic-error');
+    expect(thumb.className).not.toContain('focus-visible:ring-semantic-error');
+  });
+
+  it('27. PageUp increases value by 10 steps and respects maximum bound', async () => {
+    const user = userEvent.setup();
+    render(
+      <Slider
+        defaultValue={[95]}
+        min={0}
+        max={100}
+        step={1}
+        aria-label="PageUp clamp"
+      />
+    );
+    const thumb = screen.getByRole('slider', { name: /pageup clamp/i });
+
+    act(() => {
+      thumb.focus();
+    });
+    await user.keyboard('{PageUp}');
+    expect(thumb.getAttribute('aria-valuenow')).toBe('100');
+  });
+
+  it('28. PageDown decreases value by 10 steps and respects minimum bound', async () => {
+    const user = userEvent.setup();
+    render(
+      <Slider
+        defaultValue={[5]}
+        min={0}
+        max={100}
+        step={1}
+        aria-label="PageDown clamp"
+      />
+    );
+    const thumb = screen.getByRole('slider', { name: /pagedown clamp/i });
+
+    act(() => {
+      thumb.focus();
+    });
+    await user.keyboard('{PageDown}');
+    expect(thumb.getAttribute('aria-valuenow')).toBe('0');
   });
 });

@@ -1359,12 +1359,14 @@ export function ComposableSurveySlider() {
   - Thumbs emit `role="slider"`.
   - Exposes `aria-valuemin`, `aria-valuemax`, and real-time `aria-valuenow`.
   - Multi-thumb sliders expose distinct accessible names for each thumb via `thumbAriaLabels` or explicit `aria-label`.
+  - When an `error` prop or `aria-invalid` is present, `aria-invalid="true"` and semantic error styling (`border-semantic-error focus-visible:ring-semantic-error`) are automatically assigned to all interactive slider thumb elements with `role="slider"`. Explicitly supplied `aria-invalid` values are preserved.
 - **Keyboard Navigation**:
   - `ArrowRight` / `ArrowUp`: Increments slider value by one `step`.
   - `ArrowLeft` / `ArrowDown`: Decrements slider value by one `step`.
   - `Home`: Jumps thumb to `min`.
   - `End`: Jumps thumb to `max`.
-  - `PageUp` / `PageDown`: Advances or reduces slider value by larger increments where supported.
+  - `PageUp`: Advances slider value by 10 steps (`10 * step`), clamped to `max`.
+  - `PageDown`: Decreases slider value by 10 steps (`10 * step`), clamped to `min`.
   - Disabled sliders reflect `aria-disabled="true"`, `data-disabled=""`, and prevent all keyboard/pointer interactions.
 - **Form Integration**: Transparently renders hidden `<input>` elements when `name` is passed, enabling standard HTML form submission.
 

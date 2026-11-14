@@ -2,6 +2,17 @@ import * as React from 'react';
 import * as SliderPrimitive from '@radix-ui/react-slider';
 import { cn } from '../utils';
 
+interface SliderContextValue {
+  hasError: boolean;
+  resolvedAriaInvalid?: React.ComponentPropsWithoutRef<
+    typeof SliderPrimitive.Root
+  >['aria-invalid'];
+}
+
+const SliderContext = React.createContext<SliderContextValue>({
+  hasError: false,
+});
+
 export interface SliderProps
   extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> {
   thumbClassName?: string;
@@ -38,13 +49,19 @@ export const Slider = React.forwardRef<
     ref
   ) => {
     const hasError = Boolean(error);
-    const resolvedAriaInvalid = customAriaInvalid ?? (hasError ? 'true' : undefined);
+    const resolvedAriaInvalid =
+      customAriaInvalid !== undefined
+        ? customAriaInvalid
+        : hasError
+        ? 'true'
+        : undefined;
 
     // Determine thumb count for auto-rendered thumbs when children are omitted
     const resolvedValue = props.value ?? props.defaultValue;
-    const thumbCount = Array.isArray(resolvedValue) && resolvedValue.length > 0
-      ? resolvedValue.length
-      : 1;
+    const thumbCount =
+      Array.isArray(resolvedValue) && resolvedValue.length > 0
+        ? resolvedValue.length
+        : 1;
 
     return (
       <SliderPrimitive.Root
@@ -61,33 +78,36 @@ export const Slider = React.forwardRef<
         )}
         {...props}
       >
-        {children ?? (
-          <>
-            <SliderTrack className={trackClassName}>
-              <SliderRange className={rangeClassName} />
-            </SliderTrack>
-            {Array.from({ length: thumbCount }, (_, index) => {
-              const singleLabel =
-                thumbAriaLabels?.[index] ??
-                (thumbCount === 1
-                  ? ariaLabel
-                  : ariaLabel
-                  ? `${ariaLabel} (${index === 0 ? 'minimum' : index === 1 ? 'maximum' : `thumb ${index + 1}`})`
-                  : undefined);
+        <SliderContext.Provider value={{ hasError, resolvedAriaInvalid }}>
+          {children ?? (
+            <>
+              <SliderTrack className={trackClassName}>
+                <SliderRange className={rangeClassName} />
+              </SliderTrack>
+              {Array.from({ length: thumbCount }, (_, index) => {
+                const singleLabel =
+                  thumbAriaLabels?.[index] ??
+                  (thumbCount === 1
+                    ? ariaLabel
+                    : ariaLabel
+                    ? `${ariaLabel} (${index === 0 ? 'minimum' : index === 1 ? 'maximum' : `thumb ${index + 1}`})`
+                    : undefined);
 
-              return (
-                <SliderThumb
-                  key={index}
-                  aria-label={singleLabel}
-                  aria-labelledby={thumbCount === 1 ? ariaLabelledby : undefined}
-                  aria-describedby={ariaDescribedby}
-                  aria-disabled={props.disabled ? 'true' : undefined}
-                  className={thumbClassName}
-                />
-              );
-            })}
-          </>
-        )}
+                return (
+                  <SliderThumb
+                    key={index}
+                    aria-label={singleLabel}
+                    aria-labelledby={thumbCount === 1 ? ariaLabelledby : undefined}
+                    aria-describedby={ariaDescribedby}
+                    aria-disabled={props.disabled ? 'true' : undefined}
+                    aria-invalid={resolvedAriaInvalid}
+                    className={thumbClassName}
+                  />
+                );
+              })}
+            </>
+          )}
+        </SliderContext.Provider>
       </SliderPrimitive.Root>
     );
   }
@@ -150,35 +170,63 @@ export const SliderRange = React.forwardRef<
 });
 SliderRange.displayName = SliderPrimitive.Range.displayName;
 
-export type SliderThumbProps = React.ComponentPropsWithoutRef<
-  typeof SliderPrimitive.Thumb
->;
+export interface SliderThumbProps
+  extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Thumb> {
+  error?: boolean | string;
+}
 
 /**
  * SliderThumb Component
  * Circular knob indicator with smooth transitions and semantic focus ring.
+ * Supports error state styling with semantic error tokens.
  */
 export const SliderThumb = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Thumb>,
   SliderThumbProps
->(({ className, ...props }, ref) => {
-  return (
-    <SliderPrimitive.Thumb
-      ref={ref}
-      className={cn(
-        // Base geometry: 20px circular knob, card surface, brand primary border, soft shadow
-        'block h-5 w-5 rounded-full border-2 border-brand-primary bg-surface-card shadow-soft-sm transition-smooth cursor-pointer',
-        // Semantic focus ring token
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2',
-        // Disabled state handling
-        'disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed',
-        'data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:border-brand-primary/50',
-        className
-      )}
-      {...props}
-    />
-  );
-});
+>(
+  (
+    {
+      className,
+      error,
+      'aria-invalid': customAriaInvalid,
+      ...props
+    },
+    ref
+  ) => {
+    const context = React.useContext(SliderContext);
+    const hasError = error !== undefined ? Boolean(error) : context.hasError;
+    const resolvedAriaInvalid =
+      customAriaInvalid !== undefined
+        ? customAriaInvalid
+        : hasError
+        ? 'true'
+        : context.resolvedAriaInvalid;
+
+    return (
+      <SliderPrimitive.Thumb
+        ref={ref}
+        aria-invalid={resolvedAriaInvalid}
+        className={cn(
+          // Base geometry: 20px circular knob, card surface, soft shadow
+          'block h-5 w-5 rounded-full border-2 bg-surface-card shadow-soft-sm transition-smooth cursor-pointer',
+          // Normal state vs error state
+          hasError
+            ? 'border-semantic-error focus-visible:ring-semantic-error'
+            : 'border-brand-primary focus-visible:ring-brand-primary',
+          // Semantic focus ring geometry
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+          // Disabled state handling
+          'disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed',
+          hasError
+            ? 'data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:border-semantic-error/50'
+            : 'data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:border-brand-primary/50',
+          className
+        )}
+        {...props}
+      />
+    );
+  }
+);
 SliderThumb.displayName = SliderPrimitive.Thumb.displayName;
 
 export interface SliderLabelProps
