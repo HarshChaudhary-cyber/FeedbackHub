@@ -23,6 +23,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Switches** | `9999px` | Pill-shaped track & circular thumb (`rounded-full`) |
 | **Sliders** | `9999px` | Pill-shaped track & circular thumbs (`rounded-full`) |
 | **Tabs List** | `var(--radius-btn-secondary)` | 12px container (`rounded-xl`), 10px triggers (`rounded-[10px]`) |
+| **Empty State Cards** | `var(--radius-card-lg)` | 20px card (`rounded-[20px]`), 16px icon badge (`rounded-2xl`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -1622,6 +1623,187 @@ export function EnterpriseAnalyticsTabs() {
 - **Preserving Inactive Content (`forceMount`)**:
   - By default, inactive tab panels unmount their child content for performance.
   - When `forceMount={true}` is set on `TabsContent`, the panel content remains mounted in the DOM (useful for preserving client form state, video/audio players, or iframe caches) while being visually and accessibly hidden via `data-[state=inactive]:hidden`.
+
+---
+
+### 2.15 Empty State (`EmptyState.tsx`)
+
+Production-quality, accessible empty state component for zero-data, initial onboarding, search misses, and clean states. Features a composable architecture (`EmptyState`, `EmptyStateIcon`, `EmptyStateTitle`, `EmptyStateDescription`, `EmptyStateActions`) with responsive sizing, card/compact variants, and automatic accessibility defaults.
+
+- **Geometry**:
+  - `EmptyState`: Centered, balanced vertical flex container with configurable padding (`p-4` for `sm`, `py-10 px-6` for `md`, `py-16 px-8` for `lg`).
+  - `EmptyStateIcon`: Rounded icon container (`rounded-xl` for `sm`, `rounded-2xl` for `md`, `rounded-3xl` for `lg`) with neutral border (`border border-border`), surface background (`bg-surface-main`), and soft ambient shadow (`shadow-soft-sm`).
+  - `EmptyState (card)`: Elevated surface with 20px rounded corners (`rounded-[20px]`), card background (`bg-surface-card`), and subtle border (`border border-border`).
+- **Components & Exports**:
+  - `EmptyState`: Root container managing variant, sizing scale, and layout.
+  - `EmptyStateIcon`: Icon or illustration wrapper (`aria-hidden="true"` by default).
+  - `EmptyStateTitle`: Semantic heading (`h3` by default, configurable via `as`).
+  - `EmptyStateDescription`: Descriptive body copy using secondary content tokens.
+  - `EmptyStateActions`: Responsive button container supporting single or dual actions.
+- **Public Types**: `EmptyStateProps`, `EmptyStateVariant`, `EmptyStateSize`, `EmptyStateIconProps`, `EmptyStateTitleProps`, `EmptyStateDescriptionProps`, `EmptyStateActionsProps`.
+
+#### Example 1 — Basic Usage
+Simple empty state informing users of an empty feedback inbox.
+
+```tsx
+import {
+  EmptyState,
+  EmptyStateIcon,
+  EmptyStateTitle,
+  EmptyStateDescription,
+  EmptyStateActions,
+  Button,
+} from '@feedbackhub/ui';
+
+export function FeedbackInboxEmpty() {
+  return (
+    <EmptyState>
+      <EmptyStateIcon>
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M22 12h-6l-2 3h-4l-2-3H2v7h20v-7z" />
+          <path d="M5.45 5.11L2 12v7a2 2 0 002 2h16a2 2 0 002-2v-7l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+        </svg>
+      </EmptyStateIcon>
+      <EmptyStateTitle>No feedback responses yet</EmptyStateTitle>
+      <EmptyStateDescription>
+        Share your survey link with respondents to begin collecting real-time sentiment data.
+      </EmptyStateDescription>
+      <EmptyStateActions>
+        <Button variant="primary">Share Survey Link</Button>
+      </EmptyStateActions>
+    </EmptyState>
+  );
+}
+```
+
+#### Example 2 — Primary and Secondary Actions
+Empty state providing both a primary creation action and a secondary documentation link.
+
+```tsx
+import {
+  EmptyState,
+  EmptyStateIcon,
+  EmptyStateTitle,
+  EmptyStateDescription,
+  EmptyStateActions,
+  Button,
+} from '@feedbackhub/ui';
+
+export function FormsListEmpty() {
+  return (
+    <EmptyState size="lg">
+      <EmptyStateIcon>
+        <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="12" y1="18" x2="12" y2="12" />
+          <line x1="9" y1="15" x2="15" y2="15" />
+        </svg>
+      </EmptyStateIcon>
+      <EmptyStateTitle>No feedback forms created</EmptyStateTitle>
+      <EmptyStateDescription>
+        Build your first custom survey to measure customer satisfaction, Net Promoter Score, or employee sentiment.
+      </EmptyStateDescription>
+      <EmptyStateActions>
+        <Button variant="primary">Create feedback form</Button>
+        <Button variant="outline">Learn more</Button>
+      </EmptyStateActions>
+    </EmptyState>
+  );
+}
+```
+
+#### Example 3 — Compact Variant
+Dense empty state suitable for dropdowns, sidebars, dashboard widgets, and filter panels.
+
+```tsx
+import {
+  EmptyState,
+  EmptyStateIcon,
+  EmptyStateTitle,
+  EmptyStateDescription,
+  EmptyStateActions,
+  Button,
+} from '@feedbackhub/ui';
+
+export function NotificationsWidgetEmpty() {
+  return (
+    <EmptyState variant="compact" size="sm">
+      <EmptyStateIcon>
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+      </EmptyStateIcon>
+      <EmptyStateTitle as="h4">No notifications</EmptyStateTitle>
+      <EmptyStateDescription>
+        You are completely caught up! New alerts will appear here.
+      </EmptyStateDescription>
+      <EmptyStateActions>
+        <Button variant="ghost" size="sm">Refresh</Button>
+      </EmptyStateActions>
+    </EmptyState>
+  );
+}
+```
+
+#### Example 4 — Card Variant
+Elevated surface container with rounded corners, subtle border, and ambient shadow.
+
+```tsx
+import {
+  EmptyState,
+  EmptyStateIcon,
+  EmptyStateTitle,
+  EmptyStateDescription,
+  EmptyStateActions,
+  Button,
+} from '@feedbackhub/ui';
+
+export function AnalyticsCardEmpty() {
+  return (
+    <EmptyState variant="card" size="md">
+      <EmptyStateIcon>
+        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+      </EmptyStateIcon>
+      <EmptyStateTitle>No analytics data available</EmptyStateTitle>
+      <EmptyStateDescription>
+        Visual trend charts and sentiment score breakdowns will populate as soon as respondents complete your surveys.
+      </EmptyStateDescription>
+      <EmptyStateActions>
+        <Button variant="secondary">View Sample Report</Button>
+      </EmptyStateActions>
+    </EmptyState>
+  );
+}
+```
+
+#### FeedbackHub Use Cases:
+The `EmptyState` component is designed for 10 primary product scenarios across respondent portals and admin workspaces:
+
+1. **No feedback responses received yet**: Encourages sharing the public feedback link.
+2. **No feedback forms created**: Guides administrators through initial survey creation.
+3. **No search results found**: Suggests clearing search queries or relaxing filter parameters.
+4. **No employee feedback available**: Invites HR teams to launch an anonymous internal pulse.
+5. **No customer feedback available**: Prompts embedding feedback widgets into product funnels.
+6. **No notifications**: Confirms the user has reviewed all pending workspace alerts.
+7. **No analytics data available**: Explains that charts will populate once responses arrive.
+8. **No team members added**: Recommends inviting collaborators to manage feedback triage.
+9. **No archived forms**: Indicates that inactive or retired forms have not yet been stored.
+10. **No activity history**: Displays a clean slate status for newly provisioned tenant audit logs.
+
+#### Accessibility & Token Information:
+- **ARIA & Semantics**:
+  - `EmptyStateTitle` renders a semantic heading (`<h3>` by default) with high-contrast text (`text-content-main`), meeting WCAG AAA requirements. Configurable via `as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'div'`.
+  - `EmptyStateIcon` sets `aria-hidden="true"` by default to ensure purely decorative icons or illustrations are hidden from assistive technology, avoiding noisy screen reader announcements.
+  - Interactive elements inside `EmptyStateActions` retain native keyboard focusability (`focus-visible:ring-brand-primary`) and accessible names.
+- **Design Tokens**:
+  - Strictly consumes FeedbackHub semantic tokens: `bg-surface-main`, `bg-surface-card`, `text-content-main`, `text-content-secondary`, `border-border`, and `shadow-soft-sm`.
+  - Zero hardcoded colors (`bg-slate-*`, `text-slate-*`, raw hex/rgb).
 
 ---
 
