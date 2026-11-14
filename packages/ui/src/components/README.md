@@ -19,6 +19,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Main Cards** | `var(--radius-card-lg)` | 20px (`rounded-[20px]`) |
 | **Small Cards** | `var(--radius-card-sm)` | 16px (`rounded-2xl`) |
 | **Checkboxes** | `5px` | Modern soft square (`rounded-[5px]`) |
+| **Radio Buttons** | `9999px` | Circular indicators (`rounded-full`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -800,6 +801,223 @@ export function CategorySelectionGroup() {
 - **Keyboard Operation**: Can be toggled using the `Space` key.
 - **Disabled State**: Uses `disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-transparent`.
 - **Error Semantics**: Supports `error` prop which sets `aria-invalid="true"` and applies `border-semantic-error`.
+
+---
+
+### 2.11 Radio Group (`RadioGroup.tsx`)
+
+Fully accessible, composable radio group primitive built on `@radix-ui/react-radio-group`. Supports controlled/uncontrolled selection, single selection enforcement, horizontal and vertical layouts, disabled states, required semantics, roving focus keyboard navigation, and HTML form integration.
+
+- **Geometry**: 16px circular button (`h-4 w-4 rounded-full`) with an 8px inner indicator dot (`h-2 w-2 rounded-full`).
+- **Surface**: White card surface (`bg-surface-card border-border hover:border-border`) when unselected; Primary Purple border and dot (`border-brand-primary text-brand-primary bg-brand-primary`) when selected.
+- **Focus Ring**: Semantic focus ring (`focus-visible:ring-brand-primary focus-visible:ring-offset-1`).
+- **Composable Parts**:
+  - `RadioGroup`: Root container managing roving focus and group selection.
+  - `RadioGroupItem`: Circular radio option button.
+  - `RadioGroupIndicator`: Centered active dot indicator.
+  - `RadioGroupLabel`: Accessible label component for the group or individual items.
+  - `RadioGroupDescription`: Secondary helper text for the group or options.
+
+#### 1. Basic Radio Group Example
+```tsx
+import { RadioGroup, RadioGroupItem, RadioGroupLabel } from '@feedbackhub/ui';
+
+export function PrioritySelector() {
+  return (
+    <RadioGroup defaultValue="medium" aria-label="Ticket Priority">
+      <div className="flex items-center gap-2.5">
+        <RadioGroupItem value="low" id="p-low" />
+        <RadioGroupLabel htmlFor="p-low">Low Priority</RadioGroupLabel>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <RadioGroupItem value="medium" id="p-medium" />
+        <RadioGroupLabel htmlFor="p-medium">Medium Priority</RadioGroupLabel>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <RadioGroupItem value="high" id="p-high" />
+        <RadioGroupLabel htmlFor="p-high">High Priority</RadioGroupLabel>
+      </div>
+    </RadioGroup>
+  );
+}
+```
+
+#### 2. Controlled Radio Group Example
+```tsx
+import { useState } from 'react';
+import { RadioGroup, RadioGroupItem, RadioGroupLabel } from '@feedbackhub/ui';
+
+export function NotificationChannel() {
+  const [channel, setChannel] = useState('email');
+
+  return (
+    <div className="space-y-2">
+      <RadioGroup value={channel} onValueChange={setChannel} aria-label="Notification Channel">
+        <div className="flex items-center gap-2.5">
+          <RadioGroupItem value="email" id="c-email" />
+          <RadioGroupLabel htmlFor="c-email">Email Notifications</RadioGroupLabel>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <RadioGroupItem value="slack" id="c-slack" />
+          <RadioGroupLabel htmlFor="c-slack">Slack Direct Message</RadioGroupLabel>
+        </div>
+      </RadioGroup>
+      <p className="text-xs text-content-secondary">Active delivery: {channel}</p>
+    </div>
+  );
+}
+```
+
+#### 3. Disabled Option Example
+```tsx
+import { RadioGroup, RadioGroupItem, RadioGroupLabel } from '@feedbackhub/ui';
+
+export function SubscriptionTier() {
+  return (
+    <RadioGroup defaultValue="pro" aria-label="Subscription Tier">
+      <div className="flex items-center gap-2.5">
+        <RadioGroupItem value="free" id="t-free" />
+        <RadioGroupLabel htmlFor="t-free">Starter Plan</RadioGroupLabel>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <RadioGroupItem value="pro" id="t-pro" />
+        <RadioGroupLabel htmlFor="t-pro">Professional Plan</RadioGroupLabel>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <RadioGroupItem value="enterprise" id="t-ent" disabled />
+        <RadioGroupLabel htmlFor="t-ent" disabled>Enterprise (Waitlist only)</RadioGroupLabel>
+      </div>
+    </RadioGroup>
+  );
+}
+```
+
+#### 4. Horizontal Orientation Example
+```tsx
+import { RadioGroup, RadioGroupItem, RadioGroupLabel } from '@feedbackhub/ui';
+
+export function StatusFilter() {
+  return (
+    <RadioGroup orientation="horizontal" defaultValue="all" aria-label="Status Filter">
+      <div className="flex items-center gap-2">
+        <RadioGroupItem value="all" id="sf-all" />
+        <RadioGroupLabel htmlFor="sf-all">All</RadioGroupLabel>
+      </div>
+      <div className="flex items-center gap-2">
+        <RadioGroupItem value="open" id="sf-open" />
+        <RadioGroupLabel htmlFor="sf-open">Open</RadioGroupLabel>
+      </div>
+      <div className="flex items-center gap-2">
+        <RadioGroupItem value="resolved" id="sf-resolved" />
+        <RadioGroupLabel htmlFor="sf-resolved">Resolved</RadioGroupLabel>
+      </div>
+    </RadioGroup>
+  );
+}
+```
+
+#### 5. Required Group with Accessible Labels and Descriptions
+```tsx
+import {
+  RadioGroup,
+  RadioGroupItem,
+  RadioGroupLabel,
+  RadioGroupDescription,
+} from '@feedbackhub/ui';
+
+export function DeploymentRegion() {
+  return (
+    <div className="space-y-1.5">
+      <RadioGroupLabel id="region-label" className="font-semibold">
+        Data Hosting Region <span className="text-semantic-error">*</span>
+      </RadioGroupLabel>
+      <RadioGroupDescription id="region-desc">
+        Select where customer feedback responses are encrypted and stored.
+      </RadioGroupDescription>
+      <RadioGroup
+        required
+        aria-labelledby="region-label"
+        aria-describedby="region-desc"
+        name="hostingRegion"
+        defaultValue="us"
+      >
+        <div className="flex items-center gap-2.5">
+          <RadioGroupItem value="us" id="reg-us" />
+          <RadioGroupLabel htmlFor="reg-us">United States (Virginia)</RadioGroupLabel>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <RadioGroupItem value="eu" id="reg-eu" />
+          <RadioGroupLabel htmlFor="reg-eu">European Union (Frankfurt)</RadioGroupLabel>
+        </div>
+      </RadioGroup>
+    </div>
+  );
+}
+```
+
+#### 6. Customer Feedback Satisfaction Scale Example
+```tsx
+import { useState } from 'react';
+import {
+  RadioGroup,
+  RadioGroupItem,
+  RadioGroupLabel,
+  RadioGroupDescription,
+} from '@feedbackhub/ui';
+
+export function ServiceSatisfactionSurvey() {
+  const [rating, setRating] = useState('very-satisfied');
+
+  const options = [
+    { value: 'very-satisfied', label: 'Very satisfied' },
+    { value: 'satisfied', label: 'Satisfied' },
+    { value: 'neutral', label: 'Neutral' },
+    { value: 'dissatisfied', label: 'Dissatisfied' },
+    { value: 'very-dissatisfied', label: 'Very dissatisfied' },
+  ];
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-border bg-surface-card p-6 shadow-soft-sm">
+      <div className="space-y-1">
+        <RadioGroupLabel id="sat-question" className="text-base font-semibold text-content-main">
+          How satisfied are you with our service?
+        </RadioGroupLabel>
+        <RadioGroupDescription id="sat-hint">
+          Your feedback helps our product and customer success teams improve.
+        </RadioGroupDescription>
+      </div>
+
+      <RadioGroup
+        value={rating}
+        onValueChange={setRating}
+        aria-labelledby="sat-question"
+        aria-describedby="sat-hint"
+        name="serviceSatisfaction"
+        className="space-y-2 pt-2"
+      >
+        {options.map((opt) => (
+          <div key={opt.value} className="flex items-center gap-3">
+            <RadioGroupItem value={opt.value} id={`sat-${opt.value}`} />
+            <RadioGroupLabel htmlFor={`sat-${opt.value}`}>
+              {opt.label}
+            </RadioGroupLabel>
+          </div>
+        ))}
+      </RadioGroup>
+    </div>
+  );
+}
+```
+
+#### Accessibility Notes:
+- **ARIA Roles**: Container emits `role="radiogroup"`; options emit `role="radio"` with `aria-checked="true" | "false"`.
+- **Keyboard Navigation**:
+  - `ArrowDown` / `ArrowRight` moves focus to the next enabled option.
+  - `ArrowUp` / `ArrowLeft` moves focus to the previous enabled option.
+  - `Home` / `End` jumps focus to the first / last enabled option.
+  - `Space` selects the currently focused option.
+  - Disabled options are automatically bypassed during keyboard traversal.
+- **Form Integration**: Automatically serializes with HTML forms using hidden inputs.
 
 ---
 
