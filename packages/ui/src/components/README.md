@@ -24,6 +24,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Sliders** | `9999px` | Pill-shaped track & circular thumbs (`rounded-full`) |
 | **Tabs List** | `var(--radius-btn-secondary)` | 12px container (`rounded-xl`), 10px triggers (`rounded-[10px]`) |
 | **Empty State Cards** | `var(--radius-card-lg)` | 20px card (`rounded-[20px]`), 16px icon badge (`rounded-2xl`) |
+| **Tooltips** | `8px` | 8px rounded contextual badge (`rounded-lg`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -1804,6 +1805,212 @@ The `EmptyState` component is designed for 10 primary product scenarios across r
 - **Design Tokens**:
   - Strictly consumes FeedbackHub semantic tokens: `bg-surface-main`, `bg-surface-card`, `text-content-main`, `text-content-secondary`, `border-border`, and `shadow-soft-sm`.
   - Zero hardcoded colors (`bg-slate-*`, `text-slate-*`, raw hex/rgb).
+
+---
+
+### 2.16 Tooltip (`Tooltip.tsx`)
+
+Production-ready, accessible contextual tooltip built on `@radix-ui/react-tooltip`. Provides supplementary information for interactive elements, icon triggers, and truncated data points upon pointer hover or keyboard focus.
+
+- **Geometry**:
+  - `TooltipContent`: 8px rounded container (`rounded-lg`) with compact padding (`px-3 py-1.5`), elevated surface (`bg-surface-card`), subtle border (`border border-border`), and medium elevation shadow (`shadow-soft-md`).
+  - `TooltipArrow`: 10x5px geometric arrow matching the tooltip surface (`fill-surface-card`).
+- **Components & Exports**:
+  - `TooltipProvider`: Context provider wrapping application regions or toolbars to coordinate opening delays, skip-delays, and hover transit.
+  - `Tooltip`: Root state coordinator managing open/closed lifecycle (controlled or uncontrolled).
+  - `TooltipTrigger`: Interactive trigger element (supports `asChild` composition).
+  - `TooltipContent`: Portaled contextual surface displaying informative copy.
+  - `TooltipArrow`: Optional directional triangle aligned to the trigger anchor.
+- **Public Types**: `TooltipProviderProps`, `TooltipProps`, `TooltipTriggerProps`, `TooltipContentProps`, `TooltipArrowProps`.
+
+#### Example 1 — Basic Action Tooltip
+Standard button tooltip explaining an icon action in feedback dashboards.
+
+```tsx
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  Button,
+} from '@feedbackhub/ui';
+
+export function ExportFeedbackButton() {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="outline" size="sm">
+            Export CSV
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Download verified respondent feedback as CSV
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+```
+
+#### Example 2 — Tooltip with Directional Arrow & Custom Placement
+Positioning tooltip on top, right, bottom, or left with an explicit pointing arrow.
+
+```tsx
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipArrow,
+} from '@feedbackhub/ui';
+
+export function SentimentMetricTooltip() {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-sm font-semibold text-brand-primary underline cursor-help">
+            NPS Score: +58
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="center" sideOffset={8}>
+          Calculated from 1,420 customer ratings in the last 30 days
+          <TooltipArrow />
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+```
+
+#### Example 3 — Controlled Tooltip
+Explicitly managed open state synchronized with external events or validation guides.
+
+```tsx
+import { useState } from 'react';
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  Button,
+} from '@feedbackhub/ui';
+
+export function ControlledSaveGuide() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <TooltipProvider>
+      <Tooltip open={open} onOpenChange={setOpen}>
+        <TooltipTrigger asChild>
+          <Button
+            variant="primary"
+            onClick={() => setOpen((prev) => !prev)}
+          >
+            Publish Survey
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          Surveys cannot be modified once live respondents start submitting.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+```
+
+#### Example 4 — Multi-Trigger Shared Provider
+A unified toolbar sharing instant skip-delay navigation between adjacent actions.
+
+```tsx
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from '@feedbackhub/ui';
+
+export function FeedbackToolbar() {
+  return (
+    <TooltipProvider delayDuration={200} skipDelayDuration={300}>
+      <div className="flex items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" className="p-2 rounded-lg hover:bg-surface-main">
+              Filter
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Filter responses by tag</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" className="p-2 rounded-lg hover:bg-surface-main">
+              Sort
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Sort by sentiment rating</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" className="p-2 rounded-lg hover:bg-surface-main">
+              Refresh
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Sync new survey submissions</TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
+  );
+}
+```
+
+#### Example 5 — Accessible Disabled Triggers
+HTML elements with the `disabled` attribute suppress pointer events and keyboard focus. To ensure tooltips remain accessible when triggering elements are disabled, wrap the disabled button in a focusable container with `tabIndex={0}` or use `aria-disabled="true"`.
+
+```tsx
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  Button,
+} from '@feedbackhub/ui';
+
+export function DisabledEnterpriseFeature() {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {/* Focusable wrapper preserves keyboard Tab navigation and pointer events */}
+          <span tabIndex={0} role="button" aria-disabled="true" className="inline-block cursor-not-allowed">
+            <Button disabled variant="primary">
+              AI Sentiment Clustering
+            </Button>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          AI Clustering requires an Enterprise subscription. Contact your administrator.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+```
+
+#### Accessibility & Keyboard Information:
+- **ARIA Semantics**:
+  - `TooltipContent` emits `role="tooltip"` and receives a unique ID.
+  - `TooltipTrigger` is automatically associated via `aria-describedby` referencing the tooltip's ID.
+- **Keyboard Navigation**:
+  - Receiving keyboard focus (`Tab`) automatically displays the tooltip after the configured delay.
+  - Losing focus (`Blur`) immediately dismisses the tooltip.
+  - Pressing `Escape` instantly dismisses the open tooltip without shifting focus.
+- **Pointer Navigation**:
+  - Hovering (`pointermove`) starts the delay timer before displaying the tooltip.
+  - Unhovering dismisses the tooltip, while `disableHoverableContent={false}` maintains a grace area for pointer transit between trigger and content.
+- **Design Tokens**:
+  - Strictly consumes `bg-surface-card`, `text-content-main`, `border-border`, and `shadow-soft-md`. Zero hardcoded color classes.
 
 ---
 
