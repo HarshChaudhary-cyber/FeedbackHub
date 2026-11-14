@@ -13,3 +13,4 @@ export * from './components/DropdownMenu';
 export * from './components/Select';
 export * from './components/Checkbox';
 export * from './components/RadioGroup';
+export * from './components/Switch';

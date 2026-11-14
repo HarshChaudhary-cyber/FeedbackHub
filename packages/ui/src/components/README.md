@@ -20,6 +20,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Small Cards** | `var(--radius-card-sm)` | 16px (`rounded-2xl`) |
 | **Checkboxes** | `5px` | Modern soft square (`rounded-[5px]`) |
 | **Radio Buttons** | `9999px` | Circular indicators (`rounded-full`) |
+| **Switches** | `9999px` | Pill-shaped track & circular thumb (`rounded-full`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -1018,6 +1019,167 @@ export function ServiceSatisfactionSurvey() {
   - `Space` selects the currently focused option.
   - Disabled options are automatically bypassed during keyboard traversal.
 - **Form Integration**: Automatically serializes with HTML forms using hidden inputs.
+
+---
+
+### 2.12 Switch (`Switch.tsx`)
+
+Accessible, pill-shaped toggle switch built upon `@radix-ui/react-switch`. Supports controlled and uncontrolled states, semantic label and description association, required validation, form integration, and full keyboard interaction using the `Space` key.
+
+- **Tokens & Geometry**:
+  - Track: 44px x 24px pill shape (`h-6 w-11 rounded-full border-2 transition-smooth`), surface card background with neutral semantic border (`bg-surface-card border-border`) when OFF; Primary Purple (`bg-brand-primary border-brand-primary`) when ON.
+  - Thumb: 20px x 20px circular slider (`h-5 w-5 rounded-full shadow-soft-sm ring-0 transition-transform`), muted slate (`data-[state=unchecked]:bg-content-muted`) when OFF; white (`data-[state=checked]:bg-white`) when ON, with smooth 20px horizontal translation (`translate-x-5`).
+  - Focus Ring: Semantic focus ring token (`focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2`).
+  - Disabled: Reduced opacity (`disabled:opacity-50 disabled:cursor-not-allowed`).
+- **Composable Parts**:
+  - `Switch`: Toggle root button with automatic thumb indicator.
+  - `SwitchLabel`: Accessible label linked to the switch via `htmlFor`.
+  - `SwitchDescription`: Secondary helper/explanatory copy linked via `aria-describedby`.
+  - `SwitchThumb`: Explicit thumb component when custom indicators are required.
+- **Key Props**: `checked`, `defaultChecked`, `onCheckedChange`, `disabled`, `required`, `name`, `value`, `error`, `thumbClassName`, `className`.
+
+#### Example A — Anonymous feedback
+Label: Allow anonymous submissions.
+
+```tsx
+import { Switch, SwitchLabel } from '@feedbackhub/ui';
+
+export function AnonymousFeedbackToggle() {
+  return (
+    <div className="flex items-center gap-3">
+      <Switch id="anonymous-mode" name="isAnonymous" />
+      <SwitchLabel htmlFor="anonymous-mode">
+        Allow anonymous submissions
+      </SwitchLabel>
+    </div>
+  );
+}
+```
+
+#### Example B — Email notifications
+Label: Receive email notifications.
+
+```tsx
+import { Switch, SwitchLabel, SwitchDescription } from '@feedbackhub/ui';
+
+export function EmailNotificationSettings() {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-3">
+        <Switch
+          id="email-notif"
+          name="emailNotifications"
+          defaultChecked
+          aria-describedby="email-notif-desc"
+        />
+        <SwitchLabel htmlFor="email-notif" className="font-semibold">
+          Receive email notifications
+        </SwitchLabel>
+      </div>
+      <SwitchDescription id="email-notif-desc">
+        Receive a daily email digest summarizing customer satisfaction ratings and alerts.
+      </SwitchDescription>
+    </div>
+  );
+}
+```
+
+#### Example C — Employee feedback
+Label: Enable employee feedback collection.
+
+```tsx
+import { Switch, SwitchLabel, SwitchDescription } from '@feedbackhub/ui';
+
+export function EmployeeFeedbackModule() {
+  return (
+    <div className="rounded-2xl border border-border bg-surface-card p-5 shadow-soft-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <SwitchLabel htmlFor="emp-feedback" className="text-base font-semibold">
+            Enable employee feedback collection
+          </SwitchLabel>
+          <SwitchDescription id="emp-feedback-desc">
+            Allow internal team members to submit pulse feedback and quarterly satisfaction surveys.
+          </SwitchDescription>
+        </div>
+        <Switch
+          id="emp-feedback"
+          name="employeeFeedbackEnabled"
+          aria-describedby="emp-feedback-desc"
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+#### Example D — Controlled switch
+Demonstrate `checked` and `onCheckedChange`.
+
+```tsx
+import { useState } from 'react';
+import { Switch, SwitchLabel, SwitchDescription } from '@feedbackhub/ui';
+
+export function ControlledMaintenanceToggle() {
+  const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3">
+        <Switch
+          id="maint-mode"
+          checked={maintenanceMode}
+          onCheckedChange={setMaintenanceMode}
+          aria-describedby="maint-desc"
+        />
+        <SwitchLabel htmlFor="maint-mode">
+          Maintenance Mode: {maintenanceMode ? 'Active' : 'Disabled'}
+        </SwitchLabel>
+      </div>
+      <SwitchDescription id="maint-desc">
+        Temporarily pauses external feedback widgets while platform schema migration runs.
+      </SwitchDescription>
+    </div>
+  );
+}
+```
+
+#### Example E — Disabled switch
+Demonstrate a disabled setting.
+
+```tsx
+import { Switch, SwitchLabel, SwitchDescription } from '@feedbackhub/ui';
+
+export function EnterpriseSsoToggle() {
+  return (
+    <div className="space-y-1 opacity-75">
+      <div className="flex items-center gap-3">
+        <Switch
+          id="sso-enforce"
+          disabled
+          defaultChecked={false}
+          aria-describedby="sso-desc"
+        />
+        <SwitchLabel htmlFor="sso-enforce" disabled>
+          Enforce SAML 2.0 Single Sign-On
+        </SwitchLabel>
+      </div>
+      <SwitchDescription id="sso-desc">
+        SAML 2.0 Single Sign-On enforcement is an Enterprise tier feature. Upgrade your organization plan to unlock this setting.
+      </SwitchDescription>
+    </div>
+  );
+}
+```
+
+#### Accessibility Notes:
+- **ARIA Roles**: Track element emits `role="switch"` and manages `aria-checked="true" | "false"`.
+- **Keyboard Navigation**:
+  - `Tab` / `Shift+Tab` moves focus to and from the switch.
+  - `Space` toggles the switch on and off using Radix UI accessible event binding.
+  - Disabled switches are unfocusable or inert and cannot be activated via keyboard.
+- **Form Integration**: Transparently mounts a hidden checkbox input to support native HTML `<form>` submissions.
+- **Screen Reader Support**: Associated with labels and descriptions via `htmlFor` and `aria-describedby` or explicit `aria-label`.
 
 ---
 
