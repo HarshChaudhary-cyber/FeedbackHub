@@ -4,7 +4,7 @@ import { cn } from '../utils';
 
 interface SliderContextValue {
   hasError: boolean;
-  resolvedAriaInvalid?: React.ComponentPropsWithoutRef<
+  ariaInvalid?: React.ComponentPropsWithoutRef<
     typeof SliderPrimitive.Root
   >['aria-invalid'];
 }
@@ -12,6 +12,42 @@ interface SliderContextValue {
 const SliderContext = React.createContext<SliderContextValue>({
   hasError: false,
 });
+
+/**
+ * Resolves the effective invalid status and normalized aria-invalid value.
+ *
+ * Rules:
+ * 1. If aria-invalid is explicitly false / 'false', the control is NOT invalid,
+ *    and error styling must not be applied.
+ * 2. If aria-invalid is true / 'true', the control IS invalid and gets semantic error styling.
+ * 3. Other explicit values ('grammar', 'spelling') are preserved and treated as invalid.
+ * 4. In the absence of an explicit aria-invalid attribute, fallback to the boolean error prop.
+ */
+function resolveInvalidState(
+  ariaInvalid: React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>['aria-invalid'],
+  error: boolean | string | undefined
+): {
+  isInvalid: boolean;
+  resolvedAriaInvalid: React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>['aria-invalid'];
+} {
+  if (ariaInvalid === false || ariaInvalid === 'false') {
+    return { isInvalid: false, resolvedAriaInvalid: 'false' };
+  }
+
+  if (ariaInvalid === true || ariaInvalid === 'true') {
+    return { isInvalid: true, resolvedAriaInvalid: 'true' };
+  }
+
+  if (ariaInvalid === 'grammar' || ariaInvalid === 'spelling') {
+    return { isInvalid: true, resolvedAriaInvalid: ariaInvalid };
+  }
+
+  if (error) {
+    return { isInvalid: true, resolvedAriaInvalid: 'true' };
+  }
+
+  return { isInvalid: false, resolvedAriaInvalid: undefined };
+}
 
 export interface SliderProps
   extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> {
@@ -48,13 +84,8 @@ export const Slider = React.forwardRef<
     },
     ref
   ) => {
-    const hasError = Boolean(error);
-    const resolvedAriaInvalid =
-      customAriaInvalid !== undefined
-        ? customAriaInvalid
-        : hasError
-        ? 'true'
-        : undefined;
+    const { isInvalid: rootIsInvalid, resolvedAriaInvalid: rootResolvedAriaInvalid } =
+      resolveInvalidState(customAriaInvalid, error);
 
     // Determine thumb count for auto-rendered thumbs when children are omitted
     const resolvedValue = props.value ?? props.defaultValue;
@@ -66,7 +97,7 @@ export const Slider = React.forwardRef<
     return (
       <SliderPrimitive.Root
         ref={ref}
-        aria-invalid={resolvedAriaInvalid}
+        aria-invalid={rootResolvedAriaInvalid}
         className={cn(
           // Base geometry & layout
           'relative flex touch-none select-none items-center',
@@ -78,7 +109,12 @@ export const Slider = React.forwardRef<
         )}
         {...props}
       >
-        <SliderContext.Provider value={{ hasError, resolvedAriaInvalid }}>
+        <SliderContext.Provider
+          value={{
+            hasError: rootIsInvalid,
+            ariaInvalid: customAriaInvalid,
+          }}
+        >
           {children ?? (
             <>
               <SliderTrack className={trackClassName}>
@@ -100,7 +136,6 @@ export const Slider = React.forwardRef<
                     aria-labelledby={thumbCount === 1 ? ariaLabelledby : undefined}
                     aria-describedby={ariaDescribedby}
                     aria-disabled={props.disabled ? 'true' : undefined}
-                    aria-invalid={resolvedAriaInvalid}
                     className={thumbClassName}
                   />
                 );
@@ -187,20 +222,23 @@ export const SliderThumb = React.forwardRef<
   (
     {
       className,
-      error,
-      'aria-invalid': customAriaInvalid,
+      error: thumbError,
+      'aria-invalid': thumbAriaInvalid,
       ...props
     },
     ref
   ) => {
     const context = React.useContext(SliderContext);
-    const hasError = error !== undefined ? Boolean(error) : context.hasError;
-    const resolvedAriaInvalid =
-      customAriaInvalid !== undefined
-        ? customAriaInvalid
-        : hasError
-        ? 'true'
-        : context.resolvedAriaInvalid;
+
+    const effectiveAriaInvalid =
+      thumbAriaInvalid !== undefined ? thumbAriaInvalid : context.ariaInvalid;
+    const effectiveError =
+      thumbError !== undefined ? thumbError : context.hasError;
+
+    const { isInvalid, resolvedAriaInvalid } = resolveInvalidState(
+      effectiveAriaInvalid,
+      effectiveError
+    );
 
     return (
       <SliderPrimitive.Thumb
@@ -210,14 +248,14 @@ export const SliderThumb = React.forwardRef<
           // Base geometry: 20px circular knob, card surface, soft shadow
           'block h-5 w-5 rounded-full border-2 bg-surface-card shadow-soft-sm transition-smooth cursor-pointer',
           // Normal state vs error state
-          hasError
+          isInvalid
             ? 'border-semantic-error focus-visible:ring-semantic-error'
             : 'border-brand-primary focus-visible:ring-brand-primary',
           // Semantic focus ring geometry
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
           // Disabled state handling
           'disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed',
-          hasError
+          isInvalid
             ? 'data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:border-semantic-error/50'
             : 'data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed data-[disabled]:border-brand-primary/50',
           className

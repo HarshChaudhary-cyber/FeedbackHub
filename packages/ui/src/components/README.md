@@ -1359,7 +1359,10 @@ export function ComposableSurveySlider() {
   - Thumbs emit `role="slider"`.
   - Exposes `aria-valuemin`, `aria-valuemax`, and real-time `aria-valuenow`.
   - Multi-thumb sliders expose distinct accessible names for each thumb via `thumbAriaLabels` or explicit `aria-label`.
-  - When an `error` prop or `aria-invalid` is present, `aria-invalid="true"` and semantic error styling (`border-semantic-error focus-visible:ring-semantic-error`) are automatically assigned to all interactive slider thumb elements with `role="slider"`. Explicitly supplied `aria-invalid` values are preserved.
+  - When `aria-invalid="true"` or an `error` prop is present, `aria-invalid="true"` and semantic error styling (`border-semantic-error focus-visible:ring-semantic-error`) are automatically assigned to all interactive slider thumb elements with `role="slider"`.
+  - When `aria-invalid="false"` is explicitly supplied, the valid state is preserved on all thumbs and error styling is not applied solely because the attribute exists.
+  - Other explicitly supplied ARIA invalid values (including `"grammar"` and `"spelling"`) are preserved on thumbs and receive semantic error styling.
+  - Consistent error and invalid state propagation applies uniformly to automatically generated single-value thumbs, range thumbs, and composable `SliderThumb` instances.
 - **Keyboard Navigation**:
   - `ArrowRight` / `ArrowUp`: Increments slider value by one `step`.
   - `ArrowLeft` / `ArrowDown`: Decrements slider value by one `step`.

@@ -516,9 +516,13 @@ describe('Slider Component Primitive', () => {
     );
     const falseThumb = screen.getByRole('slider', { name: /explicit false slider/i });
     expect(falseThumb.getAttribute('aria-invalid')).toBe('false');
+    expect(falseThumb.className).toContain('border-brand-primary');
+    expect(falseThumb.className).not.toContain('border-semantic-error');
 
     const grammarThumb = screen.getByRole('slider', { name: /grammar thumb/i });
     expect(grammarThumb.getAttribute('aria-invalid')).toBe('grammar');
+    expect(grammarThumb.className).toContain('border-semantic-error');
+    expect(grammarThumb.className).not.toContain('border-brand-primary');
   });
 
   it('25. applies semantic error tokens to thumbs and removes brand border when error exists', () => {
@@ -584,5 +588,85 @@ describe('Slider Component Primitive', () => {
     });
     await user.keyboard('{PageDown}');
     expect(thumb.getAttribute('aria-valuenow')).toBe('0');
+  });
+
+  it('29. propagates aria-invalid="true" to single-value thumb and applies semantic error styling', () => {
+    render(
+      <Slider
+        aria-invalid="true"
+        defaultValue={[45]}
+        aria-label="Root aria-invalid true"
+      />
+    );
+    const thumb = screen.getByRole('slider', { name: /root aria-invalid true/i });
+    expect(thumb.getAttribute('aria-invalid')).toBe('true');
+    expect(thumb.className).toContain('border-semantic-error');
+    expect(thumb.className).toContain('focus-visible:ring-semantic-error');
+    expect(thumb.className).not.toContain('border-brand-primary');
+  });
+
+  it('30. propagates aria-invalid="true" to every thumb in a range slider with semantic error styling', () => {
+    render(
+      <Slider
+        aria-invalid="true"
+        defaultValue={[20, 80]}
+        thumbAriaLabels={['Lower threshold', 'Upper threshold']}
+      />
+    );
+    const thumbs = screen.getAllByRole('slider');
+    expect(thumbs.length).toBe(2);
+    thumbs.forEach((thumb) => {
+      expect(thumb.getAttribute('aria-invalid')).toBe('true');
+      expect(thumb.className).toContain('border-semantic-error');
+      expect(thumb.className).toContain('focus-visible:ring-semantic-error');
+      expect(thumb.className).not.toContain('border-brand-primary');
+    });
+  });
+
+  it('31. propagates aria-invalid="true" to composable SliderThumb instances', () => {
+    render(
+      <Slider aria-invalid="true" defaultValue={[60]}>
+        <SliderTrack>
+          <SliderRange />
+        </SliderTrack>
+        <SliderThumb aria-label="Composable invalid thumb" />
+      </Slider>
+    );
+    const thumb = screen.getByRole('slider', { name: /composable invalid thumb/i });
+    expect(thumb.getAttribute('aria-invalid')).toBe('true');
+    expect(thumb.className).toContain('border-semantic-error');
+    expect(thumb.className).toContain('focus-visible:ring-semantic-error');
+    expect(thumb.className).not.toContain('border-brand-primary');
+  });
+
+  it('32. preserves aria-invalid="false" without applying error styling solely because attribute exists', () => {
+    render(
+      <Slider
+        aria-invalid="false"
+        defaultValue={[50]}
+        aria-label="Explicit valid false"
+      />
+    );
+    const thumb = screen.getByRole('slider', { name: /explicit valid false/i });
+    expect(thumb.getAttribute('aria-invalid')).toBe('false');
+    expect(thumb.className).toContain('border-brand-primary');
+    expect(thumb.className).toContain('focus-visible:ring-brand-primary');
+    expect(thumb.className).not.toContain('border-semantic-error');
+    expect(thumb.className).not.toContain('focus-visible:ring-semantic-error');
+  });
+
+  it('33. preserves aria-invalid="spelling" and applies error styling across thumbs', () => {
+    render(
+      <Slider
+        aria-invalid="spelling"
+        defaultValue={[30]}
+        aria-label="Spelling invalid slider"
+      />
+    );
+    const thumb = screen.getByRole('slider', { name: /spelling invalid slider/i });
+    expect(thumb.getAttribute('aria-invalid')).toBe('spelling');
+    expect(thumb.className).toContain('border-semantic-error');
+    expect(thumb.className).toContain('focus-visible:ring-semantic-error');
+    expect(thumb.className).not.toContain('border-brand-primary');
   });
 });
