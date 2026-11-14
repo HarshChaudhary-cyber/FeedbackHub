@@ -2,6 +2,7 @@
 import '../../test-setup';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import React, { useState } from 'react';
 import { Checkbox, type CheckedState } from '../Checkbox';
 
@@ -99,7 +100,8 @@ describe('Checkbox Component Primitive', () => {
     expect(screen.queryByTestId('checkbox-check-icon')).toBeNull();
   });
 
-  it('7. supports keyboard operation using Space key', () => {
+  it('7. supports keyboard operation using Space key', async () => {
+    const user = userEvent.setup();
     const handleCheckedChange = vi.fn();
     render(
       <Checkbox
@@ -112,14 +114,21 @@ describe('Checkbox Component Primitive', () => {
     checkbox.focus();
     expect(document.activeElement).toBe(checkbox);
 
-    // Press Space key to toggle
-    act(() => {
-      fireEvent.keyDown(checkbox, { key: ' ', code: 'Space' });
-      fireEvent.click(checkbox);
-    });
+    // Press Space key to toggle to checked
+    await user.keyboard(' ');
 
     expect(checkbox.getAttribute('aria-checked')).toBe('true');
-    expect(handleCheckedChange).toHaveBeenCalledWith(true);
+    expect(checkbox.getAttribute('data-state')).toBe('checked');
+    expect(handleCheckedChange).toHaveBeenCalledTimes(1);
+    expect(handleCheckedChange).toHaveBeenLastCalledWith(true);
+
+    // Press Space key again to toggle back to unchecked
+    await user.keyboard(' ');
+
+    expect(checkbox.getAttribute('aria-checked')).toBe('false');
+    expect(checkbox.getAttribute('data-state')).toBe('unchecked');
+    expect(handleCheckedChange).toHaveBeenCalledTimes(2);
+    expect(handleCheckedChange).toHaveBeenLastCalledWith(false);
   });
 
   it('8. disabled state prevents state changes and clicks', () => {
