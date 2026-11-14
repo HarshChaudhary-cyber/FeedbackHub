@@ -22,6 +22,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Radio Buttons** | `9999px` | Circular indicators (`rounded-full`) |
 | **Switches** | `9999px` | Pill-shaped track & circular thumb (`rounded-full`) |
 | **Sliders** | `9999px` | Pill-shaped track & circular thumbs (`rounded-full`) |
+| **Tabs List** | `var(--radius-btn-secondary)` | 12px container (`rounded-xl`), 10px triggers (`rounded-[10px]`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -1372,6 +1373,255 @@ export function ComposableSurveySlider() {
   - `PageDown`: Decreases slider value by 10 steps (`10 * step`), clamped to `min`.
   - Disabled sliders reflect `aria-disabled="true"`, `data-disabled=""`, and prevent all keyboard/pointer interactions.
 - **Form Integration**: Transparently renders hidden `<input>` elements when `name` is passed, enabling standard HTML form submission.
+
+---
+
+### 2.14 Tabs (`Tabs.tsx`)
+
+Fully accessible, composable tabbed interface component built on `@radix-ui/react-tabs`. Provides structured navigation between alternate views within the same context, supporting horizontal and vertical orientations, automatic and manual activation modes, controlled and uncontrolled state management, disabled triggers, and optional DOM preservation via `forceMount`.
+
+- **Geometry**:
+  - `TabsList`: 12px rounded container (`rounded-xl`) with 4px padding (`p-1`), neutral border (`border border-border`), and smooth transitions.
+  - `TabsTrigger`: 10px rounded interactive tab triggers (`rounded-[10px]`) with responsive padding (`px-3.5 py-1.5`), active elevation card surface (`data-[state=active]:bg-surface-card data-[state=active]:shadow-soft-sm`), and clear focus rings.
+  - `TabsContent`: Focusable tab panels (`rounded-xl focus-visible:ring-2 focus-visible:ring-brand-primary`) with automatic content hiding for inactive states (`data-[state=inactive]:hidden`).
+- **Components & Exports**:
+  - `Tabs`: Root tabs container managing active tab state, orientation, and keyboard activation behavior.
+  - `TabsList`: Container for tab triggers (`role="tablist"`).
+  - `TabsTrigger`: Interactive tab element (`role="tab"`).
+  - `TabsContent`: Panel container presenting associated content (`role="tabpanel"`).
+- **Public Types**: `TabsProps`, `TabsListProps`, `TabsTriggerProps`, `TabsContentProps`.
+
+#### Example 1 — Basic Uncontrolled Tabs (Feedback Dashboard)
+Uncontrolled horizontal tabs switching between overview and category feedback feeds.
+
+```tsx
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@feedbackhub/ui';
+
+export function FeedbackDashboardTabs() {
+  return (
+    <Tabs defaultValue="overview" className="w-full">
+      <TabsList aria-label="Feedback navigation">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="customer">Customer Feedback</TabsTrigger>
+        <TabsTrigger value="employee">Employee Feedback</TabsTrigger>
+      </TabsList>
+      <TabsContent value="overview">
+        <div className="p-4 rounded-xl border border-border bg-surface-card">
+          <h3 className="text-base font-semibold text-content-main">Aggregate Analytics</h3>
+          <p className="mt-1 text-sm text-content-secondary">
+            Overall sentiment score: 4.8 / 5.0 across 1,240 responses this month.
+          </p>
+        </div>
+      </TabsContent>
+      <TabsContent value="customer">
+        <div className="p-4 rounded-xl border border-border bg-surface-card">
+          <h3 className="text-base font-semibold text-content-main">Customer Feedback Stream</h3>
+          <p className="mt-1 text-sm text-content-secondary">
+            Displaying verified customer survey submissions and Net Promoter Scores.
+          </p>
+        </div>
+      </TabsContent>
+      <TabsContent value="employee">
+        <div className="p-4 rounded-xl border border-border bg-surface-card">
+          <h3 className="text-base font-semibold text-content-main">Internal Employee Pulse</h3>
+          <p className="mt-1 text-sm text-content-secondary">
+            Anonymous internal feedback and quarterly eNPS benchmarks.
+          </p>
+        </div>
+      </TabsContent>
+    </Tabs>
+  );
+}
+```
+
+#### Example 2 — Controlled Tabs (Feedback Response Details View)
+Controlled tab state synchronized with external application state or URL search parameters.
+
+```tsx
+import { useState } from 'react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@feedbackhub/ui';
+
+export function ResponseDetailsView() {
+  const [activeTab, setActiveTab] = useState('details');
+
+  return (
+    <div className="space-y-4 w-full max-w-2xl">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-content-secondary">
+          Active view: <strong className="text-content-main">{activeTab}</strong>
+        </span>
+        <button
+          type="button"
+          onClick={() => setActiveTab('timeline')}
+          className="text-xs text-brand-primary underline"
+        >
+          Jump to Timeline
+        </button>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList aria-label="Response details sections">
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="metadata">Metadata</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details">
+          <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+            Customer reported latency issue on checkout funnel. Priority: High.
+          </div>
+        </TabsContent>
+        <TabsContent value="timeline">
+          <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+            Audit log: Submitted at 10:14 AM &bull; Triaged by Support at 10:30 AM.
+          </div>
+        </TabsContent>
+        <TabsContent value="metadata">
+          <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+            Browser: Chrome 124 &bull; OS: macOS 14 &bull; IP: 192.168.1.1
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+```
+
+#### Example 3 — Vertical Tabs (Company Settings Navigation)
+Vertical orientation for multi-section administrative settings.
+
+```tsx
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@feedbackhub/ui';
+
+export function CompanySettingsNavigation() {
+  return (
+    <Tabs defaultValue="general" orientation="vertical" className="w-full">
+      <TabsList aria-label="Company settings">
+        <TabsTrigger value="general">General</TabsTrigger>
+        <TabsTrigger value="branding">Branding</TabsTrigger>
+        <TabsTrigger value="notifications">Notifications</TabsTrigger>
+        <TabsTrigger value="security">Security</TabsTrigger>
+      </TabsList>
+      <TabsContent value="general">
+        <div className="p-6 rounded-xl border border-border bg-surface-card">
+          <h2 className="text-lg font-semibold text-content-main">General Settings</h2>
+          <p className="mt-2 text-sm text-content-secondary">
+            Configure tenant name, default language, and timezone settings.
+          </p>
+        </div>
+      </TabsContent>
+      <TabsContent value="branding">
+        <div className="p-6 rounded-xl border border-border bg-surface-card">
+          <h2 className="text-lg font-semibold text-content-main">Brand Customization</h2>
+          <p className="mt-2 text-sm text-content-secondary">
+            Upload custom company logos, set brand colors, and configure email templates.
+          </p>
+        </div>
+      </TabsContent>
+      <TabsContent value="notifications">
+        <div className="p-6 rounded-xl border border-border bg-surface-card">
+          <h2 className="text-lg font-semibold text-content-main">Notification Preferences</h2>
+          <p className="mt-2 text-sm text-content-secondary">
+            Manage email digests, Slack webhook integrations, and urgent alert routing.
+          </p>
+        </div>
+      </TabsContent>
+      <TabsContent value="security">
+        <div className="p-6 rounded-xl border border-border bg-surface-card">
+          <h2 className="text-lg font-semibold text-content-main">Security & SSO</h2>
+          <p className="mt-2 text-sm text-content-secondary">
+            Configure SAML 2.0 single sign-on, session timeouts, and two-factor enforcement.
+          </p>
+        </div>
+      </TabsContent>
+    </Tabs>
+  );
+}
+```
+
+#### Example 4 — Manual Activation Mode (Survey Builder)
+Prevents premature content rendering during arrow-key navigation by requiring `Enter` or `Space` to activate tabs (`activationMode="manual"`).
+
+```tsx
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@feedbackhub/ui';
+
+export function ManualSurveyBuilderTabs() {
+  return (
+    <Tabs defaultValue="questions" activationMode="manual" className="w-full">
+      <TabsList aria-label="Survey editor steps">
+        <TabsTrigger value="questions">Questions</TabsTrigger>
+        <TabsTrigger value="logic">Conditional Logic</TabsTrigger>
+        <TabsTrigger value="preview">Live Preview</TabsTrigger>
+      </TabsList>
+      <TabsContent value="questions">
+        <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+          Survey questions editor and field configuration.
+        </div>
+      </TabsContent>
+      <TabsContent value="logic">
+        <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+          Branching rules and question skip logic tree.
+        </div>
+      </TabsContent>
+      <TabsContent value="preview">
+        <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+          Interactive respondent preview simulator.
+        </div>
+      </TabsContent>
+    </Tabs>
+  );
+}
+```
+
+#### Example 5 — Disabled Tab (Enterprise Analytics)
+Demonstrates disabled tab triggers with inaccessible pointer and keyboard interactions.
+
+```tsx
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@feedbackhub/ui';
+
+export function EnterpriseAnalyticsTabs() {
+  return (
+    <Tabs defaultValue="standard" className="w-full">
+      <TabsList aria-label="Analytics features">
+        <TabsTrigger value="standard">Standard Analytics</TabsTrigger>
+        <TabsTrigger value="advanced" disabled>
+          Predictive AI (Enterprise Only)
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="standard">
+        <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+          Standard feedback trends, response volume, and sentiment scores.
+        </div>
+      </TabsContent>
+      <TabsContent value="advanced">
+        <div className="p-4 rounded-xl border border-border bg-surface-card text-sm text-content-main">
+          Advanced predictive churn forecasting and natural language clustering.
+        </div>
+      </TabsContent>
+    </Tabs>
+  );
+}
+```
+
+#### Accessibility & Keyboard Information:
+- **ARIA Semantics**:
+  - `TabsList` emits `role="tablist"` and exposes `aria-orientation` matching the orientation prop (`horizontal` or `vertical`).
+  - `TabsTrigger` emits `role="tab"`, manages `aria-selected="true" | "false"`, `data-state="active" | "inactive"`, and dynamically links `aria-controls` to its associated tabpanel ID.
+  - `TabsContent` emits `role="tabpanel"`, manages `data-state="active" | "inactive"`, and dynamically links `aria-labelledby` to its associated tab trigger ID.
+  - Disabled tabs receive `disabled`, `data-disabled=""`, and prevent pointer and keyboard events.
+- **Keyboard Navigation**:
+  - **Horizontal Tabs**:
+    - `ArrowRight`: Moves focus (and activates in `automatic` mode) to the next tab, cycling from last to first.
+    - `ArrowLeft`: Moves focus (and activates in `automatic` mode) to the previous tab, cycling from first to last.
+  - **Vertical Tabs**:
+    - `ArrowDown`: Moves focus to the next tab vertically.
+    - `ArrowUp`: Moves focus to the previous tab vertically.
+  - **Common Keys**:
+    - `Home`: Focuses the first non-disabled tab trigger.
+    - `End`: Focuses the last non-disabled tab trigger.
+    - `Enter` / `Space`: When `activationMode="manual"`, activates the currently focused tab. In `automatic` mode, tabs activate automatically upon receiving focus.
+- **Preserving Inactive Content (`forceMount`)**:
+  - By default, inactive tab panels unmount their child content for performance.
+  - When `forceMount={true}` is set on `TabsContent`, the panel content remains mounted in the DOM (useful for preserving client form state, video/audio players, or iframe caches) while being visually and accessibly hidden via `data-[state=inactive]:hidden`.
 
 ---
 

@@ -15,3 +15,4 @@ export * from './components/Checkbox';
 export * from './components/RadioGroup';
 export * from './components/Switch';
 export * from './components/Slider';
+export * from './components/Tabs';
