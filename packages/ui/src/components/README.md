@@ -21,6 +21,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Checkboxes** | `5px` | Modern soft square (`rounded-[5px]`) |
 | **Radio Buttons** | `9999px` | Circular indicators (`rounded-full`) |
 | **Switches** | `9999px` | Pill-shaped track & circular thumb (`rounded-full`) |
+| **Sliders** | `9999px` | Pill-shaped track & circular thumbs (`rounded-full`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -1180,6 +1181,192 @@ export function EnterpriseSsoToggle() {
   - Disabled switches are unfocusable or inert and cannot be activated via keyboard.
 - **Form Integration**: Transparently mounts a hidden checkbox input to support native HTML `<form>` submissions.
 - **Screen Reader Support**: Associated with labels and descriptions via `htmlFor` and `aria-describedby` or explicit `aria-label`.
+
+---
+
+### 2.13 Slider (`Slider.tsx`)
+
+Accessible, highly configurable slider primitive built upon `@radix-ui/react-slider`. Supports single-value sliders and dual-thumb range sliders, controlled and uncontrolled state management, accessible label and description pairing, custom step increments, and comprehensive keyboard navigation.
+
+- **Tokens & Geometry**:
+  - Track: Pill-shaped track (`h-2 rounded-full bg-border transition-smooth`) with vertical orientation support (`w-2 h-full`).
+  - Range: Filled active bar in Primary Purple (`bg-brand-primary transition-smooth`).
+  - Thumb: 20px x 20px circular slider knob (`h-5 w-5 rounded-full border-2 border-brand-primary bg-surface-card shadow-soft-sm transition-smooth`).
+  - Focus Ring: Semantic focus ring token (`focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2`).
+  - Disabled: Reduced opacity and disabled cursor (`data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed`).
+- **Composable Parts**:
+  - `Slider`: Root container that automatically mounts track, range, and thumbs when used as a self-contained component, or houses custom subcomponents.
+  - `SliderTrack`: Base track container.
+  - `SliderRange`: Colored fill representing current value or span.
+  - `SliderThumb`: Movable knob indicator with accessible keyboard semantics.
+  - `SliderLabel`: Label component with optional disabled styling.
+  - `SliderDescription`: Secondary helper text.
+- **Key Props**: `value`, `defaultValue`, `onValueChange`, `onValueCommit`, `min`, `max`, `step`, `disabled`, `orientation`, `thumbAriaLabels`, `thumbClassName`, `trackClassName`, `rangeClassName`.
+
+#### Example 1 — Single-Value Slider
+Self-contained single slider with default value.
+
+```tsx
+import { Slider } from '@feedbackhub/ui';
+
+export function RatingSlider() {
+  return (
+    <div className="w-full max-w-md">
+      <Slider
+        defaultValue={[75]}
+        min={0}
+        max={100}
+        step={5}
+        aria-label="Customer Satisfaction Rating"
+      />
+    </div>
+  );
+}
+```
+
+#### Example 2 — Controlled Slider
+Demonstrates `value` and `onValueChange` state synchronization.
+
+```tsx
+import { useState } from 'react';
+import { Slider, SliderLabel } from '@feedbackhub/ui';
+
+export function ControlledVolumeSlider() {
+  const [volume, setVolume] = useState<number[]>([60]);
+
+  return (
+    <div className="space-y-3 w-full max-w-md">
+      <div className="flex justify-between items-center">
+        <SliderLabel id="vol-label">Notification Volume</SliderLabel>
+        <span className="text-sm font-semibold text-brand-primary">{volume[0]}%</span>
+      </div>
+      <Slider
+        value={volume}
+        onValueChange={setVolume}
+        min={0}
+        max={100}
+        step={1}
+        aria-labelledby="vol-label"
+      />
+    </div>
+  );
+}
+```
+
+#### Example 3 — Range Slider (Two Thumbs)
+Select minimum and maximum values with dual interactive thumbs.
+
+```tsx
+import { useState } from 'react';
+import { Slider, SliderLabel, SliderDescription } from '@feedbackhub/ui';
+
+export function PriceRangeFilter() {
+  const [range, setRange] = useState<number[]>([250, 750]);
+
+  return (
+    <div className="space-y-2 w-full max-w-md">
+      <SliderLabel id="price-range-label">Filter by NPS Score Range</SliderLabel>
+      <SliderDescription id="price-range-desc">
+        Focus analytics on respondents within a specific score bracket.
+      </SliderDescription>
+      <Slider
+        value={range}
+        onValueChange={setRange}
+        min={0}
+        max={1000}
+        step={10}
+        aria-labelledby="price-range-label"
+        aria-describedby="price-range-desc"
+        thumbAriaLabels={['Minimum score bracket', 'Maximum score bracket']}
+      />
+      <div className="flex justify-between text-xs text-content-secondary">
+        <span>Min: {range[0]}</span>
+        <span>Max: {range[1]}</span>
+      </div>
+    </div>
+  );
+}
+```
+
+#### Example 4 — Disabled Slider
+Demonstrates non-interactive disabled styling.
+
+```tsx
+import { Slider, SliderLabel, SliderDescription } from '@feedbackhub/ui';
+
+export function DisabledRetentionSlider() {
+  return (
+    <div className="space-y-2 w-full max-w-md opacity-75">
+      <SliderLabel id="retention-label" disabled>
+        Data Retention Period (Days)
+      </SliderLabel>
+      <Slider
+        disabled
+        defaultValue={[90]}
+        min={30}
+        max={365}
+        aria-labelledby="retention-label"
+        aria-describedby="retention-desc"
+      />
+      <SliderDescription id="retention-desc">
+        Custom data retention is locked to 90 days on the Standard tier.
+      </SliderDescription>
+    </div>
+  );
+}
+```
+
+#### Example 5 — Accessible Label and Description (Composable API)
+Explicit composition of Slider subcomponents with screen reader associations.
+
+```tsx
+import {
+  Slider,
+  SliderTrack,
+  SliderRange,
+  SliderThumb,
+  SliderLabel,
+  SliderDescription,
+} from '@feedbackhub/ui';
+
+export function ComposableSurveySlider() {
+  return (
+    <div className="space-y-2 w-full max-w-md">
+      <SliderLabel id="survey-scale-label">Survey Response Target</SliderLabel>
+      <SliderDescription id="survey-scale-desc">
+        Set the monthly response threshold before triggering an alert.
+      </SliderDescription>
+      <Slider
+        defaultValue={[500]}
+        min={100}
+        max={2000}
+        step={50}
+        aria-labelledby="survey-scale-label"
+        aria-describedby="survey-scale-desc"
+      >
+        <SliderTrack>
+          <SliderRange />
+        </SliderTrack>
+        <SliderThumb aria-label="Monthly response goal" />
+      </Slider>
+    </div>
+  );
+}
+```
+
+#### Accessibility & Keyboard Information:
+- **ARIA Semantics**:
+  - Thumbs emit `role="slider"`.
+  - Exposes `aria-valuemin`, `aria-valuemax`, and real-time `aria-valuenow`.
+  - Multi-thumb sliders expose distinct accessible names for each thumb via `thumbAriaLabels` or explicit `aria-label`.
+- **Keyboard Navigation**:
+  - `ArrowRight` / `ArrowUp`: Increments slider value by one `step`.
+  - `ArrowLeft` / `ArrowDown`: Decrements slider value by one `step`.
+  - `Home`: Jumps thumb to `min`.
+  - `End`: Jumps thumb to `max`.
+  - `PageUp` / `PageDown`: Advances or reduces slider value by larger increments where supported.
+  - Disabled sliders reflect `aria-disabled="true"`, `data-disabled=""`, and prevent all keyboard/pointer interactions.
+- **Form Integration**: Transparently renders hidden `<input>` elements when `name` is passed, enabling standard HTML form submission.
 
 ---
 
