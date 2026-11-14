@@ -10,8 +10,29 @@ import {
   EmptyStateTitle,
   EmptyStateDescription,
   EmptyStateActions,
+  type EmptyStateTitleElement,
+  type EmptyStateTitleRef,
 } from '../EmptyState';
 import { Button } from '../Button';
+
+// Compile-time type verification fixtures
+type Assert<T extends true> = T;
+type IsExact<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false;
+
+type _TestElements = Assert<
+  IsExact<
+    EmptyStateTitleElement,
+    'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'div' | 'p'
+  >
+>;
+type _TestH1 = Assert<IsExact<EmptyStateTitleRef<'h1'>, HTMLHeadingElement>>;
+type _TestH2 = Assert<IsExact<EmptyStateTitleRef<'h2'>, HTMLHeadingElement>>;
+type _TestH3 = Assert<IsExact<EmptyStateTitleRef<'h3'>, HTMLHeadingElement>>;
+type _TestH4 = Assert<IsExact<EmptyStateTitleRef<'h4'>, HTMLHeadingElement>>;
+type _TestH5 = Assert<IsExact<EmptyStateTitleRef<'h5'>, HTMLHeadingElement>>;
+type _TestH6 = Assert<IsExact<EmptyStateTitleRef<'h6'>, HTMLHeadingElement>>;
+type _TestDiv = Assert<IsExact<EmptyStateTitleRef<'div'>, HTMLDivElement>>;
+type _TestP = Assert<IsExact<EmptyStateTitleRef<'p'>, HTMLParagraphElement>>;
 
 afterEach(() => {
   cleanup();
@@ -456,5 +477,109 @@ describe('EmptyState Component Primitive', () => {
       expect(screen.getByText(scenario.desc)).toBeTruthy();
       unmount();
     }
+  });
+
+  it('19. correctly renders as "p" and forwards HTMLParagraphElement ref', () => {
+    const pRef = React.createRef<HTMLParagraphElement>();
+    render(
+      <EmptyState>
+        <EmptyStateTitle as="p" ref={pRef} className="custom-paragraph-title">
+          Paragraph Title Content
+        </EmptyStateTitle>
+      </EmptyState>
+    );
+
+    const element = screen.getByText('Paragraph Title Content');
+    expect(element.tagName.toLowerCase()).toBe('p');
+    expect(pRef.current).toBeInstanceOf(HTMLParagraphElement);
+    expect(pRef.current).toBe(element);
+    expect(element.className).toContain('custom-paragraph-title');
+  });
+
+  it('20. correctly renders as "div" and forwards HTMLDivElement ref', () => {
+    const divRef = React.createRef<HTMLDivElement>();
+    render(
+      <EmptyState>
+        <EmptyStateTitle as="div" ref={divRef} className="custom-div-title">
+          Div Title Content
+        </EmptyStateTitle>
+      </EmptyState>
+    );
+
+    const element = screen.getByText('Div Title Content');
+    expect(element.tagName.toLowerCase()).toBe('div');
+    expect(divRef.current).toBeInstanceOf(HTMLDivElement);
+    expect(divRef.current).toBe(element);
+    expect(element.className).toContain('custom-div-title');
+  });
+
+  it('21. correctly renders default and all heading levels (h1-h6) and forwards HTMLHeadingElement refs', () => {
+    const h3Ref = React.createRef<HTMLHeadingElement>();
+    const h1Ref = React.createRef<HTMLHeadingElement>();
+    const h2Ref = React.createRef<HTMLHeadingElement>();
+    const h4Ref = React.createRef<HTMLHeadingElement>();
+    const h5Ref = React.createRef<HTMLHeadingElement>();
+    const h6Ref = React.createRef<HTMLHeadingElement>();
+
+    render(
+      <EmptyState>
+        <EmptyStateTitle ref={h3Ref}>Default H3 Title</EmptyStateTitle>
+        <EmptyStateTitle as="h1" ref={h1Ref}>H1 Title</EmptyStateTitle>
+        <EmptyStateTitle as="h2" ref={h2Ref}>H2 Title</EmptyStateTitle>
+        <EmptyStateTitle as="h4" ref={h4Ref}>H4 Title</EmptyStateTitle>
+        <EmptyStateTitle as="h5" ref={h5Ref}>H5 Title</EmptyStateTitle>
+        <EmptyStateTitle as="h6" ref={h6Ref}>H6 Title</EmptyStateTitle>
+      </EmptyState>
+    );
+
+    expect(h3Ref.current).toBeInstanceOf(HTMLHeadingElement);
+    expect(h3Ref.current?.tagName.toLowerCase()).toBe('h3');
+
+    expect(h1Ref.current).toBeInstanceOf(HTMLHeadingElement);
+    expect(h1Ref.current?.tagName.toLowerCase()).toBe('h1');
+
+    expect(h2Ref.current).toBeInstanceOf(HTMLHeadingElement);
+    expect(h2Ref.current?.tagName.toLowerCase()).toBe('h2');
+
+    expect(h4Ref.current).toBeInstanceOf(HTMLHeadingElement);
+    expect(h4Ref.current?.tagName.toLowerCase()).toBe('h4');
+
+    expect(h5Ref.current).toBeInstanceOf(HTMLHeadingElement);
+    expect(h5Ref.current?.tagName.toLowerCase()).toBe('h5');
+
+    expect(h6Ref.current).toBeInstanceOf(HTMLHeadingElement);
+    expect(h6Ref.current?.tagName.toLowerCase()).toBe('h6');
+  });
+
+  it('22. enforces element-specific ref types at compile time and rejects mismatching refs', () => {
+    const headingRef = React.createRef<HTMLHeadingElement>();
+    const pRef = React.createRef<HTMLParagraphElement>();
+    const divRef = React.createRef<HTMLDivElement>();
+    const buttonRef = React.createRef<HTMLButtonElement>();
+
+    // Valid ref assignments (must compile without errors)
+    const validHeading = <EmptyStateTitle as="h2" ref={headingRef}>Valid Heading</EmptyStateTitle>;
+    const validDefault = <EmptyStateTitle ref={headingRef}>Valid Default</EmptyStateTitle>;
+    const validP = <EmptyStateTitle as="p" ref={pRef}>Valid P</EmptyStateTitle>;
+    const validDiv = <EmptyStateTitle as="div" ref={divRef}>Valid Div</EmptyStateTitle>;
+
+    expect(validHeading).toBeTruthy();
+    expect(validDefault).toBeTruthy();
+    expect(validP).toBeTruthy();
+    expect(validDiv).toBeTruthy();
+
+    // Invalid ref assignment
+    // @ts-expect-error - HTMLButtonElement ref is invalid for heading
+    const invalidHeadingWithButton = <EmptyStateTitle as="h2" ref={buttonRef}>Invalid</EmptyStateTitle>;
+
+    // @ts-expect-error - HTMLButtonElement ref is invalid when as="p"
+    const invalidPWithButton = <EmptyStateTitle as="p" ref={buttonRef}>Invalid</EmptyStateTitle>;
+
+    // @ts-expect-error - HTMLButtonElement ref is invalid when as="div"
+    const invalidDivWithButton = <EmptyStateTitle as="div" ref={buttonRef}>Invalid</EmptyStateTitle>;
+
+    expect(invalidHeadingWithButton).toBeTruthy();
+    expect(invalidPWithButton).toBeTruthy();
+    expect(invalidDivWithButton).toBeTruthy();
   });
 });

@@ -1637,10 +1637,10 @@ Production-quality, accessible empty state component for zero-data, initial onbo
 - **Components & Exports**:
   - `EmptyState`: Root container managing variant, sizing scale, and layout.
   - `EmptyStateIcon`: Icon or illustration wrapper (`aria-hidden="true"` by default).
-  - `EmptyStateTitle`: Semantic heading (`h3` by default, configurable via `as`).
+  - `EmptyStateTitle`: Polymorphic heading or container (`<h3>` by default, configurable via `as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'div'`) with element-specific ref types.
   - `EmptyStateDescription`: Descriptive body copy using secondary content tokens.
   - `EmptyStateActions`: Responsive button container supporting single or dual actions.
-- **Public Types**: `EmptyStateProps`, `EmptyStateVariant`, `EmptyStateSize`, `EmptyStateIconProps`, `EmptyStateTitleProps`, `EmptyStateDescriptionProps`, `EmptyStateActionsProps`.
+- **Public Types**: `EmptyStateProps`, `EmptyStateVariant`, `EmptyStateSize`, `EmptyStateIconProps`, `EmptyStateTitleProps`, `EmptyStateTitleElement`, `EmptyStateTitleRef`, `EmptyStateTitleComponent`, `EmptyStateDescriptionProps`, `EmptyStateActionsProps`.
 
 #### Example 1 — Basic Usage
 Simple empty state informing users of an empty feedback inbox.
@@ -1798,7 +1798,7 @@ The `EmptyState` component is designed for 10 primary product scenarios across r
 
 #### Accessibility & Token Information:
 - **ARIA & Semantics**:
-  - `EmptyStateTitle` renders a semantic heading (`<h3>` by default) with high-contrast text (`text-content-main`), meeting WCAG AAA requirements. Configurable via `as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'div'`.
+  - `EmptyStateTitle` renders a semantic heading (`<h3>` by default) with high-contrast text (`text-content-main`), meeting WCAG AAA requirements. Fully polymorphic via `as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'div'` with strict element-specific ref typing (`HTMLHeadingElement` for headings, `HTMLParagraphElement` for paragraph, `HTMLDivElement` for div).
   - `EmptyStateIcon` sets `aria-hidden="true"` by default to ensure purely decorative icons or illustrations are hidden from assistive technology, avoiding noisy screen reader announcements.
   - Interactive elements inside `EmptyStateActions` retain native keyboard focusability (`focus-visible:ring-brand-primary`) and accessible names.
 - **Design Tokens**:

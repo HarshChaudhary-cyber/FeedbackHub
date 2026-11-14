@@ -146,9 +146,39 @@ EmptyStateIcon.displayName = 'EmptyStateIcon';
 // EmptyStateTitle Component
 // -----------------------------------------------------------------------------
 
-export interface EmptyStateTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
-  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'div' | 'p';
+export type EmptyStateTitleElement =
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'h4'
+  | 'h5'
+  | 'h6'
+  | 'div'
+  | 'p';
+
+export type EmptyStateTitleRef<T extends EmptyStateTitleElement> =
+  T extends 'div'
+    ? HTMLDivElement
+    : T extends 'p'
+    ? HTMLParagraphElement
+    : HTMLHeadingElement;
+
+type EmptyStateTitleOwnProps<T extends EmptyStateTitleElement = 'h3'> = {
+  as?: T;
   size?: EmptyStateSize;
+};
+
+export type EmptyStateTitleProps<T extends EmptyStateTitleElement = 'h3'> =
+  EmptyStateTitleOwnProps<T> &
+    Omit<React.ComponentPropsWithoutRef<T>, keyof EmptyStateTitleOwnProps<T>>;
+
+export interface EmptyStateTitleComponent {
+  <T extends EmptyStateTitleElement = 'h3'>(
+    props: EmptyStateTitleProps<T> & {
+      ref?: React.Ref<NoInfer<EmptyStateTitleRef<T>>>;
+    }
+  ): React.ReactElement | null;
+  displayName?: string;
 }
 
 const titleSizeStyles: Record<EmptyStateSize, string> = {
@@ -157,30 +187,37 @@ const titleSizeStyles: Record<EmptyStateSize, string> = {
   lg: 'text-xl sm:text-2xl font-bold mb-2',
 };
 
+const EmptyStateTitleRender = <T extends EmptyStateTitleElement = 'h3'>(
+  { as, size, className, children, ...props }: EmptyStateTitleProps<T>,
+  ref: React.Ref<EmptyStateTitleRef<T>>
+) => {
+  const context = useContext(EmptyStateContext);
+  const resolvedSize = size ?? context.size ?? 'md';
+  const Component = as || 'h3';
+
+  return React.createElement(
+    Component,
+    {
+      ref,
+      className: cn(
+        'text-content-main tracking-tight leading-tight',
+        titleSizeStyles[resolvedSize] || titleSizeStyles.md,
+        className
+      ),
+      ...props,
+    },
+    children
+  );
+};
+
 /**
  * EmptyStateTitle Component
- * High-contrast semantic heading for the empty state.
+ * High-contrast semantic heading or container for the empty state.
+ * Supports polymorphic rendering (h1-h6, p, div) with type-safe element-specific refs.
  */
-export const EmptyStateTitle = forwardRef<HTMLHeadingElement, EmptyStateTitleProps>(
-  ({ as: Component = 'h3', size, className, children, ...props }, ref) => {
-    const context = useContext(EmptyStateContext);
-    const resolvedSize = size ?? context.size ?? 'md';
-
-    return (
-      <Component
-        ref={ref}
-        className={cn(
-          'text-content-main tracking-tight leading-tight',
-          titleSizeStyles[resolvedSize] || titleSizeStyles.md,
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </Component>
-    );
-  }
-);
+export const EmptyStateTitle: EmptyStateTitleComponent = forwardRef(
+  EmptyStateTitleRender
+) as unknown as EmptyStateTitleComponent;
 EmptyStateTitle.displayName = 'EmptyStateTitle';
 
 // -----------------------------------------------------------------------------
