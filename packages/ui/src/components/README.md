@@ -25,6 +25,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Tabs List** | `var(--radius-btn-secondary)` | 12px container (`rounded-xl`), 10px triggers (`rounded-[10px]`) |
 | **Empty State Cards** | `var(--radius-card-lg)` | 20px card (`rounded-[20px]`), 16px icon badge (`rounded-2xl`) |
 | **Tooltips** | `8px` | 8px rounded contextual badge (`rounded-lg`) |
+| **Toasts** | `var(--radius-btn-secondary)` | 12px rounded container (`rounded-xl`), 8px controls (`rounded-lg`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -2015,6 +2016,312 @@ export function DisabledEnterpriseFeature() {
   - Unhovering dismisses the tooltip, while `disableHoverableContent={false}` maintains a grace area for pointer transit between trigger and content.
 - **Design Tokens**:
   - Strictly consumes `bg-surface-card`, `text-content-main`, `border-border`, and `shadow-soft-md`. Zero hardcoded color classes.
+
+---
+
+### 2.17 Toast (`Toast.tsx`)
+
+Production-ready, accessible, non-blocking notification system built on Radix UI Toast primitives. Toasts provide brief, ephemeral feedback about application events, user operations, and system alerts without blocking the user interface.
+
+#### Exported Components & Types:
+- `ToastProvider`: Top-level wrapper managing global notification timers, swipe thresholds, and screen reader announcements.
+- `ToastViewport`: Portal-rendered container positioning stacked notifications on screen (`bottom-right`, `top-right`, etc.).
+- `Toast`: Individual toast item supporting semantic variants (`default`, `success`, `error`, `warning`, `info`) and swipe gestures.
+- `ToastTitle`: High-contrast semantic heading for the notification message.
+- `ToastDescription`: Secondary descriptive copy providing contextual details.
+- `ToastAction`: Accessible supplementary button requiring `altText` for screen readers.
+- `ToastClose`: Accessible close button with default SVG close icon and `aria-label="Close"`.
+- **Public Types**: `ToastProviderProps`, `ToastViewportProps`, `ToastViewportPosition`, `ToastProps`, `ToastVariant`, `ToastTitleProps`, `ToastDescriptionProps`, `ToastActionProps`, `ToastCloseProps`.
+
+#### Visual Variants:
+- `default`: Clean surface card with neutral border (`border-border`).
+- `success`: Left accent stripe using Semantic Success (`border-l-4 border-l-semantic-success`).
+- `error`: Left accent stripe using Semantic Error (`border-l-4 border-l-semantic-error`), automatically using assertive foreground announcement.
+- `warning`: Left accent stripe using Semantic Warning (`border-l-4 border-l-semantic-warning`).
+- `info`: Left accent stripe using Semantic Info (`border-l-4 border-l-semantic-info`).
+
+#### Viewport Positioning:
+- `bottom-right` (default): Bottom-right anchor (`bottom-0 right-0 flex-col`).
+- `bottom-left`: Bottom-left anchor (`bottom-0 left-0 flex-col`).
+- `bottom-center`: Bottom-center anchor (`bottom-0 left-1/2 -translate-x-1/2 flex-col`).
+- `top-right`: Top-right anchor (`top-0 right-0 flex-col`).
+- `top-left`: Top-left anchor (`top-0 left-0 flex-col`).
+- `top-center`: Top-center anchor (`top-0 left-1/2 -translate-x-1/2 flex-col`).
+
+---
+
+#### Example 1 — Success Toast: Feedback Form Created
+Routine operation feedback with polite screen reader announcement and default duration.
+
+```tsx
+import * as React from 'react';
+import {
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastClose,
+  Button,
+} from '@feedbackhub/ui';
+
+export function CreateFormNotification() {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <ToastProvider>
+      <Button variant="primary" onClick={() => setOpen(true)}>
+        Create Feedback Form
+      </Button>
+
+      <Toast open={open} onOpenChange={setOpen} variant="success">
+        <div className="flex-1">
+          <ToastTitle>Feedback form created</ToastTitle>
+          <ToastDescription>
+            "Q3 Customer Satisfaction" is now live and accepting responses.
+          </ToastDescription>
+        </div>
+        <ToastClose />
+      </Toast>
+
+      <ToastViewport position="bottom-right" />
+    </ToastProvider>
+  );
+}
+```
+
+#### Example 2 — Error Toast: Assertive Network Failure with Retry
+Critical error feedback automatically routed to assertive live-region announcements with extended duration and an interactive action.
+
+```tsx
+import * as React from 'react';
+import {
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastAction,
+  ToastClose,
+  Button,
+} from '@feedbackhub/ui';
+
+export function NetworkErrorNotification() {
+  const [open, setOpen] = React.useState(false);
+
+  const handleRetry = () => {
+    console.log('Retrying submission...');
+    setOpen(false);
+  };
+
+  return (
+    <ToastProvider>
+      <Button variant="destructive" onClick={() => setOpen(true)}>
+        Trigger Save Error
+      </Button>
+
+      {/* variant="error" automatically sets type="foreground" for assertive screen reader alerts */}
+      <Toast open={open} onOpenChange={setOpen} variant="error" duration={10000}>
+        <div className="flex-1 space-y-1">
+          <ToastTitle>Failed to save survey settings</ToastTitle>
+          <ToastDescription>
+            Network connection timed out while syncing with FeedbackHub API.
+          </ToastDescription>
+        </div>
+        <ToastAction altText="Retry saving settings" onClick={handleRetry}>
+          Retry
+        </ToastAction>
+        <ToastClose />
+      </Toast>
+
+      <ToastViewport position="bottom-right" />
+    </ToastProvider>
+  );
+}
+```
+
+#### Example 3 — Interactive Action with Undo
+Destructive or reversible action feedback providing a quick "Undo" capability.
+
+```tsx
+import * as React from 'react';
+import {
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastAction,
+  ToastClose,
+  Button,
+} from '@feedbackhub/ui';
+
+export function DeleteFeedbackNotification() {
+  const [open, setOpen] = React.useState(false);
+
+  const handleUndo = () => {
+    console.log('Restoring response #1042...');
+  };
+
+  return (
+    <ToastProvider>
+      <Button variant="outline" onClick={() => setOpen(true)}>
+        Delete Response
+      </Button>
+
+      <Toast open={open} onOpenChange={setOpen} variant="default" duration={8000}>
+        <div className="flex-1">
+          <ToastTitle>Feedback response deleted</ToastTitle>
+          <ToastDescription>
+            Response #1042 moved to trash.
+          </ToastDescription>
+        </div>
+        <ToastAction altText="Undo deleting response" onClick={handleUndo}>
+          Undo
+        </ToastAction>
+        <ToastClose />
+      </Toast>
+
+      <ToastViewport position="bottom-right" />
+    </ToastProvider>
+  );
+}
+```
+
+#### Example 4 — Custom Viewport Positioning (Top-Right)
+Configuring a top-right viewport anchor for SaaS administrative and dashboard layouts.
+
+```tsx
+import * as React from 'react';
+import {
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastClose,
+  Button,
+} from '@feedbackhub/ui';
+
+export function TopRightNotifications() {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <ToastProvider duration={4000}>
+      <Button variant="secondary" onClick={() => setOpen(true)}>
+        Invite Team Member
+      </Button>
+
+      <Toast open={open} onOpenChange={setOpen} variant="info">
+        <div className="flex-1">
+          <ToastTitle>Invitation sent</ToastTitle>
+          <ToastDescription>
+            alex@company.com has been invited to your organization workspace.
+          </ToastDescription>
+        </div>
+        <ToastClose />
+      </Toast>
+
+      {/* Anchored to top-right corner */}
+      <ToastViewport position="top-right" />
+    </ToastProvider>
+  );
+}
+```
+
+#### Example 5 — Controlled State with Custom Duration & Multiple Notifications
+Handling multiple simultaneous notifications with fine-grained state management and duration control.
+
+```tsx
+import * as React from 'react';
+import {
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastClose,
+  Button,
+} from '@feedbackhub/ui';
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  description: string;
+  variant: 'default' | 'success' | 'warning' | 'error' | 'info';
+  duration?: number;
+}
+
+export function MultiToastManager() {
+  const [toasts, setToasts] = React.useState<NotificationItem[]>([]);
+
+  const addToast = (variant: NotificationItem['variant']) => {
+    const id = Date.now().toString();
+    setToasts((prev) => [
+      ...prev,
+      {
+        id,
+        title: `${variant.toUpperCase()} Notification`,
+        description: `Triggered at ${new Date().toLocaleTimeString()}`,
+        variant,
+        duration: variant === 'error' ? 10000 : 5000,
+      },
+    ]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  return (
+    <ToastProvider>
+      <div className="flex gap-2">
+        <Button variant="secondary" size="sm" onClick={() => addToast('success')}>
+          Success Toast
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => addToast('error')}>
+          Error Toast
+        </Button>
+      </div>
+
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          variant={toast.variant}
+          duration={toast.duration}
+          onOpenChange={(open) => {
+            if (!open) removeToast(toast.id);
+          }}
+        >
+          <div className="flex-1">
+            <ToastTitle>{toast.title}</ToastTitle>
+            <ToastDescription>{toast.description}</ToastDescription>
+          </div>
+          <ToastClose />
+        </Toast>
+      ))}
+
+      <ToastViewport position="bottom-right" />
+    </ToastProvider>
+  );
+}
+```
+
+#### Accessibility & Live-Region Guidance:
+- **ARIA Live Regions**:
+  - `variant="error"` automatically resolves to `type="foreground"`, triggering an assertive live-region announcement (`role="status" aria-live="assertive"`) that interrupts the current screen reader speech.
+  - Routine toasts (`default`, `success`, `info`, `warning`) resolve to `type="background"`, triggering a polite live-region announcement (`role="status" aria-live="polite"`) that waits until the user is idle.
+- **Duration Guidelines**:
+  - Default duration is `5000ms` (5 seconds), giving users adequate time to read standard notifications.
+  - Interactive or critical toasts (such as those with Undo actions or errors) should use extended durations (`8000ms` to `10000ms`) or require manual dismissal so users are not rushed.
+- **Keyboard & Navigation**:
+  - By default, pressing `F8` navigates focus directly to the active toast viewport region.
+  - The close button (`ToastClose`) and action button (`ToastAction`) support full keyboard navigation (`Tab`, `Shift+Tab`, `Enter`, `Space`).
+  - Swiping horizontally dismisses the toast with touch or pointer gestures, respecting `swipeDirection` (defaults to `'right'`).
+- **Design Tokens**:
+  - Container uses `rounded-xl` (12px), `bg-surface-card`, `border-border`, and `shadow-soft-lg`.
+  - Actions and close triggers use `rounded-lg` (8px) with `focus-visible:ring-brand-primary`.
+  - Zero hardcoded colors; all borders and backgrounds strictly reference FeedbackHub semantic tokens.
 
 ---
 
