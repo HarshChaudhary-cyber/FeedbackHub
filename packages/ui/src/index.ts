@@ -20,3 +20,4 @@ export * from './components/EmptyState';
 export * from './components/Tooltip';
 export * from './components/Toast';
 export * from './components/Alert';
+export * from './components/Progress';

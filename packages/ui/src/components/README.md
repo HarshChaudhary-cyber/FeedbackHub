@@ -27,6 +27,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Tooltips** | `8px` | 8px rounded contextual badge (`rounded-lg`) |
 | **Toasts** | `var(--radius-btn-secondary)` | 12px rounded container (`rounded-xl`), 8px controls (`rounded-lg`) |
 | **Alerts** | `var(--radius-btn-secondary)` | 12px rounded container (`rounded-xl`), 8px controls (`rounded-lg`) |
+| **Progress Bars** | `9999px` | Pill-shaped track & indicator (`rounded-full`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -2571,6 +2572,166 @@ export function ProfileUpdatedAlert() {
   - Controls use `rounded-lg` (8px).
   - Background: `bg-surface-card`; Border: `border-border`; Left accent stripes: `border-l-semantic-*`.
   - Zero hardcoded colors; all styling strictly references FeedbackHub design tokens.
+
+---
+
+### 2.19 Progress (`Progress.tsx`)
+
+Production-ready, accessible progress indicator for the FeedbackHub design system. Progress displays deterministic and indeterminate completion metrics across survey wizards, form builders, file uploads, and onboarding journeys.
+
+#### Exported Components & Types:
+- `Progress`: Main all-in-one progress component with optional visible label, percentage display, accessible name binding, and customizable sizes.
+- `ProgressIndicator`: Inner fill bar component rendering the progress width and animated states.
+- **Public Types**: `ProgressProps`, `ProgressVariant`, `ProgressSize`, `ProgressIndicatorProps`.
+
+#### Visual Variants:
+| Variant | Indicator Fill Color | Purpose |
+| :--- | :--- | :--- |
+| `default` | Primary Purple (`bg-brand-primary`) | Standard application flows, survey steps, and loading states |
+| `success` | Semantic Success (`bg-semantic-success`) | 100% completion, verified validation, and successful syncs |
+| `warning` | Semantic Warning (`bg-semantic-warning`) | Quota usage near threshold (e.g. 80–99%) |
+| `error` | Semantic Error (`bg-semantic-error`) | Storage limit exceeded or failed upload progress |
+
+#### Size Scale:
+| Size | Track Height | Visual Presentation |
+| :--- | :--- | :--- |
+| `sm` | `h-1.5` (6px) | Compact inline indicators in table cells or secondary cards |
+| `md` | `h-2.5` (10px, default) | Standard progress bars for forms, surveys, and dialogs |
+| `lg` | `h-4` (16px) | Prominent milestone indicators and onboarding setups |
+
+---
+
+#### Example 1 — Survey Completion Progress
+Standard survey progression with visible label and live percentage counter.
+
+```tsx
+import * as React from 'react';
+import { Progress } from '@feedbackhub/ui';
+
+export function SurveyProgressBar() {
+  const [completedQuestions] = React.useState(7);
+  const totalQuestions = 10;
+
+  return (
+    <Progress
+      value={completedQuestions}
+      max={totalQuestions}
+      label="Survey Completion"
+      showValue
+      variant="default"
+      size="md"
+    />
+  );
+}
+```
+
+#### Example 2 — Multi-Step Form Builder with Custom Step Text
+Custom formatted value display using `getValueText` for multi-step wizards.
+
+```tsx
+import * as React from 'react';
+import { Progress } from '@feedbackhub/ui';
+
+export function FormBuilderProgress() {
+  const currentStep = 3;
+  const totalSteps = 5;
+
+  return (
+    <Progress
+      value={currentStep}
+      max={totalSteps}
+      label="Creating Survey Template"
+      showValue
+      getValueText={(val, max) => `Step ${val} of ${max}`}
+      size="lg"
+    />
+  );
+}
+```
+
+#### Example 3 — File Upload Progress with Status Variants
+Uploading response attachments with semantic completion variants.
+
+```tsx
+import * as React from 'react';
+import { Progress } from '@feedbackhub/ui';
+
+export function FileUploadProgress({ percent }: { percent: number }) {
+  const isComplete = percent === 100;
+
+  return (
+    <Progress
+      value={percent}
+      label={isComplete ? "Upload Complete" : "Uploading customer_feedback.csv"}
+      showValue
+      variant={isComplete ? "success" : "default"}
+      size="sm"
+    />
+  );
+}
+```
+
+#### Example 4 — Indeterminate Background Analysis
+When the progress duration cannot be calculated (e.g., streaming AI sentiment classification), pass `value={null}` or `value={undefined}` to render an accessible indeterminate state.
+
+```tsx
+import * as React from 'react';
+import { Progress } from '@feedbackhub/ui';
+
+export function AIClusteringLoader() {
+  return (
+    <Progress
+      value={null}
+      label="Clustering customer sentiment feedback..."
+      variant="default"
+      size="md"
+    />
+  );
+}
+```
+
+#### Example 5 — Subscription Quota Usage with Warning Threshold
+Visualizing monthly tenant response limits with dynamic warning and error variants.
+
+```tsx
+import * as React from 'react';
+import { Progress } from '@feedbackhub/ui';
+
+export function TenantQuotaIndicator({ used, limit }: { used: number; limit: number }) {
+  const percent = Math.round((used / limit) * 100);
+  const variant = percent >= 100 ? 'error' : percent >= 80 ? 'warning' : 'default';
+
+  return (
+    <Progress
+      value={used}
+      max={limit}
+      label="Monthly Survey Response Quota"
+      showValue
+      getValueText={(val, max) => `${val.toLocaleString()} / ${max.toLocaleString()} responses`}
+      variant={variant}
+      size="md"
+    />
+  );
+}
+```
+
+#### Accessibility & Design Token Guidance:
+- **ARIA Progressbar Semantics**:
+  - The progress track has `role="progressbar"`.
+  - When determinate: provides `aria-valuenow={clampedValue}`, `aria-valuemin="0"`, `aria-valuemax={max}`, and `aria-valuetext={valueText}`.
+  - When indeterminate (`value === null | undefined`): `aria-valuenow` is strictly omitted from the DOM per W3C ARIA guidelines, preventing misleading announcements.
+  - Accessible name resolution: if `label` is a string, it automatically binds via `aria-label`; if `label` is a React node, it links via `aria-labelledby`.
+  - The visible percentage text rendered when `showValue` is true has `aria-hidden="true"` to prevent screen readers from announcing the value twice.
+- **Clamping & Resilience**:
+  - Automatically clamps negative values to 0 and overflow values to `max`.
+  - Defaults `max` safely to 100 if negative or `NaN` is supplied.
+- **Reduced Motion**:
+  - When `prefers-reduced-motion` is active, `motion-reduce:transition-none` disables animated width transitions.
+  - In indeterminate mode, `motion-reduce:animate-none` suppresses continuous pulsing animations.
+- **Design Tokens**:
+  - Track: `rounded-full` (9999px) with `bg-border/40`.
+  - Indicator: `rounded-full` (9999px) with variant token classes (`bg-brand-primary`, `bg-semantic-success`, `bg-semantic-warning`, `bg-semantic-error`).
+  - Zero hardcoded color classes outside design system tokens.
 
 ---
 
