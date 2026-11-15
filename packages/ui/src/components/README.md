@@ -26,6 +26,7 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Empty State Cards** | `var(--radius-card-lg)` | 20px card (`rounded-[20px]`), 16px icon badge (`rounded-2xl`) |
 | **Tooltips** | `8px` | 8px rounded contextual badge (`rounded-lg`) |
 | **Toasts** | `var(--radius-btn-secondary)` | 12px rounded container (`rounded-xl`), 8px controls (`rounded-lg`) |
+| **Alerts** | `var(--radius-btn-secondary)` | 12px rounded container (`rounded-xl`), 8px controls (`rounded-lg`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
 
@@ -2332,6 +2333,244 @@ export function MultiToastManager() {
   - Container uses `rounded-xl` (12px), `bg-surface-card`, `border-border`, and `shadow-soft-lg`.
   - Actions and close triggers use `rounded-lg` (8px) with `focus-visible:ring-brand-primary`.
   - Zero hardcoded colors; all borders and backgrounds strictly reference FeedbackHub semantic tokens.
+
+---
+
+### 2.18 Alert (`Alert.tsx`)
+
+Production-ready, accessible inline Alert component for the FeedbackHub design system. Inline alerts communicate important operational status, validation feedback, and warnings directly within page layouts, forms, and administrative dashboards.
+
+#### Distinction from Toast:
+- **Alert**: An inline, persistent callout that remains mounted in the document until its condition changes or the user explicitly dismisses it.
+- **Toast**: An ephemeral, non-blocking notification portal that automatically disappears after a timeout.
+
+#### Exported Components & Types:
+- `Alert`: Root container with responsive flex layout, semantic role resolution, optional leading icon, and optional dismiss/action slots.
+- `AlertTitle`: Semantic heading (defaults to `<h5>`, configurable via `as`) with bold typography.
+- `AlertDescription`: Explanatory body text rendered with secondary content tokens and comfortable line height.
+- `AlertAction`: Supplementary button or anchor link (configured via `as="button" | "a"`) with visible focus rings.
+- `AlertClose`: Accessible dismiss button with SVG close icon and screen reader label (`aria-label`).
+- **Public Types**: `AlertProps`, `AlertVariant`, `AlertTitleProps`, `AlertDescriptionProps`, `AlertActionProps`, `AlertCloseProps`.
+
+#### Variant Matrix:
+| Variant | Visual Indicator | Default ARIA Role | Primary Purpose |
+| :--- | :--- | :--- | :--- |
+| `default` | Neutral border (`border-border`) | `status` | General system information and neutral guidance |
+| `success` | Left accent stripe (`border-l-4 border-l-semantic-success`) | `status` | Successful operations and completed workflows |
+| `error` | Left accent stripe (`border-l-4 border-l-semantic-error`) | `alert` | Failures, validation errors, and critical outages |
+| `warning` | Left accent stripe (`border-l-4 border-l-semantic-warning`) | `status` | Cautions, plan limits, and passive status changes |
+| `info` | Left accent stripe (`border-l-4 border-l-semantic-info`) | `status` | Helpful tips, policy notes, and feature context |
+
+---
+
+#### Example 1 — Success: Feedback Form Published Successfully
+Routine operational confirmation with polite screen reader announcement and success iconography.
+
+```tsx
+import * as React from 'react';
+import { Alert, AlertTitle, AlertDescription } from '@feedbackhub/ui';
+
+export function FormPublishedAlert() {
+  return (
+    <Alert
+      variant="success"
+      icon={
+        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+            clipRule="evenodd"
+          />
+        </svg>
+      }
+    >
+      <AlertTitle>Feedback form published successfully</AlertTitle>
+      <AlertDescription>
+        "Q3 Customer Satisfaction" is now live and accepting customer responses via public link.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
+
+#### Example 2 — Error: Unable to Save Feedback Form
+Urgent failure alert automatically receiving `role="alert"` for assertive screen reader notification.
+
+```tsx
+import * as React from 'react';
+import { Alert, AlertTitle, AlertDescription } from '@feedbackhub/ui';
+
+export function FormSaveErrorAlert() {
+  return (
+    <Alert
+      variant="error"
+      icon={
+        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z"
+            clipRule="evenodd"
+          />
+        </svg>
+      }
+    >
+      <AlertTitle>Unable to save feedback form</AlertTitle>
+      <AlertDescription>
+        Network connection timed out while syncing with FeedbackHub API. Please check your connection and try again.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
+
+#### Example 3 — Warning: Subscription Usage Approaching Limit
+Proactive notification with action link directing tenant admin to plan upgrades.
+
+```tsx
+import * as React from 'react';
+import { Alert, AlertTitle, AlertDescription, AlertAction } from '@feedbackhub/ui';
+
+export function SubscriptionWarningAlert() {
+  return (
+    <Alert
+      variant="warning"
+      icon={
+        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+            clipRule="evenodd"
+          />
+        </svg>
+      }
+      action={
+        <AlertAction as="a" href="/admin/billing/upgrade">
+          Upgrade Plan
+        </AlertAction>
+      }
+    >
+      <AlertTitle>Subscription usage approaching monthly limit</AlertTitle>
+      <AlertDescription>
+        You have recorded 9,450 of 10,000 monthly survey responses (94%). Upgrade your tier to ensure uninterrupted collection.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
+
+#### Example 4 — Information: Anonymous Response Policy
+Informational callout displayed inside feedback collection screens explaining data confidentiality.
+
+```tsx
+import * as React from 'react';
+import { Alert, AlertTitle, AlertDescription } from '@feedbackhub/ui';
+
+export function AnonymousResponseNotice() {
+  return (
+    <Alert
+      variant="info"
+      icon={
+        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
+            clipRule="evenodd"
+          />
+        </svg>
+      }
+    >
+      <AlertTitle>Anonymous response collection active</AlertTitle>
+      <AlertDescription>
+        Anonymous responses cannot be linked to individual respondent identity or email addresses.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
+
+#### Example 5 — Action: Workspace Invitation Failed with Retry
+Actionable error alert providing an inline interactive retry button with callback handling.
+
+```tsx
+import * as React from 'react';
+import { Alert, AlertTitle, AlertDescription, AlertAction } from '@feedbackhub/ui';
+
+export function InvitationFailedAlert() {
+  const [retrying, setRetrying] = React.useState(false);
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      await fetch('/api/v1/team/invite', { method: 'POST' });
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  return (
+    <Alert
+      variant="error"
+      action={
+        <AlertAction onClick={handleRetry} disabled={retrying}>
+          {retrying ? 'Retrying...' : 'Retry'}
+        </AlertAction>
+      }
+    >
+      <AlertTitle>Workspace invitation failed</AlertTitle>
+      <AlertDescription>
+        Could not send invitation email to alex@company.com due to SMTP mail server timeout.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
+
+#### Example 6 — Dismissible Alert: Profile Settings Updated
+Inline confirmation callout that can be dismissed by the user with accessible close labeling.
+
+```tsx
+import * as React from 'react';
+import { Alert, AlertTitle, AlertDescription } from '@feedbackhub/ui';
+
+export function ProfileUpdatedAlert() {
+  const [dismissed, setDismissed] = React.useState(false);
+
+  if (dismissed) return null;
+
+  return (
+    <Alert
+      variant="success"
+      onClose={() => setDismissed(true)}
+      closeLabel="Dismiss profile update notice"
+    >
+      <AlertTitle>Profile settings updated</AlertTitle>
+      <AlertDescription>
+        Your notification preferences and profile avatar have been saved to FeedbackHub.
+      </AlertDescription>
+    </Alert>
+  );
+}
+```
+
+#### Accessibility & Design Token Guidance:
+- **Semantic Roles**:
+  - Automatically resolves `role="alert"` for `variant="error"`, providing immediate assertive screen reader interruption for failures.
+  - Automatically resolves `role="status"` for non-error variants (`default`, `success`, `warning`, `info`), providing polite screen reader notification without interrupting ongoing speech.
+  - Allows full customization via the `role` prop (e.g., `role="region"` with `aria-label`).
+- **Icon Semantics**:
+  - Decorative icons are automatically wrapped with `aria-hidden="true"`.
+  - Informative icons with `aria-label`, `aria-labelledby`, or `role="img"` preserve accessible names for screen readers.
+- **Interactive Controls**:
+  - `AlertClose` includes an accessible screen reader label (defaults to `"Dismiss alert"`, customizable via `closeLabel`).
+  - `AlertAction` supports both `<button>` and `<a>` elements with visible focus rings (`focus-visible:ring-brand-primary`).
+  - Full keyboard accessibility (`Tab`, `Shift+Tab`, `Enter`, `Space`).
+- **Reduced Motion**:
+  - Respects user preference via `motion-reduce:transition-none` across the container, action, and close controls.
+- **Design Tokens**:
+  - Container radius uses `rounded-xl` (12px, matching `--radius-btn-secondary`).
+  - Controls use `rounded-lg` (8px).
+  - Background: `bg-surface-card`; Border: `border-border`; Left accent stripes: `border-l-semantic-*`.
+  - Zero hardcoded colors; all styling strictly references FeedbackHub design tokens.
 
 ---
 
