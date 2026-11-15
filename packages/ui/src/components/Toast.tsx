@@ -123,8 +123,13 @@ export const Toast = React.forwardRef<
       className={cn(
         // Base container & interaction
         'group pointer-events-auto relative flex w-full items-start justify-between space-x-3 overflow-hidden rounded-xl border p-4 shadow-soft-lg transition-smooth',
-        // Swipe animations
-        'data-[swipe=cancel]:translate-x-0 data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]',
+        // Swipe animations (horizontal and vertical)
+        'data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:translate-y-0',
+        'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:translate-y-[var(--radix-toast-swipe-move-y)]',
+        'data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=end]:translate-y-[var(--radix-toast-swipe-end-y)]',
+        'data-[swipe=cancel]:transition-[transform_200ms_ease-out]',
+        // Reduced motion support
+        'motion-reduce:transition-none motion-reduce:transform-none',
         // Variant styling
         toastVariantStyles[variant] || toastVariantStyles.default,
         className
@@ -205,6 +210,7 @@ export const ToastAction = React.forwardRef<
       'inline-flex h-8 shrink-0 items-center justify-center rounded-lg border border-border bg-transparent px-3 text-xs font-medium text-content-main transition-smooth',
       'hover:bg-surface-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1',
       'disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
+      'motion-reduce:transition-none',
       className
     )}
     {...props}
@@ -234,6 +240,7 @@ export const ToastClose = React.forwardRef<
     className={cn(
       'absolute right-2 top-2 rounded-lg p-1 text-content-secondary hover:text-content-main hover:bg-surface-main transition-smooth',
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-1 cursor-pointer',
+      'motion-reduce:transition-none',
       className
     )}
     {...props}

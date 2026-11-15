@@ -2308,16 +2308,26 @@ export function MultiToastManager() {
 ```
 
 #### Accessibility & Live-Region Guidance:
-- **ARIA Live Regions**:
-  - `variant="error"` automatically resolves to `type="foreground"`, triggering an assertive live-region announcement (`role="status" aria-live="assertive"`) that interrupts the current screen reader speech.
-  - Routine toasts (`default`, `success`, `info`, `warning`) resolve to `type="background"`, triggering a polite live-region announcement (`role="status" aria-live="polite"`) that waits until the user is idle.
+- **ARIA Landmark & Live Regions**:
+  - The notification viewport is rendered as an accessible landmark region (`role="region" aria-label="Notifications (F8)"`), containing an ordered list (`<ol>`) of active toast items (`<li>`).
+  - The Toast root container (`<li>`) preserves native listitem semantics and does NOT apply conflicting `role="alert"` or `role="status"` attributes, preventing duplicate announcements or broken landmark navigation.
+  - Auditory announcements are handled out-of-band by Radix's visually-hidden live-region portal (`role="status"`):
+    - Urgent notifications (`type="foreground"`, default for `variant="error"`) announce with `aria-live="assertive"`, immediately interrupting ongoing screen reader speech.
+    - Routine notifications (`type="background"`, default for `default`, `success`, `info`, `warning`) announce with `aria-live="polite"`, waiting until the user is idle.
+- **Reduced Motion Support**:
+  - The Toast container applies `motion-reduce:transition-none motion-reduce:transform-none` to suppress all positional translations and animated transforms for users requesting reduced motion.
+  - Interactive controls (`ToastAction` and `ToastClose`) apply `motion-reduce:transition-none`.
+  - Normal smooth transitions (`transition-smooth`) and swipe animations are preserved when reduced motion is not requested.
+- **Swipe Gestures & Multi-Direction Support**:
+  - Supports all four Radix swipe directions (`right`, `left`, `up`, `down`) configured at the `ToastProvider` level.
+  - Applies bidirectional CSS transform bindings for both horizontal (`--radix-toast-swipe-move-x`, `--radix-toast-swipe-end-x`) and vertical (`--radix-toast-swipe-move-y`, `--radix-toast-swipe-end-y`) swipe movements.
+  - Preserves Radix's native swipe-dismiss behavior without hardcoding or overriding the provider's configured axis.
 - **Duration Guidelines**:
   - Default duration is `5000ms` (5 seconds), giving users adequate time to read standard notifications.
   - Interactive or critical toasts (such as those with Undo actions or errors) should use extended durations (`8000ms` to `10000ms`) or require manual dismissal so users are not rushed.
 - **Keyboard & Navigation**:
   - By default, pressing `F8` navigates focus directly to the active toast viewport region.
   - The close button (`ToastClose`) and action button (`ToastAction`) support full keyboard navigation (`Tab`, `Shift+Tab`, `Enter`, `Space`).
-  - Swiping horizontally dismisses the toast with touch or pointer gestures, respecting `swipeDirection` (defaults to `'right'`).
 - **Design Tokens**:
   - Container uses `rounded-xl` (12px), `bg-surface-card`, `border-border`, and `shadow-soft-lg`.
   - Actions and close triggers use `rounded-lg` (8px) with `focus-visible:ring-brand-primary`.

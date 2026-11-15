@@ -409,8 +409,8 @@ describe('Toast Component Primitive', () => {
   it('17. forwards refs across Toast, ToastViewport, ToastTitle, ToastDescription, ToastAction, and ToastClose', () => {
     const toastRef = React.createRef<HTMLLIElement>();
     const viewportRef = React.createRef<HTMLOListElement>();
-    const titleRef = React.createRef<HTMLHeadingElement>();
-    const descRef = React.createRef<HTMLParagraphElement>();
+    const titleRef = React.createRef<HTMLDivElement>();
+    const descRef = React.createRef<HTMLDivElement>();
     const actionRef = React.createRef<HTMLButtonElement>();
     const closeRef = React.createRef<HTMLButtonElement>();
 
@@ -436,42 +436,65 @@ describe('Toast Component Primitive', () => {
     expect(closeRef.current).toBeInstanceOf(HTMLButtonElement);
   });
 
-  it('18. assigns appropriate live-region announcement roles based on urgency', () => {
-    // Routine notifications use polite status announcements
-    const { rerender } = render(
-      <ToastProvider>
+  it('18. assigns appropriate live-region announcement roles based on urgency', async () => {
+    // 1. Routine notifications (type="background", default for non-error variants)
+    const { unmount } = render(
+      <ToastProvider label="Feedback Notification">
         <Toast defaultOpen variant="success">
           <ToastTitle>Polite Announcement</ToastTitle>
+          <ToastDescription>Routine feedback message</ToastDescription>
         </Toast>
         <ToastViewport />
       </ToastProvider>
     );
 
+    // Toast root element is a standard <li> within the landmark <ol>
     const successToast = screen.getByText('Polite Announcement').closest('li');
     expect(successToast).toBeTruthy();
     expect(successToast?.getAttribute('data-variant')).toBe('success');
+    // Ensure no conflicting role="alert" or role="status" is forced onto the <li>
+    expect(successToast?.getAttribute('role')).toBeNull();
 
-    const politeAnnouncer = document.querySelector('[aria-live="polite"]');
+    // Radix manages out-of-band live regions via a dedicated portal element with role="status" and aria-live="polite"
+    const politeAnnouncer = screen.getByRole('status');
     expect(politeAnnouncer).toBeTruthy();
-    expect(politeAnnouncer?.getAttribute('role')).toBe('status');
+    expect(politeAnnouncer.getAttribute('aria-live')).toBe('polite');
 
-    // Urgent error notifications use assertive alert announcements
-    rerender(
-      <ToastProvider>
+    // Wait for the announcement text to be rendered into the live region
+    await waitFor(() => {
+      expect(politeAnnouncer.textContent).toContain('Polite Announcement');
+      expect(politeAnnouncer.textContent).toContain('Routine feedback message');
+      expect(politeAnnouncer.textContent).toContain('Feedback Notification');
+    });
+
+    unmount();
+
+    // 2. Urgent notifications (type="foreground", default for variant="error")
+    render(
+      <ToastProvider label="Urgent Alert">
         <Toast defaultOpen variant="error">
-          <ToastTitle>Urgent Alert</ToastTitle>
+          <ToastTitle>Urgent Alert Title</ToastTitle>
+          <ToastDescription>Critical network error</ToastDescription>
         </Toast>
         <ToastViewport />
       </ToastProvider>
     );
 
-    const errorToast = screen.getByText('Urgent Alert').closest('li');
+    const errorToast = screen.getByText('Urgent Alert Title').closest('li');
     expect(errorToast).toBeTruthy();
     expect(errorToast?.getAttribute('data-variant')).toBe('error');
+    // Ensure toast root <li> does not have conflicting role="alert"
+    expect(errorToast?.getAttribute('role')).toBeNull();
 
+    // Urgent notification uses assertive announcement via role="status" and aria-live="assertive"
     const assertiveAnnouncer = document.querySelector('[aria-live="assertive"]');
     expect(assertiveAnnouncer).toBeTruthy();
     expect(assertiveAnnouncer?.getAttribute('role')).toBe('status');
+
+    await waitFor(() => {
+      expect(assertiveAnnouncer?.textContent).toContain('Urgent Alert Title');
+      expect(assertiveAnnouncer?.textContent).toContain('Critical network error');
+    });
   });
 
   it('19. supports keyboard navigation and interaction', async () => {
@@ -513,11 +536,12 @@ describe('Toast Component Primitive', () => {
     expect(handleAction).toHaveBeenCalledTimes(1);
   });
 
-  it('20. applies reduced-motion and smooth transition classes', () => {
+  it('20. applies reduced-motion and smooth transition classes to Toast and controls', () => {
     render(
       <ToastProvider>
         <Toast defaultOpen>
           <ToastTitle>Motion Test</ToastTitle>
+          <ToastAction altText="Action test">Action</ToastAction>
           <ToastClose />
         </Toast>
         <ToastViewport />
@@ -526,8 +550,62 @@ describe('Toast Component Primitive', () => {
 
     const toast = screen.getByText('Motion Test').closest('[data-variant]');
     expect(toast?.className).toContain('transition-smooth');
+    expect(toast?.className).toContain('motion-reduce:transition-none');
+    expect(toast?.className).toContain('motion-reduce:transform-none');
+
+    const actionBtn = screen.getByRole('button', { name: /action/i });
+    expect(actionBtn.className).toContain('transition-smooth');
+    expect(actionBtn.className).toContain('motion-reduce:transition-none');
 
     const closeBtn = screen.getByRole('button', { name: /close/i });
     expect(closeBtn.className).toContain('transition-smooth');
+    expect(closeBtn.className).toContain('motion-reduce:transition-none');
+  });
+
+  it('21. supports all horizontal and vertical swipe movement classes and direction configurations', () => {
+    const { rerender } = render(
+      <ToastProvider swipeDirection="right">
+        <Toast defaultOpen>
+          <ToastTitle>Swipe Right</ToastTitle>
+        </Toast>
+        <ToastViewport />
+      </ToastProvider>
+    );
+
+    const toast = screen.getByText('Swipe Right').closest('li');
+    expect(toast).toBeTruthy();
+    expect(toast?.getAttribute('data-swipe-direction')).toBe('right');
+
+    // Verify horizontal and vertical swipe classes are configured on Toast root
+    expect(toast?.className).toContain('data-[swipe=cancel]:translate-x-0');
+    expect(toast?.className).toContain('data-[swipe=cancel]:translate-y-0');
+    expect(toast?.className).toContain(
+      'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]'
+    );
+    expect(toast?.className).toContain(
+      'data-[swipe=move]:translate-y-[var(--radix-toast-swipe-move-y)]'
+    );
+    expect(toast?.className).toContain(
+      'data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)]'
+    );
+    expect(toast?.className).toContain(
+      'data-[swipe=end]:translate-y-[var(--radix-toast-swipe-end-y)]'
+    );
+    expect(toast?.className).toContain('data-[swipe=cancel]:transition-[transform_200ms_ease-out]');
+
+    // Verify provider swipeDirection accepts all 4 directions without being overridden
+    const directions: Array<'right' | 'left' | 'up' | 'down'> = ['left', 'up', 'down'];
+    for (const dir of directions) {
+      rerender(
+        <ToastProvider swipeDirection={dir}>
+          <Toast defaultOpen>
+            <ToastTitle>Swipe {dir}</ToastTitle>
+          </Toast>
+          <ToastViewport />
+        </ToastProvider>
+      );
+      const updatedToast = screen.getByText(`Swipe ${dir}`).closest('li');
+      expect(updatedToast?.getAttribute('data-swipe-direction')).toBe(dir);
+    }
   });
 });
