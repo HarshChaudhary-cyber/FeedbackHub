@@ -372,13 +372,17 @@ describe('Tooltip Component Primitive', () => {
     expect(screen.getByText('Content Two')).toBeTruthy();
   });
 
-  it('14. disabled triggers are accessible when wrapped with a focusable container or using aria-disabled', async () => {
+  it('14. disabled triggers are accessible when wrapped with a focusable container without nested button roles', async () => {
     render(
       <TooltipProvider delayDuration={0}>
-        {/* Pattern A: Accessible wrapper container with tabIndex */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <span tabIndex={0} role="button" aria-disabled="true" data-testid="disabled-wrapper">
+            <span
+              tabIndex={0}
+              aria-disabled="true"
+              className="inline-block cursor-not-allowed"
+              data-testid="disabled-wrapper"
+            >
               <Button disabled variant="primary">
                 Export NPS Report
               </Button>
@@ -392,18 +396,29 @@ describe('Tooltip Component Primitive', () => {
     );
 
     const wrapper = screen.getByTestId('disabled-wrapper');
+    const button = screen.getByRole('button', { name: /export nps report/i });
+
+    // Verify wrapper semantics: focusable container with aria-disabled, but without role="button"
     expect(wrapper.getAttribute('tabindex')).toBe('0');
     expect(wrapper.getAttribute('aria-disabled')).toBe('true');
+    expect(wrapper.getAttribute('role')).toBeNull();
 
+    // Verify nested button remains natively disabled
+    expect(button.hasAttribute('disabled')).toBe(true);
+
+    // Wrapper can receive keyboard focus
     act(() => {
       wrapper.focus();
     });
 
+    // Focusing the wrapper opens the tooltip and links aria-describedby
     await waitFor(() => {
-      expect(screen.getByRole('tooltip')).toBeTruthy();
+      const tooltip = screen.getByRole('tooltip');
+      expect(tooltip).toBeTruthy();
       expect(
         screen.getByText(/exporting is restricted to enterprise plan administrators/i)
       ).toBeTruthy();
+      expect(wrapper.getAttribute('aria-describedby')).toBe(tooltip.getAttribute('id'));
     });
   });
 

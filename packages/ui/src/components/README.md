@@ -1966,7 +1966,7 @@ export function FeedbackToolbar() {
 ```
 
 #### Example 5 — Accessible Disabled Triggers
-HTML elements with the `disabled` attribute suppress pointer events and keyboard focus. To ensure tooltips remain accessible when triggering elements are disabled, wrap the disabled button in a focusable container with `tabIndex={0}` or use `aria-disabled="true"`.
+HTML elements with the `disabled` attribute natively suppress browser pointer events and keyboard focus. A natively disabled button cannot receive focus on its own. To expose an explanatory tooltip for a disabled control without introducing conflicting nested interactive roles, wrap the disabled button in a neutral, focusable container element (such as `<span tabIndex={0} aria-disabled="true">`). Do not add `role="button"` to the wrapper, which would create invalid nested button semantics.
 
 ```tsx
 import {
@@ -1982,8 +1982,12 @@ export function DisabledEnterpriseFeature() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          {/* Focusable wrapper preserves keyboard Tab navigation and pointer events */}
-          <span tabIndex={0} role="button" aria-disabled="true" className="inline-block cursor-not-allowed">
+          {/* Focusable wrapper without role="button" avoids nested interactive semantics */}
+          <span
+            tabIndex={0}
+            aria-disabled="true"
+            className="inline-block cursor-not-allowed"
+          >
             <Button disabled variant="primary">
               AI Sentiment Clustering
             </Button>
