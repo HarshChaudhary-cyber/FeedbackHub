@@ -125,33 +125,68 @@ Alert.displayName = 'Alert';
 // AlertTitle Component
 // -----------------------------------------------------------------------------
 
-export type AlertTitleElement = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'div';
+export type AlertTitleElement =
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'h4'
+  | 'h5'
+  | 'h6'
+  | 'div'
+  | 'p';
 
-export interface AlertTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
-  /** Semantic HTML heading tag to render */
-  as?: AlertTitleElement;
+export type AlertTitleRef<T extends AlertTitleElement> = T extends 'div'
+  ? HTMLDivElement
+  : T extends 'p'
+  ? HTMLParagraphElement
+  : HTMLHeadingElement;
+
+type AlertTitleOwnProps<T extends AlertTitleElement = 'h5'> = {
+  /** Semantic HTML heading or container tag to render */
+  as?: T;
+};
+
+export type AlertTitleProps<T extends AlertTitleElement = 'h5'> =
+  AlertTitleOwnProps<T> &
+    Omit<React.ComponentPropsWithoutRef<T>, keyof AlertTitleOwnProps<T>>;
+
+export interface AlertTitleComponent {
+  <T extends AlertTitleElement = 'h5'>(
+    props: AlertTitleProps<T> & {
+      ref?: React.Ref<NoInfer<AlertTitleRef<T>>>;
+    }
+  ): React.ReactElement | null;
+  displayName?: string;
 }
+
+const AlertTitleRender = <T extends AlertTitleElement = 'h5'>(
+  { as, className, children, ...props }: AlertTitleProps<T>,
+  ref: React.Ref<AlertTitleRef<T>>
+) => {
+  const Component = as || 'h5';
+
+  return React.createElement(
+    Component,
+    {
+      ref,
+      className: cn(
+        'text-sm font-semibold text-content-main leading-tight tracking-tight',
+        className
+      ),
+      ...props,
+    },
+    children
+  );
+};
 
 /**
  * AlertTitle Component
  * High-contrast semantic heading for the inline alert.
+ * Supports polymorphic rendering (h1-h6, div, p) with type-safe element-specific refs.
  */
-export const AlertTitle = React.forwardRef<HTMLHeadingElement, AlertTitleProps>(
-  ({ as: Component = 'h5', className, children, ...props }, ref) => {
-    return React.createElement(
-      Component,
-      {
-        ref,
-        className: cn(
-          'text-sm font-semibold text-content-main leading-tight tracking-tight',
-          className
-        ),
-        ...props,
-      },
-      children
-    );
-  }
-);
+export const AlertTitle: AlertTitleComponent = React.forwardRef(
+  AlertTitleRender
+) as unknown as AlertTitleComponent;
 AlertTitle.displayName = 'AlertTitle';
 
 // -----------------------------------------------------------------------------

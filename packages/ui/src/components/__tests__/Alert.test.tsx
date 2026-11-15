@@ -446,4 +446,90 @@ describe('Alert Component Primitive', () => {
     expect(alert.className).toContain('items-start');
     expect(alert.className).toContain('gap-3');
   });
+
+  it('25. correctly renders as "div" and forwards HTMLDivElement ref', () => {
+    const divRef = React.createRef<HTMLDivElement>();
+
+    render(
+      <Alert>
+        <AlertTitle as="div" ref={divRef} className="custom-div-title" id="div-title-id">
+          Div Title Content
+        </AlertTitle>
+      </Alert>
+    );
+
+    const element = screen.getByText('Div Title Content');
+    expect(element.tagName.toLowerCase()).toBe('div');
+    expect(divRef.current).toBeInstanceOf(HTMLDivElement);
+    expect(divRef.current).toBe(element);
+    expect(element.getAttribute('id')).toBe('div-title-id');
+    expect(element.className).toContain('custom-div-title');
+  });
+
+  it('26. correctly renders as "h2" and forwards HTMLHeadingElement ref with heading-specific attributes', () => {
+    const h2Ref = React.createRef<HTMLHeadingElement>();
+
+    render(
+      <Alert>
+        <AlertTitle as="h2" ref={h2Ref} className="custom-h2-title" aria-level={2}>
+          Heading 2 Title Content
+        </AlertTitle>
+      </Alert>
+    );
+
+    const element = screen.getByRole('heading', { level: 2 });
+    expect(element.tagName.toLowerCase()).toBe('h2');
+    expect(h2Ref.current).toBeInstanceOf(HTMLHeadingElement);
+    expect(h2Ref.current).toBe(element);
+    expect(element.className).toContain('custom-h2-title');
+  });
+
+  it('27. enforces polymorphic element and ref types at compile time and rejects invalid combinations', () => {
+    const headingRef = React.createRef<HTMLHeadingElement>();
+    const divRef = React.createRef<HTMLDivElement>();
+    const pRef = React.createRef<HTMLParagraphElement>();
+    const buttonRef = React.createRef<HTMLButtonElement>();
+
+    // Valid ref assignments and element attributes (must compile cleanly)
+    const validDefault = <AlertTitle ref={headingRef}>Valid Default H5</AlertTitle>;
+    const validH2 = <AlertTitle as="h2" ref={headingRef}>Valid H2</AlertTitle>;
+    const validDiv = <AlertTitle as="div" ref={divRef}>Valid Div</AlertTitle>;
+    const validP = <AlertTitle as="p" ref={pRef}>Valid P</AlertTitle>;
+
+    expect(validDefault).toBeTruthy();
+    expect(validH2).toBeTruthy();
+    expect(validDiv).toBeTruthy();
+    expect(validP).toBeTruthy();
+
+    // Invalid ref assignments (must trigger compile-time type errors)
+    // @ts-expect-error - HTMLButtonElement ref is invalid for default H5 heading
+    const invalidDefaultWithButton = <AlertTitle ref={buttonRef}>Invalid</AlertTitle>;
+
+    // @ts-expect-error - HTMLButtonElement ref is invalid for H2 heading
+    const invalidH2WithButton = <AlertTitle as="h2" ref={buttonRef}>Invalid</AlertTitle>;
+
+    // @ts-expect-error - HTMLButtonElement ref is invalid when as="div"
+    const invalidDivWithButton = <AlertTitle as="div" ref={buttonRef}>Invalid</AlertTitle>;
+
+    // @ts-expect-error - HTMLButtonElement ref is invalid when as="p"
+    const invalidPWithButton = <AlertTitle as="p" ref={buttonRef}>Invalid</AlertTitle>;
+
+    // Invalid element-specific attributes / combinations
+    // @ts-expect-error - 'href' is not a valid attribute on h2 heading
+    const invalidHrefOnHeading = <AlertTitle as="h2" href="https://feedbackhub.com">Invalid</AlertTitle>;
+
+    // @ts-expect-error - 'disabled' is not a valid attribute on div
+    const invalidDisabledOnDiv = <AlertTitle as="div" disabled={true}>Invalid</AlertTitle>;
+
+    // @ts-expect-error - 'as="button"' is not an allowed AlertTitleElement
+    const invalidButtonElement = <AlertTitle as="button">Invalid</AlertTitle>;
+
+    expect(invalidDefaultWithButton).toBeTruthy();
+    expect(invalidH2WithButton).toBeTruthy();
+    expect(invalidDivWithButton).toBeTruthy();
+    expect(invalidPWithButton).toBeTruthy();
+    expect(invalidHrefOnHeading).toBeTruthy();
+    expect(invalidDisabledOnDiv).toBeTruthy();
+    expect(invalidButtonElement).toBeTruthy();
+  });
 });
