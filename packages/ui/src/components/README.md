@@ -30,6 +30,9 @@ FeedbackHub enforces a strict corner-radius hierarchy:
 | **Progress Bars** | `9999px` | Pill-shaped track & indicator (`rounded-full`) |
 | **Badges** | `var(--radius-badge)` | Pill-shaped (`rounded-full`) |
 | **Avatars** | `var(--radius-avatar)` | Circular (`rounded-full`) |
+| **Skeletons** | Multi-radius (`rounded-md`, `rounded-[16px]`, `rounded-full`) | Visual placeholder matching target shape |
+| **Pagination Links** | `var(--radius-btn-secondary)` | 12px rounded buttons (`rounded-xl`) |
+| **Accordion Headers** | `8px` | 8px rounded focus area (`rounded-lg`) |
 
 ---
 
@@ -2719,12 +2722,13 @@ export function TenantQuotaIndicator({ used, limit }: { used: number; limit: num
 - **ARIA Progressbar Semantics**:
   - The progress track has `role="progressbar"`.
   - When determinate: provides `aria-valuenow={clampedValue}`, `aria-valuemin="0"`, `aria-valuemax={max}`, and `aria-valuetext={valueText}`.
-  - When indeterminate (`value === null | undefined`): `aria-valuenow` is strictly omitted from the DOM per W3C ARIA guidelines, preventing misleading announcements.
+  - When indeterminate (`value === null | undefined | NaN | Infinity | -Infinity`): `aria-valuenow`, `aria-valuemin`, and `aria-valuemax` are strictly omitted from the DOM per W3C ARIA guidelines, preventing misleading announcements.
   - Accessible name resolution: if `label` is a string, it automatically binds via `aria-label`; if `label` is a React node, it links via `aria-labelledby`.
   - The visible percentage text rendered when `showValue` is true has `aria-hidden="true"` to prevent screen readers from announcing the value twice.
 - **Clamping & Resilience**:
-  - Automatically clamps negative values to 0 and overflow values to `max`.
-  - Defaults `max` safely to 100 if negative or `NaN` is supplied.
+  - Automatically clamps finite negative values to 0 and overflow values to `max`.
+  - Rejects `Infinity`, `-Infinity`, `NaN`, zero, and negative values for `max`, defaulting safely to 100.
+  - `ProgressIndicator` clamps percentages strictly between 0 and 100, ensuring non-finite values safely output 0% width without invalid CSS.
 - **Reduced Motion**:
   - When `prefers-reduced-motion` is active, `motion-reduce:transition-none` disables animated width transitions.
   - In indeterminate mode, `motion-reduce:animate-none` suppresses continuous pulsing animations.
@@ -2732,6 +2736,410 @@ export function TenantQuotaIndicator({ used, limit }: { used: number; limit: num
   - Track: `rounded-full` (9999px) with `bg-border/40`.
   - Indicator: `rounded-full` (9999px) with variant token classes (`bg-brand-primary`, `bg-semantic-success`, `bg-semantic-warning`, `bg-semantic-error`).
   - Zero hardcoded color classes outside design system tokens.
+
+---
+
+### 2.20 Label (`Label.tsx`)
+
+Accessible form label primitive built on Radix UI's Label, supporting required indicators, peer-disabled state styling, and ref forwarding.
+
+- **Key Props**: `required?: boolean`, `htmlFor?: string`, standard HTML label attributes.
+- **Styling**: `text-xs sm:text-sm font-medium leading-none text-content-main select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70`.
+- **Accessibility**: When `required` is true, renders an `aria-hidden="true"` red asterisk (`text-semantic-error`) for visual indication without cluttering screen reader announcements.
+
+#### Usage Example:
+```tsx
+import { Label, Input } from '@feedbackhub/ui';
+
+<div className="space-y-1.5">
+  <Label htmlFor="tenant-name" required>
+    Company Name
+  </Label>
+  <Input id="tenant-name" placeholder="Acme Inc." />
+</div>
+```
+
+---
+
+### 2.21 Separator (`Separator.tsx`)
+
+Visual and semantic content divider built on Radix UI Separator.
+
+- **Key Props**:
+  - `orientation?: 'horizontal' | 'vertical'` (default: `'horizontal'`)
+  - `decorative?: boolean` (default: `true`, renders `role="none"`; if `false`, renders `role="separator"` with `aria-orientation`)
+- **Styling**: `shrink-0 bg-border`, `h-[1px] w-full` (horizontal) or `h-full w-[1px]` (vertical).
+
+#### Usage Example:
+```tsx
+import { Separator } from '@feedbackhub/ui';
+
+// Horizontal section divider
+<div className="space-y-4">
+  <h2 className="text-lg font-semibold">Survey Settings</h2>
+  <Separator />
+  <p className="text-sm text-content-secondary">Configure distribution channels.</p>
+</div>
+
+// Vertical divider inside navigation toolbar
+<div className="flex h-5 items-center space-x-3 text-sm">
+  <span>Overview</span>
+  <Separator orientation="vertical" />
+  <span>Responses</span>
+  <Separator orientation="vertical" />
+  <span>Analytics</span>
+</div>
+```
+
+---
+
+### 2.22 Skeleton (`Skeleton.tsx`)
+
+Content placeholder primitive for asynchronous loading states, featuring smooth pulse animations and reduced-motion accessibility support.
+
+- **Variants**:
+  - `default`: `rounded-md` (standard controls and text lines)
+  - `card`: `rounded-[16px]` (dashboard metric cards, question boxes)
+  - `circular`: `rounded-full` (avatars, status chips, circular buttons)
+- **Accessibility**: Includes `aria-hidden="true"` by default to prevent screen readers from parsing placeholder blocks, and `motion-reduce:animate-none` for users who prefer reduced motion.
+
+#### Usage Example:
+```tsx
+import { Skeleton } from '@feedbackhub/ui';
+
+export function FeedbackCardSkeleton() {
+  return (
+    <div className="p-4 border border-border rounded-[16px] space-y-3 bg-surface-card">
+      <div className="flex items-center space-x-3">
+        <Skeleton variant="circular" className="h-10 w-10" />
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </div>
+      <Skeleton className="h-16 w-full" />
+    </div>
+  );
+}
+```
+
+---
+
+### 2.23 Spinner (`Spinner.tsx`)
+
+Accessible SVG loading spinner for asynchronous operations, form submissions, and button loading indicators.
+
+- **Sizes**: `xs` (12px), `sm` (16px), `md` (20px, default), `lg` (28px), `xl` (36px).
+- **Variants**: `primary` (`text-brand-primary`), `default` (`text-content-main`), `white` (`text-white`), `muted` (`text-content-muted`).
+- **Accessibility**: Renders `role="status"` with an accessible `aria-label` (default: `"Loading..."`), a visually hidden `<span className="sr-only">`, and `motion-reduce:animate-none`.
+
+#### Usage Example:
+```tsx
+import { Spinner, Button } from '@feedbackhub/ui';
+
+// Standalone loading state
+<div className="flex flex-col items-center justify-center p-8 gap-3">
+  <Spinner size="lg" variant="primary" label="Aggregating feedback responses..." />
+  <p className="text-sm text-content-secondary">Aggregating feedback responses...</p>
+</div>
+
+// Inline with custom variant
+<Button variant="primary" disabled>
+  <Spinner size="sm" variant="white" className="mr-2" />
+  Exporting CSV...
+</Button>
+```
+
+---
+
+### 2.24 VisuallyHidden (`VisuallyHidden.tsx`)
+
+Utility component that conceals content visually while preserving full screen-reader accessibility using standard `sr-only` CSS clipping.
+
+- **Key Props**: `as?: React.ElementType` (default: `'span'`).
+- **Accessibility**: Uses modern `sr-only` styling (`clip: rect(0, 0, 0, 0)`) without hiding content from assistive technologies.
+
+#### Usage Example:
+```tsx
+import { VisuallyHidden } from '@feedbackhub/ui';
+
+<button type="button" className="p-2 text-content-secondary hover:text-content-main">
+  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 9a1 1 0 112 0v4a1 1 0 11-2 0V9z" />
+  </svg>
+  <VisuallyHidden>More details about Net Promoter Score formula</VisuallyHidden>
+</button>
+```
+
+---
+
+### 2.25 FormField & Form Composition Primitives (`FormField.tsx`)
+
+Context-driven form composition primitives that automatically wire accessible IDs, `aria-describedby`, and `aria-invalid` between form controls, labels, helper texts, and error messages.
+
+- **Primitives**:
+  - `FormField`: Root context provider managing unique IDs and field error state (`error?: string | boolean`).
+  - `FormItem`: Container layout (`space-y-1.5 w-full flex flex-col`).
+  - `FormLabel`: Subscribes to field context, binds `htmlFor`, supports `required`, and applies error styling when `indicateError` is enabled.
+  - `FormControl`: Clones child element, injecting generated `id`, `aria-describedby` (combining description and message IDs), and `aria-invalid`.
+  - `FormDescription`: Helper text paragraph with auto-registered ID (`text-xs text-content-secondary`).
+  - `FormMessage`: Validation message with `role="alert"` and `aria-live="polite"` (`text-xs font-medium text-semantic-error`).
+  - `useFormField()`: Hook providing field context data (`formItemId`, `hasError`, `error`, etc.).
+
+#### Usage Example:
+```tsx
+import {
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormDescription,
+  FormMessage,
+  Input,
+} from '@feedbackhub/ui';
+
+export function TenantRegistrationForm({ errors }: { errors?: Record<string, string> }) {
+  return (
+    <FormField name="workspaceSubdomain" error={errors?.workspaceSubdomain}>
+      <FormItem>
+        <FormLabel required indicateError>
+          Workspace URL
+        </FormLabel>
+        <FormControl>
+          <Input placeholder="acme" />
+        </FormControl>
+        <FormDescription>
+          Your dashboard will be hosted at https://{'{'}subdomain{'}'}.feedbackhub.io
+        </FormDescription>
+        <FormMessage />
+      </FormItem>
+    </FormField>
+  );
+}
+```
+
+---
+
+### 2.26 Table (`Table.tsx`)
+
+Data table primitives featuring responsive horizontal scrolling, semantic HTML markup, and FeedbackHub design-token styling.
+
+- **Primitives**:
+  - `Table`: Outer wrapper with responsive overflow (`overflow-auto`) and semantic `<table>` (`w-full caption-bottom text-sm text-content-main`).
+  - `TableHeader`: `<thead>` with bottom border.
+  - `TableBody`: `<tbody>` with clean row dividers.
+  - `TableFooter`: `<tfoot>` with elevated summary styling (`bg-neutral-mainBackground/50 font-medium`).
+  - `TableRow`: `<tr>` with smooth hover states and `data-[state=selected]:bg-brand-primary/10`.
+  - `TableHead`: `<th>` with secondary text styling (`text-content-secondary font-medium`).
+  - `TableCell`: `<td>` with standard padding and content styling (`p-3.5 align-middle text-content-main`).
+  - `TableCaption`: `<caption>` for descriptive metadata (`text-xs text-content-secondary`).
+
+#### Usage Example:
+```tsx
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableCaption,
+  Badge,
+} from '@feedbackhub/ui';
+
+export function RecentResponsesTable({ responses }: { responses: any[] }) {
+  return (
+    <Table>
+      <TableCaption>Showing recent customer responses received in the last 24 hours.</TableCaption>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Customer</TableHead>
+          <TableHead>NPS Score</TableHead>
+          <TableHead>Sentiment</TableHead>
+          <TableHead className="text-right">Submitted</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {responses.map((resp) => (
+          <TableRow key={resp.id}>
+            <TableCell className="font-medium">{resp.customerName}</TableCell>
+            <TableCell>{resp.score}/10</TableCell>
+            <TableCell>
+              <Badge variant={resp.score >= 9 ? 'success' : resp.score >= 7 ? 'warning' : 'error'}>
+                {resp.score >= 9 ? 'Promoter' : resp.score >= 7 ? 'Passive' : 'Detractor'}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right text-content-secondary">{resp.date}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+```
+
+---
+
+### 2.27 Breadcrumb (`Breadcrumb.tsx`)
+
+Hierarchical navigation primitives providing accessible breadcrumb structures conforming to WAI-ARIA breadcrumb design patterns.
+
+- **Primitives**:
+  - `Breadcrumb`: `<nav aria-label="breadcrumb">` root container.
+  - `BreadcrumbList`: `<ol>` wrapping breadcrumb items.
+  - `BreadcrumbItem`: `<li>` item wrapper.
+  - `BreadcrumbLink`: Accessible `<a>` link supporting `asChild` composition for React Router or Next.js link components.
+  - `BreadcrumbPage`: `<span aria-current="page">` representing current active location.
+  - `BreadcrumbSeparator`: Decorative chevron or slash divider (`role="presentation"`, `aria-hidden="true"`).
+  - `BreadcrumbEllipsis`: Collapsed middle breadcrumb segments with `<span className="sr-only">More pages</span>`.
+
+#### Usage Example:
+```tsx
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@feedbackhub/ui';
+
+export function SurveyNavigation() {
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbLink href="/surveys">Surveys</BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbPage>Q1 Product Experience Survey</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+```
+
+---
+
+### 2.28 Pagination (`Pagination.tsx`)
+
+Accessible pagination primitives for multi-page data lists, feedback response queues, and audit logs.
+
+- **Primitives**:
+  - `Pagination`: `<nav role="navigation" aria-label="pagination">` root container.
+  - `PaginationContent`: `<ul>` container for page items.
+  - `PaginationItem`: `<li>` wrapper.
+  - `PaginationLink`: Page link with `isActive` property (applies `aria-current="page"`, `bg-brand-primary text-white shadow-soft-sm`, and `rounded-xl`).
+  - `PaginationPrevious`: Accessible link with left chevron icon and `aria-label="Go to previous page"`.
+  - `PaginationNext`: Accessible link with right chevron icon and `aria-label="Go to next page"`.
+  - `PaginationEllipsis`: Screen-reader accessible ellipsis (`<span className="sr-only">More pages</span>`).
+
+#### Usage Example:
+```tsx
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from '@feedbackhub/ui';
+
+export function FeedbackResponsePagination({
+  currentPage,
+  totalPages,
+  onPageSelect,
+}: {
+  currentPage: number;
+  totalPages: number;
+  onPageSelect: (page: number) => void;
+}) {
+  return (
+    <Pagination>
+      <PaginationContent>
+        <PaginationItem>
+          <PaginationPrevious
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              if (currentPage > 1) onPageSelect(currentPage - 1);
+            }}
+          />
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationLink href="#" isActive={currentPage === 1} onClick={() => onPageSelect(1)}>
+            1
+          </PaginationLink>
+        </PaginationItem>
+        {totalPages > 3 && <PaginationItem><PaginationEllipsis /></PaginationItem>}
+        <PaginationItem>
+          <PaginationLink href="#" isActive={currentPage === totalPages} onClick={() => onPageSelect(totalPages)}>
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+        <PaginationItem>
+          <PaginationNext
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              if (currentPage < totalPages) onPageSelect(currentPage + 1);
+            }}
+          />
+        </PaginationItem>
+      </PaginationContent>
+    </Pagination>
+  );
+}
+```
+
+---
+
+### 2.29 Accordion (`Accordion.tsx`)
+
+Collapsible disclosure panels built on `@radix-ui/react-accordion` for FAQs, question builder menus, and expandable response filters.
+
+- **Primitives**:
+  - `Accordion`: Root container supporting `type="single"` (with `collapsible`) or `type="multiple"`.
+  - `AccordionItem`: Panel wrapper (`border-b border-border`).
+  - `AccordionTrigger`: Accessible button with automatic rotating chevron icon (`[&[data-state=open]>svg]:rotate-180`), visible focus rings, and hover states.
+  - `AccordionContent`: Smooth collapsible container with overflow hidden and inner content padding.
+- **Accessibility**: Full keyboard navigation (Enter/Space to toggle, Up/Down arrows to move focus between triggers, Home/End to first/last triggers).
+
+#### Usage Example:
+```tsx
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '@feedbackhub/ui';
+
+export function FeedbackFAQ() {
+  return (
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="item-1">
+        <AccordionTrigger>How does FeedbackHub calculate CSAT?</AccordionTrigger>
+        <AccordionContent>
+          CSAT is calculated by dividing the number of positive responses (ratings 4 and 5) by the total number of responses, multiplied by 100.
+        </AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="item-2">
+        <AccordionTrigger>Can surveys be embedded on external websites?</AccordionTrigger>
+        <AccordionContent>
+          Yes, FeedbackHub provides both iframe and lightweight JavaScript SDK snippets for seamless embedding.
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  );
+}
+```
 
 ---
 

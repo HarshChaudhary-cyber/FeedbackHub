@@ -322,4 +322,66 @@ describe('Progress Component Primitive', () => {
     expect(indicatorRef.current?.className).toContain('bg-semantic-success');
     expect(indicatorRef.current?.className).toContain('custom-ind');
   });
+
+  it('23. treats Infinity, -Infinity, and NaN value as indeterminate and omits ARIA numeric attributes', () => {
+    const { rerender } = render(<Progress value={Infinity} aria-label="Processing" />);
+
+    let progressbar = screen.getByRole('progressbar', { name: 'Processing' });
+    expect(progressbar.getAttribute('data-state')).toBe('indeterminate');
+    expect(progressbar.getAttribute('aria-valuenow')).toBeNull();
+    expect(progressbar.getAttribute('aria-valuemin')).toBeNull();
+    expect(progressbar.getAttribute('aria-valuemax')).toBeNull();
+    expect(progressbar.getAttribute('aria-valuetext')).toBeNull();
+
+    // -Infinity
+    rerender(<Progress value={-Infinity} aria-label="Processing" />);
+    progressbar = screen.getByRole('progressbar', { name: 'Processing' });
+    expect(progressbar.getAttribute('data-state')).toBe('indeterminate');
+    expect(progressbar.getAttribute('aria-valuenow')).toBeNull();
+
+    // NaN
+    rerender(<Progress value={NaN} aria-label="Processing" />);
+    progressbar = screen.getByRole('progressbar', { name: 'Processing' });
+    expect(progressbar.getAttribute('data-state')).toBe('indeterminate');
+    expect(progressbar.getAttribute('aria-valuenow')).toBeNull();
+    expect(progressbar.getAttribute('aria-valuemin')).toBeNull();
+    expect(progressbar.getAttribute('aria-valuemax')).toBeNull();
+  });
+
+  it('24. safely handles invalid maximum values (Infinity, -Infinity, NaN, 0, negative) defaulting to 100', () => {
+    const invalidMaxValues = [Infinity, -Infinity, NaN, 0, -50];
+
+    for (const invalidMax of invalidMaxValues) {
+      const { unmount } = render(
+        <Progress value={40} max={invalidMax} data-testid={`progress-max-${String(invalidMax)}`} />
+      );
+
+      const progressbar = screen.getByTestId(`progress-max-${String(invalidMax)}`);
+      expect(progressbar.getAttribute('aria-valuemax')).toBe('100');
+      expect(progressbar.getAttribute('data-max')).toBe('100');
+      expect(progressbar.getAttribute('aria-valuenow')).toBe('40');
+      expect(progressbar.getAttribute('aria-valuetext')).toBe('40%');
+
+      unmount();
+    }
+  });
+
+  it('25. standalone ProgressIndicator clamps percentages and handles non-finite values safely', () => {
+    const { rerender } = render(<ProgressIndicator percentage={-30} data-testid="indicator" />);
+    let indicator = screen.getByTestId('indicator');
+    expect(indicator.getAttribute('style')).toContain('width: 0%');
+
+    rerender(<ProgressIndicator percentage={150} data-testid="indicator" />);
+    indicator = screen.getByTestId('indicator');
+    expect(indicator.getAttribute('style')).toContain('width: 100%');
+    expect(indicator.getAttribute('data-state')).toBe('complete');
+
+    rerender(<ProgressIndicator percentage={NaN} data-testid="indicator" />);
+    indicator = screen.getByTestId('indicator');
+    expect(indicator.getAttribute('style')).toContain('width: 0%');
+
+    rerender(<ProgressIndicator percentage={Infinity} data-testid="indicator" />);
+    indicator = screen.getByTestId('indicator');
+    expect(indicator.getAttribute('style')).toContain('width: 0%');
+  });
 });

@@ -57,20 +57,25 @@ export const ProgressIndicator = React.forwardRef<
     },
     ref
   ) => {
+    const safePercentage =
+      typeof percentage === 'number' && Number.isFinite(percentage)
+        ? Math.min(100, Math.max(0, percentage))
+        : 0;
+
     return (
       <div
         ref={ref}
         data-state={
           isIndeterminate
             ? 'indeterminate'
-            : percentage === 100
+            : safePercentage === 100
             ? 'complete'
             : 'loading'
         }
         style={
           isIndeterminate
             ? style
-            : { width: `${percentage}%`, ...style }
+            : { width: `${safePercentage}%`, ...style }
         }
         className={cn(
           'h-full rounded-full transition-all duration-300 ease-in-out motion-reduce:transition-none',
@@ -166,13 +171,19 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
     const labelId = label ? `${id}-label` : undefined;
     const valueTextId = showValue ? `${id}-value` : undefined;
 
-    // Validate max: must be a positive number greater than 0
+    // Validate max: must be a positive finite number greater than 0
     const max =
-      typeof rawMax === 'number' && rawMax > 0 && !isNaN(rawMax) ? rawMax : 100;
+      typeof rawMax === 'number' && Number.isFinite(rawMax) && rawMax > 0
+        ? rawMax
+        : 100;
 
-    // Determine if progress is in indeterminate state
+    // Determine if progress is in indeterminate state:
+    // Treat Infinity, -Infinity, NaN, null and undefined as indeterminate
     const isIndeterminate =
-      value === null || value === undefined || (typeof value === 'number' && isNaN(value));
+      value === null ||
+      value === undefined ||
+      typeof value !== 'number' ||
+      !Number.isFinite(value);
 
     // Clamp numeric value between 0 and max
     const clampedValue = isIndeterminate
