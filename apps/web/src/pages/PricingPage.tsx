@@ -56,7 +56,7 @@ export const PricingPage: React.FC = () => {
         'Custom company branding (planned)',
         'Embeddable web widget & QR codes (planned)',
         'Raw CSV data exports (planned)',
-        'Standard email support (< 24h target)',
+        'Standard email support (planned)',
       ],
       isPopular: false,
       ctaText: 'Preview Starter Tier',
@@ -73,10 +73,10 @@ export const PricingPage: React.FC = () => {
         'Unlimited active survey forms',
         '10 team seats with granular roles (planned)',
         'Dual Customer & Employee tracks',
-        'Planned anonymous mode with k >= 5',
+        'Planned anonymous feedback mode (k-anonymity target)',
         'Real-time triage inbox & notes (planned)',
         'Automated sentiment trends (planned)',
-        'Priority support channel',
+        'Priority email support (planned)',
       ],
       isPopular: true,
       ctaText: 'Preview Professional Tier',
@@ -95,8 +95,8 @@ export const PricingPage: React.FC = () => {
         'SAML 2.0 / SSO integration (planned Phase 4)',
         'Administrative audit logging (planned)',
         'Custom data retention policies (planned)',
-        'Dedicated technical onboarding lead',
-        'Target 99.9% uptime SLA upon launch',
+        'Technical onboarding consultation (planned)',
+        'Enterprise availability and service terms defined prior to launch',
       ],
       isPopular: false,
       ctaText: 'Inquire for Enterprise',
@@ -145,7 +145,7 @@ export const PricingPage: React.FC = () => {
     {
       category: 'Security & Governance (Roadmap Targets)',
       features: [
-        { name: 'Cryptographic anonymous mode (k >= 5) (Planned)', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Planned anonymous feedback mode (k-anonymity target)', free: false, starter: false, pro: true, enterprise: true },
         { name: 'Role-Based Access Control (RBAC) (Planned Phase 4)', free: false, starter: true, pro: true, enterprise: true },
         { name: 'PostgreSQL RLS data isolation (Planned Architecture)', free: true, starter: true, pro: true, enterprise: true },
         { name: 'Audit activity logs (Planned)', free: false, starter: false, pro: false, enterprise: true },
@@ -346,7 +346,7 @@ export const PricingPage: React.FC = () => {
           <SectionHeading
             badge="Common Questions"
             title="Everything you need to know about pricing"
-            description="Have questions about billing cycles, user seats, or our anonymous feedback guarantees? Find quick answers below."
+            description="Have questions about billing cycles, user seats, or planned anonymous feedback? Find quick answers below."
           />
 
           <div className="mt-12">

@@ -48,7 +48,7 @@ export const FeaturesPage: React.FC = () => {
       ],
       highlights: [
         { label: 'Distribution Channels', value: 'Web, Widget, QR, Email' },
-        { label: 'Identity Modes', value: 'Identified & True Anonymous' },
+        { label: 'Identity Modes', value: 'Identified & Anonymous Options' },
         { label: 'Mobile Optimized', value: '100% Responsive Viewports' },
       ],
     },

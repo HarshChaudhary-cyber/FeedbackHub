@@ -47,7 +47,7 @@ const defaultFaqs: FAQItem[] = [
     id: 'faq-6',
     question: 'How do I contact the FeedbackHub team for questions or early access?',
     answer:
-      'You can reach our team directly via our public Contact page or by requesting early onboarding access. We provide dedicated response support for product demonstrations and enterprise architecture evaluations.',
+      'You can submit inquiries directly via our public Contact page to connect regarding early access programs, architecture questions, or roadmap previews.',
   },
 ];
 

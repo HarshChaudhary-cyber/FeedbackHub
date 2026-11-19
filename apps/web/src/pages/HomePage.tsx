@@ -415,7 +415,7 @@ export const HomePage: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-[11px] text-content-muted">
-                  Responses are cryptographically decoupled from user accounts. Reports require minimum 5 submissions per group.
+                  Planned design decouples responses from user accounts. Aggregation design targets minimum 5 submissions per group.
                 </p>
               </div>
             </div>
@@ -429,7 +429,7 @@ export const HomePage: React.FC = () => {
               </h2>
               <p className="text-base text-content-secondary leading-relaxed">
                 Employees hesitate to share honest constructive feedback when they worry about
-                retaliation or attribution. FeedbackHub’s privacy architecture guarantees true
+                retaliation or attribution. FeedbackHub’s planned privacy architecture is designed for genuine
                 peace of mind:
               </p>
 
@@ -440,7 +440,7 @@ export const HomePage: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
-                  <span><strong>Zero Fingerprinting:</strong> No IP address logging or browser hardware fingerprinting.</span>
+                  <span><strong>Planned Privacy Controls:</strong> Architecture designed to prevent IP logging and client fingerprinting.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
@@ -520,7 +520,7 @@ export const HomePage: React.FC = () => {
                   &ldquo;Nova Internal Pulse &amp; Retrospective Portal&rdquo;
                 </p>
                 <p className="text-content-secondary leading-relaxed">
-                  Independent employee portal with custom branding and verified anonymous submission rules.
+                  Independent employee portal with custom branding and planned anonymous submission options.
                 </p>
               </div>
             </Card>

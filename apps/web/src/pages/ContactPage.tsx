@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Clock,
   ShieldCheck,
   Sparkles,
   MessageSquare,
@@ -55,8 +54,8 @@ export const ContactPage: React.FC = () => {
             variant="secondary"
             className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-brand-primary/10 text-brand-primary border-brand-primary/20 shadow-soft-sm"
           >
-            <Clock className="h-3.5 w-3.5" />
-            <span>Response within 24 business hours</span>
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span>Pre-Launch Inquiries &amp; Preview</span>
           </Badge>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-content-main max-w-4xl mx-auto leading-[1.15]">
@@ -86,10 +85,10 @@ export const ContactPage: React.FC = () => {
                   Inquiry Pathways
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-content-main mt-1 tracking-tight">
-                  Reach the right team directly
+                  Connect with the FeedbackHub team
                 </h2>
                 <p className="text-sm text-content-secondary mt-3 leading-relaxed">
-                  We are an engineering-driven team. All inquiries submitted through our verified form below are routed directly to our product and engineering leadership.
+                  FeedbackHub is currently in technical preview. Explore our intended communication pathways below to discuss roadmap priorities, architecture, and planned capabilities.
                 </p>
               </div>
 
@@ -119,23 +118,23 @@ export const ContactPage: React.FC = () => {
                 ))}
               </div>
 
-              {/* Commitments Card */}
+              {/* Current Inquiries Status */}
               <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-soft-sm space-y-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-content-muted">
-                  Our Inquiries Commitment
+                  Current Inquiries Status
                 </span>
                 <ul className="space-y-2.5 text-xs text-content-main">
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0" />
-                    <span>No automated cold call lists or third-party marketing brokers.</span>
+                    <span>Interactive form preview with local client-side validation.</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0" />
-                    <span>Direct engineering and architecture consultation.</span>
+                    <span>Backend message queuing and persistent inbox storage are in active development.</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0" />
-                    <span>Strict data privacy: your contact info is never shared or sold.</span>
+                    <span>Submissions in preview mode validate field constraints without transmitting external data.</span>
                   </li>
                 </ul>
               </div>

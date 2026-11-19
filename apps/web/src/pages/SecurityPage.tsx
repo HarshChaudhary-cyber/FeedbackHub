@@ -28,8 +28,8 @@ export const SecurityPage: React.FC = () => {
   const securityPillars = [
     {
       title: 'Multi-Tenant Isolation (PostgreSQL RLS)',
-      tagline: 'Planned Database-Level Enforcement',
-      category: 'Planned Control',
+      tagline: 'Planned Database Enforcement',
+      category: 'Planned',
       badgeVariant: 'outline' as const,
       badgeText: 'Planned Architecture',
       description:
@@ -43,12 +43,12 @@ export const SecurityPage: React.FC = () => {
     },
     {
       title: 'Privacy-Preserving Anonymous Feedback',
-      tagline: 'Design Principle & Requirement',
-      category: 'Design Principle',
+      tagline: 'Core Privacy Commitment',
+      category: 'Design principles',
       badgeVariant: 'outline' as const,
-      badgeText: 'Design Requirement',
+      badgeText: 'Design Principle',
       description:
-        'When collecting anonymous employee or customer feedback, privacy must be architecturally guaranteed. Anonymous feedback is a core requirement designed to decouple submission metadata at ingestion.',
+        'When collecting anonymous employee or customer feedback, privacy is a fundamental architectural requirement. Anonymous feedback is designed to decouple submission metadata at ingestion.',
       details: [
         'Architectural design: response records will have no foreign key relationship to respondent account IDs.',
         'Planned redaction of client network identifiers, IP addresses, and User-Agent headers at ingestion.',
@@ -58,23 +58,23 @@ export const SecurityPage: React.FC = () => {
     },
     {
       title: 'Encryption in Transit & at Rest',
-      tagline: 'Target Cryptographic Standards',
-      category: 'Planned Control',
+      tagline: 'Target Encryption Standards',
+      category: 'Planned',
       badgeVariant: 'outline' as const,
-      badgeText: 'Production Specification',
+      badgeText: 'Planned Control',
       description:
         'Production feedback data will be protected against eavesdropping and unauthorized access using modern transport protocols and standard persistent storage encryption.',
       details: [
         'Target standard: TLS 1.3 encryption for all production public endpoints with modern forward-secret ciphers.',
         'Target standard: AES-256 encryption at rest for production databases, volume backups, and object storage.',
-        'Planned credential security: Argon2id password hashing planned for implementation in Phase 4 authentication.',
+        'Planned credential security: Argon2id password hashing scheduled for Phase 4 authentication implementation.',
       ],
       icon: <Lock className="h-6 w-6 text-brand-sky" />,
     },
     {
       title: 'Role-Based Access Control (RBAC)',
       tagline: 'Principle of Least Privilege',
-      category: 'Planned Control',
+      category: 'Planned',
       badgeVariant: 'outline' as const,
       badgeText: 'Planned (Phase 4)',
       description:
@@ -88,32 +88,32 @@ export const SecurityPage: React.FC = () => {
       icon: <KeyRound className="h-6 w-6 text-brand-teal" />,
     },
     {
-      title: 'Domain & Hostname Routing Isolation',
-      tagline: 'Implemented & Verified in Code',
-      category: 'Implemented & Verified',
+      title: 'Client Hostname Classification & Routing',
+      tagline: 'Automated Suite Verified',
+      category: 'Tested and verified',
       badgeVariant: 'default' as const,
-      badgeText: 'Implemented in Codebase',
+      badgeText: 'Tested & Verified',
       description:
-        'The FeedbackHub web application implements deterministic hostname resolution that strictly separates public marketing, central management console, and organization tenant subdomain contexts.',
+        'The FeedbackHub web application implements deterministic hostname resolution that strictly separates public marketing, central management console, and organization tenant subdomain UI contexts.',
       details: [
-        'Verified in codebase: resolveHostMode utility strictly classifies marketing, app, and tenant modes.',
-        'Safe navigation architecture prevents unsafe host injection and ensures correct tenant scope.',
-        'Fully covered by automated regression test suites in the current workspace.',
+        'Automated regression test suites verify hostname classification across root domains, localhost, and custom tenant slugs.',
+        'Safe navigation utility normalizes origin boundaries and prevents host header injection.',
+        'Clear boundary: Client hostname routing separates UI views and is complemented by planned server-side tenant authorization.',
       ],
       icon: <Globe2 className="h-6 w-6 text-brand-primary" />,
     },
     {
-      title: 'Type Safety & Automated Test Verification',
-      tagline: 'Implemented & Verified in Code',
-      category: 'Implemented & Verified',
+      title: 'Input Validation & Schema Boundaries',
+      tagline: 'Enforced in Codebase',
+      category: 'Implemented in current code',
       badgeVariant: 'default' as const,
-      badgeText: 'Verified Quality',
+      badgeText: 'Present in Current Code',
       description:
-        'Our software engineering foundation enforces strict static analysis, domain boundary segregation, and comprehensive automated testing before any code reaches production.',
+        'FeedbackHub enforces strict schema constraints (Zod) across shared packages on all user and tenant inputs before data reaches internal application logic.',
       details: [
-        'Strict TypeScript compilation enforced across all monorepo packages and applications.',
-        'Over 390 automated unit and integration tests verifying component contracts and behavior.',
-        'Modular monorepo structure separating shared types, validation schemas, and UI primitives.',
+        'Enforces reserved subdomain blocking (e.g. api, admin, auth, root) to prevent routing collisions.',
+        'Shared validation rules enforce length constraints, formatting, and structural checks on authentication and tenant inputs.',
+        'CORS boundaries enabled at the API gateway entry point.',
       ],
       icon: <FileCheck className="h-6 w-6 text-brand-secondary" />,
     },
@@ -167,7 +167,7 @@ export const SecurityPage: React.FC = () => {
                     Development Status &amp; Architectural Transparency
                   </AlertTitle>
                   <AlertDescription className="text-xs sm:text-sm text-content-secondary leading-relaxed">
-                    FeedbackHub is currently in technical development. The controls below are transparently categorized into <strong>Implemented &amp; Verified Controls</strong> (confirmed in our current codebase), <strong>Planned Controls</strong> (scheduled for implementation in upcoming development phases), and <strong>Design Principles</strong> (core architectural requirements). Formal independent third-party audits and certifications will be undertaken prior to commercial production launch.
+                    FeedbackHub is currently in technical development. The controls below are transparently categorized into <strong>Implemented in current code</strong> (present in our active packages), <strong>Tested and verified</strong> (backed by automated test coverage), <strong>Planned</strong> (scheduled for upcoming backend phases), and <strong>Design principles</strong> (core architectural standards). Formal independent third-party audits and certifications will be undertaken prior to commercial production launch.
                   </AlertDescription>
                 </div>
               </div>
@@ -201,8 +201,10 @@ export const SecurityPage: React.FC = () => {
                     <Badge
                       variant={pillar.badgeVariant}
                       className={`text-[10px] font-semibold px-2 py-0.5 ${
-                        pillar.category === 'Implemented & Verified'
+                        pillar.category === 'Tested and verified'
                           ? 'bg-brand-teal/15 text-slate-900 border-brand-teal/40'
+                          : pillar.category === 'Implemented in current code'
+                          ? 'bg-brand-primary/15 text-brand-primary border-brand-primary/40'
                           : 'bg-surface-main text-content-secondary border-border'
                       }`}
                     >

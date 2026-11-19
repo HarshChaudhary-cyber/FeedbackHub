@@ -80,6 +80,12 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(h1.textContent).toMatch(/Predictable plans for teams/i);
     expect(screen.getAllByText(/Illustrative Preview Pricing/i).length).toBeGreaterThan(0);
 
+    // Verify SLA, response timeline promises and cryptographic claims were removed
+    expect(screen.queryByText(/99\.9% uptime SLA/i)).toBeNull();
+    expect(screen.queryByText(/< 24h target/i)).toBeNull();
+    expect(screen.queryByText(/Cryptographic anonymous mode/i)).toBeNull();
+    expect(screen.queryByText(/our anonymous feedback guarantees/i)).toBeNull();
+
     // Initial state: annual billing is active (Save 20%)
     expect(screen.getByText('$64')).toBeTruthy(); // Pro annual
     expect(screen.getByText('$24')).toBeTruthy(); // Starter annual
@@ -119,6 +125,11 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/security@feedbackhub\.com/i)).toBeNull();
     expect(screen.queryByText(/hello@feedbackhub\.com/i)).toBeNull();
 
+    // Verify response time promise and routing/privacy guarantees were removed
+    expect(screen.queryByText(/24 business hours/i)).toBeNull();
+    expect(screen.queryByText(/routed directly to our product and engineering leadership/i)).toBeNull();
+    expect(screen.queryByText(/never shared or sold/i)).toBeNull();
+
     const submitBtn = screen.getByRole('button', { name: /Submit Inquiry/i });
     fireEvent.click(submitBtn);
 
@@ -141,9 +152,11 @@ describe('FeedbackHub Marketing Website Routes', () => {
 
     fireEvent.click(submitBtn);
 
-    // Demonstration success message
+    // UI Preview validated state (no false transmission or fake message recorded)
     await waitFor(() => {
-      expect(screen.getByText(/Message Recorded/i)).toBeTruthy();
+      expect(screen.getByText(/Validation Succeeded \(UI Preview Mode\)/i)).toBeTruthy();
+      expect(screen.getByText(/Inquiry Not Transmitted/i)).toBeTruthy();
+      expect(screen.queryByText(/Message Recorded/i)).toBeNull();
     }, { timeout: 3000 });
   });
 
@@ -153,10 +166,16 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(h1).toBeTruthy();
     expect(h1.textContent).toMatch(/Security as a core/i);
 
-    // Differentiates planned vs verified controls
+    // Differentiates the 4 categories
     expect(screen.getAllByText(/Planned Architecture/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Implemented in Codebase/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Development Status & Architectural Transparency/i)).toBeTruthy();
+    expect(screen.getAllByText(/Tested & Verified/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Present in Current Code/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Design Principle/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Implemented in current code/i)).toBeTruthy();
+    expect(screen.getByText(/Tested and verified/i)).toBeTruthy();
+
+    // Verify test suite counts are NOT classified as a security control
+    expect(screen.queryByText(/Over 390 automated unit and integration tests/i)).toBeNull();
 
     // Verify fake email was removed
     expect(screen.queryByText(/security@feedbackhub\.com/i)).toBeNull();
@@ -202,5 +221,33 @@ describe('FeedbackHub Marketing Website Routes', () => {
       expect(dialog).toBeTruthy();
       expect(screen.getByText(/Authentication Arriving in Phase 4/i)).toBeTruthy();
     });
+  });
+
+  it('verifies absence of unsupported operational and security claims across marketing pages', () => {
+    // Check HomePage
+    const home = renderWithRouter('/');
+    expect(screen.queryByText(/cryptographically decoupled/i)).toBeNull();
+    expect(screen.queryByText(/architecture guarantees true/i)).toBeNull();
+    expect(screen.queryByText(/Zero Fingerprinting/i)).toBeNull();
+    home.unmount();
+
+    // Check FeaturesPage
+    const features = renderWithRouter('/features');
+    expect(screen.queryByText(/True Anonymous/i)).toBeNull();
+    features.unmount();
+
+    // Check PricingPage
+    const pricing = renderWithRouter('/pricing');
+    expect(screen.queryByText(/Target 99\.9% uptime SLA/i)).toBeNull();
+    expect(screen.queryByText(/< 24h target/i)).toBeNull();
+    expect(screen.queryByText(/Cryptographic anonymous mode/i)).toBeNull();
+    pricing.unmount();
+
+    // Check ContactPage
+    const contact = renderWithRouter('/contact');
+    expect(screen.queryByText(/Response within 24 business hours/i)).toBeNull();
+    expect(screen.queryByText(/routed directly to our product and engineering leadership/i)).toBeNull();
+    expect(screen.queryByText(/never shared or sold/i)).toBeNull();
+    contact.unmount();
   });
 });

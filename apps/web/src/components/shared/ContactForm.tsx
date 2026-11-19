@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, RotateCcw, Info } from 'lucide-react';
+import { Send, RotateCcw, Info } from 'lucide-react';
 import {
   FormField,
   FormItem,
@@ -10,6 +10,7 @@ import {
   Input,
   Textarea,
   Button,
+  Badge,
   Alert,
   AlertTitle,
   AlertDescription,
@@ -111,26 +112,28 @@ export const ContactForm: React.FC = () => {
         aria-live="polite"
         className="rounded-[20px] border border-border bg-surface-card p-8 sm:p-10 shadow-soft-md text-center max-w-xl mx-auto space-y-6"
       >
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-semantic-success/10 text-semantic-success">
-          <CheckCircle2 className="h-8 w-8" />
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary">
+          <Info className="h-7 w-7" />
         </div>
 
         <div className="space-y-2">
+          <Badge variant="outline" className="text-xs text-brand-primary border-brand-primary/30">
+            UI Preview Mode
+          </Badge>
           <h3 className="text-2xl font-bold text-content-main">
-            Message Recorded (Demo Mode)
+            Validation Succeeded (UI Preview Mode)
           </h3>
           <p className="text-sm text-content-secondary leading-relaxed max-w-md mx-auto">
-            Thank you, <strong className="text-content-main">{formData.fullName}</strong>.
-            Your inquiry for <strong className="text-content-main">{formData.company}</strong> regarding{' '}
-            <strong className="text-brand-primary">{formData.category}</strong> has been validated.
+            Form fields for <strong className="text-content-main">{formData.company}</strong> regarding{' '}
+            <strong className="text-brand-primary">{formData.category}</strong> passed client-side validation rules.
           </p>
         </div>
 
         <Alert variant="info" className="text-left text-xs bg-surface-main">
           <Info className="h-4 w-4" />
-          <AlertTitle className="text-xs">Development Notice</AlertTitle>
-          <AlertDescription className="text-xs">
-            FeedbackHub is currently in Phase 3 (Marketing Website). Backend email delivery and database ingestion will be linked in upcoming integration phases.
+          <AlertTitle className="text-xs">Inquiry Not Transmitted</AlertTitle>
+          <AlertDescription className="text-xs leading-relaxed">
+            FeedbackHub is currently in technical preview. Backend email delivery, persistent inbox storage, and notification pipelines are not connected yet. No messages have been transmitted or stored.
           </AlertDescription>
         </Alert>
 
@@ -141,7 +144,7 @@ export const ContactForm: React.FC = () => {
             className="rounded-xl inline-flex items-center gap-2"
           >
             <RotateCcw className="h-4 w-4" />
-            <span>Send Another Inquiry</span>
+            <span>Return to Form Preview</span>
           </Button>
         </div>
       </div>
@@ -154,14 +157,25 @@ export const ContactForm: React.FC = () => {
       noValidate
       className="rounded-[24px] border border-border bg-surface-card p-6 sm:p-10 shadow-soft-md space-y-5 max-w-2xl mx-auto"
     >
-      <div className="border-b border-border pb-4">
-        <h3 className="text-xl font-bold text-content-main">
-          Send us an inquiry
-        </h3>
-        <p className="text-xs text-content-secondary mt-1">
+      <div className="border-b border-border pb-4 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xl font-bold text-content-main">
+            Send us an inquiry
+          </h3>
+          <Badge variant="outline" className="text-[10px] text-brand-primary border-brand-primary/30">
+            Interactive UI Preview
+          </Badge>
+        </div>
+        <p className="text-xs text-content-secondary">
           Have questions about FeedbackHub, custom company portals, or enterprise security?
           Fill in your details below.
         </p>
+        <div className="p-3 rounded-xl bg-surface-main border border-border flex items-start gap-2.5 text-xs text-content-secondary">
+          <Info className="h-4 w-4 text-brand-primary shrink-0 mt-0.5" />
+          <span>
+            <strong>Preview Form:</strong> Validates input constraints locally. Backend email routing and persistent inquiry storage are under development; form submissions are not transmitted.
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -256,9 +270,9 @@ export const ContactForm: React.FC = () => {
 
       <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-[11px] text-content-muted">
-          Your information is handled in accordance with our{' '}
+          Interactive preview &mdash; inputs are validated in-browser in accordance with our{' '}
           <a href="/privacy" className="text-brand-primary underline hover:text-brand-primary/80">
-            Privacy Policy
+            Privacy Policy draft
           </a>
           .
         </p>
