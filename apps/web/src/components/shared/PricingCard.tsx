@@ -78,10 +78,10 @@ export const PricingCard: React.FC<PricingCardProps> = ({
 
           <p className="text-[11px] text-content-muted">
             {isCustom
-              ? 'Tailored enterprise contract & SLA'
+              ? 'Tailored enterprise evaluation & roadmap'
               : isYearly
-              ? 'Billed annually (Save 20%)'
-              : 'Billed monthly'}
+              ? 'Billed annually (Save 20% preview rate)'
+              : 'Billed monthly (Illustrative rate)'}
           </p>
         </CardHeader>
 

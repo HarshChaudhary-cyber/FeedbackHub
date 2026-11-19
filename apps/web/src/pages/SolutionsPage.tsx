@@ -68,10 +68,10 @@ export const SolutionsPage: React.FC = () => {
       icon: <Repeat className="h-5 w-5 text-brand-primary" />,
     },
     {
-      title: 'Cryptographically Anonymous Suggestion Box',
+      title: 'Anonymous Suggestion Box',
       description:
         'Give employees complete peace of mind to voice critical concerns, ethical questions, and creative ideas without fear of managerial retaliation.',
-      metrics: 'Zero-knowledge anonymization with strict k-anonymity (k >= 5) safeguards.',
+      metrics: 'Planned privacy-preserving anonymization with k-anonymity (k >= 5) targets.',
       icon: <Lock className="h-5 w-5 text-brand-secondary" />,
     },
     {
@@ -296,7 +296,7 @@ export const SolutionsPage: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0 mt-0.5" />
-                  <span>Verified cryptographic anonymity (k &ge; 5) ensuring genuine employee honesty.</span>
+                  <span>Planned k-anonymity safeguards (k &ge; 5) designed for employee psychological safety.</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0 mt-0.5" />

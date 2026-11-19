@@ -23,7 +23,7 @@ const defaultFaqs: FAQItem[] = [
     id: 'faq-2',
     question: 'How does anonymous feedback work, and can identities be traced?',
     answer:
-      'When an employee or customer submits via anonymous mode, FeedbackHub cryptographically decouples the submission metadata from account credentials and strips IP addresses and browser fingerprints before storing responses. Demographic aggregation is protected by a k-anonymity threshold (k >= 5) so individual answers cannot be isolated.',
+      'FeedbackHub is designed with a privacy-first feedback model. In our planned architecture, anonymous mode decouples submission metadata from user accounts and strips network identifiers before persistence. Demographic reporting is designed with a k-anonymity threshold (k >= 5) so individual answers cannot be isolated.',
   },
   {
     id: 'faq-3',

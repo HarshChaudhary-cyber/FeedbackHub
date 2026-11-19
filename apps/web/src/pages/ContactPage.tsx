@@ -18,23 +18,23 @@ export const ContactPage: React.FC = () => {
       'Get in touch with the FeedbackHub team for product demonstrations, enterprise onboarding, early platform access, and security inquiries.',
   });
 
-  const contactChannels = [
+  const inquiryTopics = [
     {
-      title: 'Sales & Early Access',
-      email: 'sales@feedbackhub.com',
-      description: 'Explore custom enterprise deployments, tenant scoping, and pilot programs.',
+      title: 'Sales & Product Walkthroughs',
+      category: 'Sales & Demo',
+      description: 'Request an architectural walkthrough or discuss early onboarding for your organization.',
       icon: <Sparkles className="h-5 w-5 text-brand-primary" />,
     },
     {
-      title: 'Security & Compliance',
-      email: 'security@feedbackhub.com',
-      description: 'Request architectural security whitepapers, RLS details, and privacy documentation.',
+      title: 'Security & Architecture',
+      category: 'Security & Privacy',
+      description: 'Discuss our planned PostgreSQL RLS tenant isolation, privacy design, and technical roadmap.',
       icon: <ShieldCheck className="h-5 w-5 text-brand-teal" />,
     },
     {
-      title: 'General Inquiries',
-      email: 'hello@feedbackhub.com',
-      description: 'Partner opportunities, media inquiries, or general product feedback.',
+      title: 'General Inquiries & Early Access',
+      category: 'Early Access Program',
+      description: 'Explore partnership opportunities, developer preview feedback, or platform release schedules.',
       icon: <MessageSquare className="h-5 w-5 text-brand-secondary" />,
     },
   ];
@@ -83,37 +83,35 @@ export const ContactPage: React.FC = () => {
             <div className="lg:col-span-5 space-y-8">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">
-                  Direct Inquiries
+                  Inquiry Pathways
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-content-main mt-1 tracking-tight">
-                  Reach the right team immediately
+                  Reach the right team directly
                 </h2>
                 <p className="text-sm text-content-secondary mt-3 leading-relaxed">
-                  We are a focused engineering team dedicated to customer success. Submit the form
-                  or email our specialized inboxes directly.
+                  We are an engineering-driven team. All inquiries submitted through our verified form below are routed directly to our product and engineering leadership.
                 </p>
               </div>
 
-              {/* Channel Cards */}
+              {/* Inquiry Topic Cards */}
               <div className="space-y-4">
-                {contactChannels.map((channel, idx) => (
+                {inquiryTopics.map((topic, idx) => (
                   <Card key={idx} className="p-5 bg-surface-card border-border shadow-soft-sm">
                     <div className="flex items-start gap-4">
                       <div className="p-2.5 rounded-xl bg-surface-main border border-border shrink-0">
-                        {channel.icon}
+                        {topic.icon}
                       </div>
                       <div className="space-y-1">
-                        <h3 className="text-sm font-bold text-content-main">
-                          {channel.title}
-                        </h3>
-                        <a
-                          href={`mailto:${channel.email}`}
-                          className="text-xs font-semibold text-brand-primary hover:underline block"
-                        >
-                          {channel.email}
-                        </a>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-bold text-content-main">
+                            {topic.title}
+                          </h3>
+                          <Badge variant="outline" className="text-[10px] text-brand-primary border-brand-primary/30">
+                            {topic.category}
+                          </Badge>
+                        </div>
                         <p className="text-xs text-content-secondary leading-relaxed pt-1">
-                          {channel.description}
+                          {topic.description}
                         </p>
                       </div>
                     </div>
@@ -124,12 +122,12 @@ export const ContactPage: React.FC = () => {
               {/* Commitments Card */}
               <div className="p-6 rounded-2xl bg-surface-card border border-border shadow-soft-sm space-y-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-content-muted">
-                  Our Service Commitments
+                  Our Inquiries Commitment
                 </span>
                 <ul className="space-y-2.5 text-xs text-content-main">
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0" />
-                    <span>No automated spam or high-pressure sales calls.</span>
+                    <span>No automated cold call lists or third-party marketing brokers.</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0" />
@@ -137,7 +135,7 @@ export const ContactPage: React.FC = () => {
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0" />
-                    <span>Strict data privacy: your contact info is never shared.</span>
+                    <span>Strict data privacy: your contact info is never shared or sold.</span>
                   </li>
                 </ul>
               </div>

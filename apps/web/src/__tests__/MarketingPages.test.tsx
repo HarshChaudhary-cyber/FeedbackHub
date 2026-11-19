@@ -73,11 +73,12 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.getByText(/Employee Engagement Track/i)).toBeTruthy();
   });
 
-  it('renders PricingPage with plans and interactive billing toggle', () => {
+  it('renders PricingPage with illustrative preview badge, billing toggle, and plan modal', () => {
     renderWithRouter('/pricing');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
     expect(h1.textContent).toMatch(/Predictable plans for teams/i);
+    expect(screen.getAllByText(/Illustrative Preview Pricing/i).length).toBeGreaterThan(0);
 
     // Initial state: annual billing is active (Save 20%)
     expect(screen.getByText('$64')).toBeTruthy(); // Pro annual
@@ -90,6 +91,12 @@ describe('FeedbackHub Marketing Website Routes', () => {
     // Monthly pricing should now appear
     expect(screen.getByText('$79')).toBeTruthy(); // Pro monthly
     expect(screen.getByText('$29')).toBeTruthy(); // Starter monthly
+
+    // Plan selection modal should open and state subscriptions are not active
+    const selectStarterBtn = screen.getByRole('button', { name: /Preview Starter Tier/i });
+    fireEvent.click(selectStarterBtn);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.getByText(/Commercial subscriptions are not currently active/i)).toBeTruthy();
   });
 
   it('renders AboutPage with mission and principles', () => {
@@ -101,11 +108,16 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.getByText(/Actionable Clarity/i)).toBeTruthy();
   });
 
-  it('renders ContactPage with interactive form validation', async () => {
+  it('renders ContactPage without invented emails and with working form validation', async () => {
     renderWithRouter('/contact');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
     expect(h1.textContent).toMatch(/Let's build better feedback/i);
+
+    // Ensure invented emails are NOT rendered
+    expect(screen.queryByText(/sales@feedbackhub\.com/i)).toBeNull();
+    expect(screen.queryByText(/security@feedbackhub\.com/i)).toBeNull();
+    expect(screen.queryByText(/hello@feedbackhub\.com/i)).toBeNull();
 
     const submitBtn = screen.getByRole('button', { name: /Submit Inquiry/i });
     fireEvent.click(submitBtn);
@@ -135,31 +147,40 @@ describe('FeedbackHub Marketing Website Routes', () => {
     }, { timeout: 3000 });
   });
 
-  it('renders SecurityPage with RLS and compliance status disclaimer', () => {
+  it('renders SecurityPage with accurate controls distinction and no fake email', () => {
     renderWithRouter('/security');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
-    expect(h1.textContent).toMatch(/Security engineered at the/i);
-    const rlsElements = screen.getAllByText(/PostgreSQL Row-Level Security/i);
-    expect(rlsElements.length).toBeGreaterThan(0);
-    expect(screen.getByText(/Transparent Compliance Status & Roadmap/i)).toBeTruthy();
+    expect(h1.textContent).toMatch(/Security as a core/i);
+
+    // Differentiates planned vs verified controls
+    expect(screen.getAllByText(/Planned Architecture/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Implemented in Codebase/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Development Status & Architectural Transparency/i)).toBeTruthy();
+
+    // Verify fake email was removed
+    expect(screen.queryByText(/security@feedbackhub\.com/i)).toBeNull();
   });
 
-  it('renders PrivacyPage with legal draft notice', () => {
+  it('renders PrivacyPage with draft disclaimer and no fake email', () => {
     renderWithRouter('/privacy');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
-    expect(h1.textContent).toMatch(/FeedbackHub Privacy Policy/i);
-    expect(screen.getByText(/Legal Notice & Preview Disclaimer/i)).toBeTruthy();
-    expect(screen.getByText(/k-Anonymity Standard for Workplace Feedback/i)).toBeTruthy();
+    expect(h1.textContent).toMatch(/Privacy Policy \(Draft Notice\)/i);
+    expect(screen.getByText(/Development Preview Draft — Not an Active Legal Policy/i)).toBeTruthy();
+    expect(screen.queryByText(/privacy@feedbackhub\.com/i)).toBeNull();
   });
 
-  it('renders TermsPage with operating agreement terms', () => {
+  it('renders TermsPage with draft notice, without 99.9% SLA promise or fake email', () => {
     renderWithRouter('/terms');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
-    expect(h1.textContent).toMatch(/FeedbackHub Terms of Service/i);
-    expect(screen.getByText(/Acceptance of Terms/i)).toBeTruthy();
+    expect(h1.textContent).toMatch(/Terms of Service \(Draft\)/i);
+    expect(screen.getByText(/Preview Notice — Draft Operating Terms/i)).toBeTruthy();
+
+    // Verify SLA guarantee and fake email were removed
+    expect(screen.queryByText(/99\.9% monthly availability service level agreement/i)).toBeNull();
+    expect(screen.queryByText(/legal@feedbackhub\.com/i)).toBeNull();
   });
 
   it('renders NotFoundPage when navigating to an unknown route', () => {

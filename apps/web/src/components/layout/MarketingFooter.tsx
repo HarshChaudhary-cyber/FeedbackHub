@@ -29,7 +29,7 @@ export const MarketingFooter: React.FC = () => {
 
             <div className="inline-flex items-center gap-2 text-xs text-content-muted bg-surface-main px-3 py-1.5 rounded-full border border-border">
               <Shield className="h-3.5 w-3.5 text-brand-teal" />
-              <span>Cryptographic anonymity &amp; tenant isolation</span>
+              <span>Security-first feedback platform</span>
             </div>
           </div>
 

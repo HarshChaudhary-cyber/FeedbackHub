@@ -1,14 +1,15 @@
 import React from 'react';
-import { ShieldAlert, Scale, Clock } from 'lucide-react';
-import { Badge, Alert, AlertTitle, AlertDescription } from '@feedbackhub/ui';
+import { NavLink } from 'react-router-dom';
+import { ShieldAlert, Scale, Clock, ArrowRight } from 'lucide-react';
+import { Badge, Alert, AlertTitle, AlertDescription, Button } from '@feedbackhub/ui';
 import { useDocumentTitle } from '../utils/seo';
 import { PageContainer } from '../components/shared/PageContainer';
 
 export const TermsPage: React.FC = () => {
   useDocumentTitle({
-    title: 'Terms of Service — FeedbackHub',
+    title: 'Terms of Service (Platform Preview Draft) — FeedbackHub',
     description:
-      'Review the Terms of Service governing the use of FeedbackHub multi-tenant feedback platform, tenant accounts, and acceptable use policies.',
+      'Review the draft Terms of Service outlining the operating principles and preview terms for the FeedbackHub platform.',
   });
 
   const lastUpdated = 'November 19, 2026';
@@ -23,11 +24,11 @@ export const TermsPage: React.FC = () => {
             className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-brand-primary/10 text-brand-primary border-brand-primary/20 shadow-soft-sm"
           >
             <Scale className="h-3.5 w-3.5" />
-            <span>Terms &amp; Operating Agreement</span>
+            <span>Platform Preview Draft</span>
           </Badge>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-content-main">
-            FeedbackHub Terms of Service
+            Terms of Service (Draft)
           </h1>
 
           <div className="flex flex-wrap items-center gap-4 text-xs text-content-secondary">
@@ -36,7 +37,7 @@ export const TermsPage: React.FC = () => {
               Last Updated: {lastUpdated}
             </span>
             <span>&bull;</span>
-            <span>Version: 1.0 (Platform Preview Draft)</span>
+            <span>Status: Technical Preview / Not Binding Legal Agreement</span>
           </div>
         </div>
 
@@ -49,10 +50,10 @@ export const TermsPage: React.FC = () => {
             <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <AlertTitle className="text-sm font-bold text-amber-950">
-                Legal Notice &amp; Preview Disclaimer
+                Preview Notice — Draft Operating Terms
               </AlertTitle>
               <AlertDescription className="text-xs text-amber-900 leading-relaxed mt-1">
-                This document is a technical and design preview draft prepared for the FeedbackHub demonstration platform. It outlines the proposed commercial and operational terms for our SaaS platform but does not constitute an active, executed legal agreement. Formal Master Services Agreements (MSAs) will govern commercial production accounts.
+                FeedbackHub is currently in technical development and preview status. The platform is not currently accepting commercial subscriptions, processing billing transactions, or offering legally binding service level agreements (SLAs). Formal Terms of Service and Master Services Agreements (MSAs) will be published prior to commercial launch.
               </AlertDescription>
             </div>
           </div>
@@ -63,113 +64,114 @@ export const TermsPage: React.FC = () => {
           {/* Section 1 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              1. Acceptance of Terms
+              1. Scope &amp; Nature of this Preview Document
             </h2>
             <p>
-              By accessing our public website, creating an account, provisioning a tenant workspace, or submitting feedback through FeedbackHub interfaces, you agree to be legally bound by these Terms of Service (&ldquo;Terms&rdquo;) and our Privacy Policy.
+              This document provides an overview of the proposed terms and operating standards intended to govern FeedbackHub once made commercially available.
             </p>
             <p>
-              If you are entering into these Terms on behalf of a company, corporate entity, or organization, you represent that you possess the lawful authority to bind such entity.
+              Your access to and evaluation of the FeedbackHub public marketing website, developer preview interfaces, or demonstration environments is governed by these preliminary terms.
             </p>
           </section>
 
           {/* Section 2 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              2. Platform Services &amp; Tenant Provisioning
+              2. Platform Description &amp; Planned Services
             </h2>
             <p>
-              FeedbackHub provides a multi-tenant cloud software platform that enables organizations to author feedback forms, distribute surveys across digital channels, collect customer and employee sentiments, triage incoming responses, and generate analytical insights.
+              FeedbackHub is being engineered as a multi-tenant B2B cloud software platform designed to assist organizations in capturing, managing, analyzing, and acting upon customer and employee feedback.
             </p>
             <p>
-              We grant you a non-exclusive, non-transferable, revocable right to access and use the platform in accordance with the subscription plan tier selected by your organization.
+              All features, response limits, and integration capabilities described on the public website represent product roadmaps and planned software deliverables.
             </p>
           </section>
 
           {/* Section 3 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              3. Tenant Responsibilities &amp; Account Security
+              3. User Responsibilities &amp; Acceptable Use
             </h2>
-            <p>Each Tenant organization is responsible for:</p>
+            <p>Users and prospective evaluators agree not to:</p>
             <ul className="list-disc pl-6 space-y-2">
-              <li>Maintaining the confidentiality of account credentials and managing assigned Role-Based Access Control (RBAC) tiers.</li>
-              <li>Ensuring all authorized team members adhere to applicable data protection laws.</li>
-              <li>Promptly notifying FeedbackHub of any suspected unauthorized access or credential compromise.</li>
+              <li>Use the platform or its public endpoints for transmission of unsolicited communications (spam).</li>
+              <li>Attempt to disrupt, probe, or compromise software infrastructure, routing mechanisms, or security boundaries.</li>
+              <li>Submit malicious payloads, viruses, or harmful scripts through form fields or input controls.</li>
+              <li>Impersonate individuals or organizations in survey communications.</li>
             </ul>
           </section>
 
           {/* Section 4 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              4. Acceptable Use Policy
+              4. Intellectual Property &amp; Content Rights
             </h2>
-            <p>You agree not to use FeedbackHub to:</p>
-            <ul className="list-disc pl-6 space-y-2">
-              <li>Distribute unsolicited commercial communications (spam) or engage in deceptive phishing practices.</li>
-              <li>Collect sensitive categories of data (e.g. credit card numbers, national identification numbers, protected health information) without prior written enterprise authorization.</li>
-              <li>Attempt to reverse-engineer, de-anonymize, or breach our cryptographic anonymity safeguards or PostgreSQL Row-Level Security barriers.</li>
-              <li>Introduce viruses, malware, or destructive code designed to disrupt service infrastructure.</li>
-            </ul>
+            <p>
+              <strong>Platform Software:</strong> FeedbackHub, its codebases, user interfaces, visual design tokens, documentation, and logos remain the exclusive intellectual property of FeedbackHub and its creators.
+            </p>
+            <p>
+              <strong>Tenant Data Principle:</strong> Under our core operating philosophy, customer and employee feedback responses submitted to an organization’s workspace remain the property of that organization.
+            </p>
           </section>
 
           {/* Section 5 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              5. Intellectual Property &amp; Content Ownership
+              5. Service Availability &amp; Preview Status
             </h2>
             <p>
-              <strong>Your Feedback Data:</strong> As between FeedbackHub and Tenant, Tenant exclusively retains all rights, title, and ownership in all survey questions, company branding, and customer or employee responses submitted to their workspace.
+              During this technical development and preview phase, FeedbackHub is provided strictly on an &ldquo;as-is&rdquo; and &ldquo;as-available&rdquo; basis.
             </p>
             <p>
-              <strong>Platform IP:</strong> FeedbackHub and its licensors retain all rights, title, and intellectual property in and to the platform, source code, UI components, algorithms, documentation, and registered trademarks.
+              We do not provide uptime guarantees, formal service level agreements (SLAs), or financial remedy credits during the preview phase. Formal commercial SLAs tailored for enterprise tiers will be established upon general availability.
             </p>
           </section>
 
           {/* Section 6 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              6. Service Availability &amp; Service Level Commitments
+              6. Future Subscription &amp; Commercial Terms
             </h2>
             <p>
-              We employ commercially reasonable efforts to deliver high availability and uptime. Enterprise subscription plans include a 99.9% monthly availability service level agreement (SLA) with defined remedy credits.
+              The pricing tiers and limits shown on our marketing website are illustrative preview models. No payments are accepted, no payment methods are collected, and no recurring commercial contracts are formed during this preview.
             </p>
             <p>
-              Scheduled maintenance windows will be communicated to account administrators in advance via email and platform notification banners.
+              Final subscription terms, billing intervals, payment processing mechanisms, and cancellation procedures will be published prior to commercial account provisioning.
             </p>
           </section>
 
           {/* Section 7 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              7. Subscription Billing &amp; Cancellations
+              7. Disclaimer of Warranties &amp; Limitation of Liability
             </h2>
             <p>
-              Paid plans are billed on a recurring monthly or annual basis in advance. You may cancel your subscription at any time through the organization settings console. Cancellations take effect at the end of the current billing cycle.
+              To the fullest extent permitted by applicable law, FeedbackHub and its developers disclaim all warranties, express or implied, regarding the platform preview, including warranties of merchantability, fitness for a particular purpose, and non-infringement.
+            </p>
+            <p>
+              In no event shall FeedbackHub be liable for any direct, indirect, incidental, or consequential damages resulting from the use or inability to use this preview platform.
             </p>
           </section>
 
           {/* Section 8 */}
           <section className="space-y-3">
             <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              8. Limitation of Liability
+              8. Legal &amp; Platform Inquiries
             </h2>
             <p>
-              To the maximum extent permitted by applicable law, neither party shall be liable for any indirect, incidental, consequential, or punitive damages arising out of or related to these Terms. FeedbackHub&apos;s total aggregate liability shall not exceed the fees paid by Tenant during the twelve (12) months preceding the event giving rise to liability.
+              For questions regarding these draft terms, enterprise evaluation agreements, or the FeedbackHub development roadmap, please reach out via our public Contact page:
             </p>
-          </section>
-
-          {/* Section 9 */}
-          <section className="space-y-3">
-            <h2 className="text-xl sm:text-2xl font-bold text-content-main tracking-tight">
-              9. Contact Legal Affairs
-            </h2>
-            <p>
-              For legal notices, enterprise contract inquiries, or master service agreement questions, contact:
-            </p>
-            <div className="p-4 rounded-xl bg-surface-card border border-border text-xs sm:text-sm space-y-1">
-              <p className="font-bold text-content-main">FeedbackHub Legal &amp; Corporate Affairs</p>
-              <p>Email: <a href="mailto:legal@feedbackhub.com" className="text-brand-primary underline">legal@feedbackhub.com</a></p>
+            <div className="p-5 rounded-xl bg-surface-card border border-border text-xs sm:text-sm space-y-3">
+              <p className="font-bold text-content-main">FeedbackHub Platform &amp; Legal Inquiries</p>
+              <p className="text-content-secondary leading-relaxed">
+                All inquiries regarding preview terms, enterprise pilot evaluations, and commercial availability are managed through our contact form.
+              </p>
+              <NavLink to="/contact">
+                <Button variant="outline" size="sm" className="rounded-full mt-1">
+                  <span>Contact Our Team</span>
+                  <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </NavLink>
             </div>
           </section>
         </article>

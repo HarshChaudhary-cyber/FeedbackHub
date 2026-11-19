@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
 import { resolveHostMode } from './index';
 import { AppRouter } from './routes/AppRouter';
+import { getMarketingUrl } from './utils/navigation';
 import { Button } from '@feedbackhub/ui';
 
 export function App() {
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const hostResolution = useMemo(() => resolveHostMode(currentHost), [currentHost]);
+  const marketingUrl = useMemo(() => getMarketingUrl(), []);
 
   // If in tenant subdomain mode (e.g., acme.feedbackhub.com)
   if (hostResolution.mode === 'tenant') {
@@ -23,7 +25,7 @@ export function App() {
             Tenant authentication and branded surveys are scheduled for Phase 4.
           </p>
           <div className="pt-4">
-            <a href="http://localhost:3000/">
+            <a href={marketingUrl}>
               <Button variant="outline" size="sm" className="rounded-full">
                 Visit Main Marketing Website
               </Button>
@@ -49,7 +51,7 @@ export function App() {
             Multi-tenant company dashboard and administrative login will be activated in Phase 4.
           </p>
           <div className="pt-4">
-            <a href="http://localhost:3000/">
+            <a href={marketingUrl}>
               <Button variant="outline" size="sm" className="rounded-full">
                 Visit Main Marketing Website
               </Button>

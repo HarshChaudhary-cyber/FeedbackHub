@@ -28,7 +28,7 @@ export const AboutPage: React.FC = () => {
       title: 'Anonymity by Design',
       tagline: 'Psychological Safety First',
       description:
-        'Feedback is only as good as its honesty. When respondents fear retaliation or judgment, insights are diluted into polite platitudes. We engineer mathematical k-anonymity (k >= 5) and zero-knowledge decoupling directly into our database architecture.',
+        'Feedback is only as good as its honesty. When respondents fear retaliation or judgment, insights are diluted into polite platitudes. We are designing mathematical k-anonymity (k >= 5) and metadata decoupling into our planned architecture.',
       icon: <Lock className="h-6 w-6 text-brand-primary" />,
     },
     {
@@ -49,7 +49,7 @@ export const AboutPage: React.FC = () => {
       title: 'Enterprise Trust & Data Isolation',
       tagline: 'Security at the Foundation',
       description:
-        'Your feedback data contains sensitive customer opinions and confidential employee remarks. We isolate every tenant using PostgreSQL Row-Level Security and state-of-the-art encryption.',
+        'Your feedback data contains sensitive customer opinions and confidential employee remarks. Our planned architecture uses PostgreSQL Row-Level Security and modern encryption standards.',
       icon: <ShieldCheck className="h-6 w-6 text-brand-teal" />,
     },
     {
@@ -180,7 +180,7 @@ export const AboutPage: React.FC = () => {
                 </div>
                 <h3 className="text-base font-bold text-content-main">Employee Trust</h3>
                 <p className="text-xs text-content-secondary leading-relaxed">
-                  Guaranteed cryptographic anonymity protects respondents and yields radically truthful feedback.
+                  Planned anonymous feedback mode protects respondents and encourages truthful workplace sentiment.
                 </p>
               </Card>
 
@@ -190,7 +190,7 @@ export const AboutPage: React.FC = () => {
                 </div>
                 <h3 className="text-base font-bold text-content-main">Multi-Tenant Portals</h3>
                 <p className="text-xs text-content-secondary leading-relaxed">
-                  Dedicated company subdomains and isolated PostgreSQL Row-Level Security for enterprise governance.
+                  Dedicated company subdomains and planned PostgreSQL Row-Level Security for enterprise governance.
                 </p>
               </Card>
 

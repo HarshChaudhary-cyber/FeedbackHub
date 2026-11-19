@@ -16,9 +16,9 @@ import { CTASection } from '../components/shared/CTASection';
 
 export const PricingPage: React.FC = () => {
   useDocumentTitle({
-    title: 'Transparent Pricing for Teams of All Sizes — FeedbackHub',
+    title: 'Illustrative Pricing & Tier Preview — FeedbackHub',
     description:
-      'Simple, predictable pricing plans for FeedbackHub. Choose from Free, Starter, Professional, and Enterprise tiers with monthly or annual billing.',
+      'Explore planned pricing tiers and feature allocations for FeedbackHub. Transparent preview models for Free, Starter, Professional, and Enterprise plans.',
   });
 
   const [isYearly, setIsYearly] = useState(true);
@@ -32,7 +32,7 @@ export const PricingPage: React.FC = () => {
       monthlyPrice: 0,
       yearlyPrice: 0,
       features: [
-        '50 responses / month',
+        '50 responses / month (target)',
         '1 active survey form',
         '1 team administrator',
         'Direct shareable web link',
@@ -40,116 +40,116 @@ export const PricingPage: React.FC = () => {
         'Community discussion support',
       ],
       isPopular: false,
-      ctaText: 'Start Free',
+      ctaText: 'Preview Free Tier',
       ctaLink: '#',
     },
     {
       id: 'starter',
       name: 'Starter',
-      tagline: 'Perfect for early-stage startups and small teams looking for actionable feedback.',
+      tagline: 'Designed for early-stage startups and small teams looking for actionable feedback.',
       monthlyPrice: 29,
       yearlyPrice: 24,
       features: [
-        '500 responses / month',
+        '500 responses / month (target)',
         '5 active survey forms',
-        '3 team members with RBAC',
-        'Custom company branding & logo',
-        'Embeddable web widget & QR codes',
-        'Raw CSV data exports',
-        'Standard email support (< 24h)',
+        '3 team seats (planned RBAC)',
+        'Custom company branding (planned)',
+        'Embeddable web widget & QR codes (planned)',
+        'Raw CSV data exports (planned)',
+        'Standard email support (< 24h target)',
       ],
       isPopular: false,
-      ctaText: 'Select Starter',
+      ctaText: 'Preview Starter Tier',
       ctaLink: '#',
     },
     {
       id: 'professional',
       name: 'Professional',
-      tagline: 'Best for growing companies running dual customer and employee listening programs.',
+      tagline: 'Planned for growing companies running dual customer and employee listening programs.',
       monthlyPrice: 79,
       yearlyPrice: 64,
       features: [
-        '5,000 responses / month',
+        '5,000 responses / month (target)',
         'Unlimited active survey forms',
-        '10 team members with granular roles',
+        '10 team seats with granular roles (planned)',
         'Dual Customer & Employee tracks',
-        'Cryptographic anonymity with k >= 5',
-        'Real-time triage inbox & internal notes',
-        'Automated sentiment trends & alerts',
-        'Priority email & chat support',
+        'Planned anonymous mode with k >= 5',
+        'Real-time triage inbox & notes (planned)',
+        'Automated sentiment trends (planned)',
+        'Priority support channel',
       ],
       isPopular: true,
-      ctaText: 'Select Professional',
+      ctaText: 'Preview Professional Tier',
       ctaLink: '#',
     },
     {
       id: 'enterprise',
       name: 'Enterprise',
-      tagline: 'For established organizations needing custom security, SLAs, and unlimited scale.',
+      tagline: 'For established organizations needing custom security, volume scaling, and technical onboarding.',
       monthlyPrice: 'Custom',
       yearlyPrice: 'Custom',
       features: [
-        'Unlimited responses / month',
-        'Unlimited survey forms & team seats',
-        'Dedicated tenant subdomain & portal',
-        'SAML 2.0 / SSO integration (Phase 4)',
-        'Full administrative audit logging',
-        'Custom data retention policies',
-        'Dedicated customer success manager',
-        '99.9% uptime SLA & custom contract',
+        'Custom response volume & scaling',
+        'Unlimited survey forms & team seats (target)',
+        'Dedicated tenant subdomain (planned)',
+        'SAML 2.0 / SSO integration (planned Phase 4)',
+        'Administrative audit logging (planned)',
+        'Custom data retention policies (planned)',
+        'Dedicated technical onboarding lead',
+        'Target 99.9% uptime SLA upon launch',
       ],
       isPopular: false,
-      ctaText: 'Contact Enterprise Sales',
+      ctaText: 'Inquire for Enterprise',
       ctaLink: '#',
     },
   ];
 
   const comparisonCategories = [
     {
-      category: 'Usage & Limits',
+      category: 'Usage & Limits (Target Allocations)',
       features: [
-        { name: 'Monthly responses', free: '50', starter: '500', pro: '5,000', enterprise: 'Unlimited' },
+        { name: 'Monthly responses (target)', free: '50', starter: '500', pro: '5,000', enterprise: 'Unlimited' },
         { name: 'Active survey forms', free: '1', starter: '5', pro: 'Unlimited', enterprise: 'Unlimited' },
-        { name: 'Team member seats', free: '1', starter: '3', pro: '10', enterprise: 'Unlimited' },
-        { name: 'Dedicated subdomain', free: false, starter: false, pro: false, enterprise: true },
+        { name: 'Team member seats (target)', free: '1', starter: '3', pro: '10', enterprise: 'Unlimited' },
+        { name: 'Dedicated tenant subdomain (Planned)', free: false, starter: false, pro: false, enterprise: true },
       ],
     },
     {
       category: 'Distribution & Channels',
       features: [
         { name: 'Direct shareable links', free: true, starter: true, pro: true, enterprise: true },
-        { name: 'Dynamic QR codes', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Embeddable web widget', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Automated email distribution', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Dynamic QR codes (Planned)', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'Embeddable web widget (Planned)', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'Automated email distribution (Planned)', free: false, starter: false, pro: true, enterprise: true },
       ],
     },
     {
       category: 'Form Builder & Logic',
       features: [
         { name: 'Standard NPS & CSAT metrics', free: true, starter: true, pro: true, enterprise: true },
-        { name: 'Custom company branding & logo', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Conditional question branching', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'Likert agreement matrices', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'Custom company branding & logo (Planned)', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'Conditional question branching (Planned)', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Likert agreement matrices (Planned)', free: false, starter: true, pro: true, enterprise: true },
       ],
     },
     {
       category: 'Triage & Analytics',
       features: [
-        { name: 'Real-time response inbox', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Internal team notes & tagging', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'Automated sentiment trends', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'CSV data export', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Executive PDF summaries', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Real-time response inbox (Planned)', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'Internal team notes & tagging (Planned)', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Automated sentiment trends (Planned)', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'CSV data export (Planned)', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'Executive PDF summaries (Planned)', free: false, starter: false, pro: true, enterprise: true },
       ],
     },
     {
-      category: 'Security & Governance',
+      category: 'Security & Governance (Roadmap Targets)',
       features: [
-        { name: 'Cryptographic anonymous mode (k >= 5)', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'Role-Based Access Control (RBAC)', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'PostgreSQL RLS data isolation', free: true, starter: true, pro: true, enterprise: true },
-        { name: 'Audit activity logs', free: false, starter: false, pro: false, enterprise: true },
-        { name: 'SAML / SSO single sign-on', free: false, starter: false, pro: false, enterprise: true },
+        { name: 'Cryptographic anonymous mode (k >= 5) (Planned)', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Role-Based Access Control (RBAC) (Planned Phase 4)', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'PostgreSQL RLS data isolation (Planned Architecture)', free: true, starter: true, pro: true, enterprise: true },
+        { name: 'Audit activity logs (Planned)', free: false, starter: false, pro: false, enterprise: true },
+        { name: 'SAML / SSO single sign-on (Planned Phase 4)', free: false, starter: false, pro: false, enterprise: true },
       ],
     },
   ];
@@ -175,7 +175,7 @@ export const PricingPage: React.FC = () => {
             className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-brand-primary/10 text-brand-primary border-brand-primary/20 shadow-soft-sm"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            <span>Simple, Transparent Pricing</span>
+            <span>Illustrative Preview Pricing</span>
           </Badge>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-content-main max-w-4xl mx-auto leading-[1.15]">
@@ -186,8 +186,8 @@ export const PricingPage: React.FC = () => {
           </h1>
 
           <p className="mt-6 text-base sm:text-xl text-content-secondary max-w-2xl mx-auto leading-relaxed">
-            Choose the right plan for your current feedback velocity. Upgrade or adjust your
-            seats at any time as your organization scales.
+            Explore our planned pricing tiers and feature allocations. FeedbackHub is currently in technical
+            development; pricing figures and response limits are illustrative design targets.
           </p>
 
           {/* Interactive Billing Frequency Toggle */}
@@ -258,8 +258,8 @@ export const PricingPage: React.FC = () => {
           <div className="mt-12 p-4 rounded-2xl bg-surface-card border border-border shadow-soft-sm flex items-start gap-3 max-w-3xl mx-auto">
             <Info className="h-5 w-5 text-brand-primary shrink-0 mt-0.5" />
             <div className="text-xs sm:text-sm text-content-secondary leading-relaxed">
-              <span className="font-semibold text-content-main">Platform Preview Notice:</span>{' '}
-              The pricing figures displayed above are illustrative for the upcoming commercial release. FeedbackHub is currently in technical preview; no payment card is required, and all preview features can be evaluated via our early access program.
+              <span className="font-semibold text-content-main">Illustrative Preview Pricing:</span>{' '}
+              The pricing figures, limits, and feature lists displayed above are illustrative design targets for general commercial release. FeedbackHub is currently in technical development; no payments or subscriptions are active, and no payment methods will be charged during preview.
             </div>
           </div>
         </PageContainer>
@@ -271,9 +271,9 @@ export const PricingPage: React.FC = () => {
       <section className="bg-surface-card/40 py-16 sm:py-24 border-y border-border">
         <PageContainer>
           <SectionHeading
-            badge="In-Depth Matrix"
-            title="Compare all plan capabilities"
-            description="A detailed side-by-side comparison of features, limits, and enterprise safeguards across every tier."
+            badge="Roadmap Matrix"
+            title="Compare all planned tier capabilities"
+            description="A detailed side-by-side comparison of planned features, target limits, and roadmap milestones across every tier."
           />
 
           <div className="mt-12 overflow-x-auto">
@@ -359,9 +359,9 @@ export const PricingPage: React.FC = () => {
       {/* 5. CALL TO ACTION */}
       {/* ------------------------------------------------------------------ */}
       <CTASection
-        badge="Start Free Today"
+        badge="Join Early Access"
         title="Ready to transform feedback into momentum?"
-        description="Launch your first customer or employee survey in minutes. No credit card required."
+        description="Connect with our team to explore early access cohorts. No payment method required."
         primaryAction={{
           label: 'Request Early Access',
           href: '/contact',
@@ -373,7 +373,7 @@ export const PricingPage: React.FC = () => {
       />
 
       {/* ------------------------------------------------------------------ */}
-      {/* PLAN SELECTION CONFIRMATION MODAL */}
+      {/* PLAN SELECTION PREVIEW MODAL */}
       {/* ------------------------------------------------------------------ */}
       <Dialog
         open={Boolean(selectedPlanModal)}
@@ -383,27 +383,27 @@ export const PricingPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-brand-primary" />
-              <span>Select {selectedPlanModal?.name} Plan</span>
+              <span>Preview {selectedPlanModal?.name} Tier Details</span>
             </DialogTitle>
             <DialogDescription>
-              FeedbackHub is currently preparing for general availability. Early access onboarding is open to select organizations.
+              FeedbackHub is currently in technical preview. Commercial subscriptions are not currently active.
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-4 space-y-4">
             <div className="p-4 rounded-xl bg-surface-main border border-border space-y-2">
               <div className="flex justify-between items-center text-sm">
-                <span className="font-medium text-content-secondary">Chosen Tier:</span>
+                <span className="font-medium text-content-secondary">Selected Tier:</span>
                 <span className="font-bold text-content-main">{selectedPlanModal?.name}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="font-medium text-content-secondary">Billing Schedule:</span>
                 <span className="font-semibold text-brand-primary">
-                  {isYearly ? 'Annual Billing (20% off)' : 'Monthly Billing'}
+                  {isYearly ? 'Annual Billing (20% preview discount)' : 'Monthly Billing'}
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="font-medium text-content-secondary">Estimated Price:</span>
+                <span className="font-medium text-content-secondary">Illustrative Price:</span>
                 <span className="font-bold text-content-main">
                   {selectedPlanModal?.monthlyPrice === 'Custom'
                     ? 'Custom Quote'
@@ -413,7 +413,7 @@ export const PricingPage: React.FC = () => {
             </div>
 
             <p className="text-xs text-content-secondary leading-relaxed">
-              To reserve your organization workspace and lock in introductory preview pricing, submit an inquiry through our contact team.
+              No payment information will be collected during this preview. To discuss early onboarding or reserve your organization’s domain, submit an inquiry via our contact form.
             </p>
           </div>
 
@@ -431,7 +431,7 @@ export const PricingPage: React.FC = () => {
               className="w-full sm:w-auto"
             >
               <Button variant="primary" className="w-full sm:w-auto">
-                Request Early Access
+                Request Early Access Inquiries
               </Button>
             </NavLink>
           </DialogFooter>

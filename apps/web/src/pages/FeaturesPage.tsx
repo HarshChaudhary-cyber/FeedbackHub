@@ -44,7 +44,7 @@ export const FeaturesPage: React.FC = () => {
         'Embeddable feedback widgets and subtle bottom-sheet popups for web apps.',
         'Dynamic QR codes optimized for in-person events, kiosks, and retail environments.',
         'Automated post-interaction email triggers via transactional webhooks.',
-        'Flexible submission modes: full identity capture or cryptographically verified anonymous feedback.',
+        'Flexible submission modes: full identity capture or privacy-preserving anonymous feedback.',
       ],
       highlights: [
         { label: 'Distribution Channels', value: 'Web, Widget, QR, Email' },
@@ -123,21 +123,21 @@ export const FeaturesPage: React.FC = () => {
       category: 'management',
       icon: <Users2 className="h-6 w-6 text-brand-primary" />,
       title: 'Multi-Tenant Workspaces & Role-Based Access',
-      badge: 'Enterprise Architecture',
-      tagline: 'Strict organization boundaries and granular team control',
+      badge: 'Planned Architecture',
+      tagline: 'Planned organization boundaries and granular team control',
       description:
-        'Built from the foundation up for B2B SaaS multi-tenancy. Every organization operates within its own securely partitioned workspace with custom subdomains, dedicated settings, and strict access governance.',
+        'Designed from the foundation up for B2B SaaS multi-tenancy. Every organization will operate within its own partitioned workspace with dedicated settings and planned access governance.',
       details: [
-        'Dedicated organizational subdomains (e.g. acme.feedbackhub.com) with custom branded tenant portals.',
-        'Granular Role-Based Access Control (RBAC): Owner, Administrator, Team Member, and Read-Only Viewer roles.',
-        'PostgreSQL Row-Level Security (RLS) ensuring strict cryptographic isolation of tenant datasets.',
-        'Centralized team management: invite members, assign role permissions, and manage active sessions.',
-        'Comprehensive audit log capturing critical administrative configuration actions.',
+        'Planned organizational subdomains (e.g. acme.feedbackhub.com) with custom branded tenant portals.',
+        'Planned Role-Based Access Control (RBAC): Owner, Administrator, Team Member, and Read-Only Viewer roles.',
+        'PostgreSQL Row-Level Security (RLS) planned for database-level isolation of tenant datasets.',
+        'Centralized team management architecture: invite members, assign role permissions, and manage active sessions.',
+        'Planned audit log capturing critical administrative configuration actions.',
       ],
       highlights: [
-        { label: 'Data Isolation', value: 'PostgreSQL Row-Level Security (RLS)' },
+        { label: 'Data Isolation Target', value: 'PostgreSQL RLS (Planned)' },
         { label: 'Tenant Routing', value: 'Dedicated Custom Subdomains' },
-        { label: 'Access Governance', value: '4-Tier Granular RBAC' },
+        { label: 'Access Governance', value: '4-Tier Planned RBAC' },
       ],
     },
     {
@@ -185,7 +185,7 @@ export const FeaturesPage: React.FC = () => {
             className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-brand-primary/10 text-brand-primary border-brand-primary/20 shadow-soft-sm"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            <span>Complete Platform Capabilities</span>
+            <span>Platform Capabilities &amp; Roadmap</span>
           </Badge>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-content-main max-w-4xl mx-auto leading-[1.15]">
@@ -404,7 +404,7 @@ export const FeaturesPage: React.FC = () => {
                 <ul className="space-y-2 text-xs sm:text-sm text-content-main pt-2">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal" />
-                    k-anonymity privacy safeguards (k &ge; 5)
+                    Planned k-anonymity privacy safeguards (k &ge; 5)
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal" />

@@ -99,7 +99,7 @@ export const HomePage: React.FC = () => {
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle className="h-3.5 w-3.5 text-brand-teal" />
-                Cryptographic Anonymity
+                Anonymous Feedback Design
               </span>
               <span className="hidden sm:flex items-center gap-1.5">
                 <CheckCircle className="h-3.5 w-3.5 text-brand-teal" />
@@ -234,8 +234,8 @@ export const HomePage: React.FC = () => {
             />
             <FeatureCard
               icon={<ShieldAlert className="h-6 w-6" />}
-              title="Guaranteed Anonymity"
-              description="Offer employees genuine psychological safety with cryptographically decoupled submissions and k-anonymity reporting thresholds."
+              title="Anonymous Feedback Mode"
+              description="Designed for employee psychological safety with submission decoupling and planned k-anonymity aggregation thresholds."
               badge="Privacy-First"
             />
             <FeatureCard
@@ -549,10 +549,10 @@ export const HomePage: React.FC = () => {
                 <Building className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-content-main">
-                Tenant Isolation
+                Tenant Isolation Architecture
               </h3>
               <p className="text-xs sm:text-sm text-content-secondary leading-relaxed">
-                PostgreSQL Row-Level Security combined with companyId scoping ensures that no company’s data can ever bleed into another workspace.
+                Planned PostgreSQL Row-Level Security (RLS) combined with tenant-scoped routing to maintain strict data separation between company workspaces.
               </p>
             </Card>
 
@@ -561,10 +561,10 @@ export const HomePage: React.FC = () => {
                 <Lock className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-content-main">
-                Cryptographic Anonymity
+                Anonymous Feedback Design
               </h3>
               <p className="text-xs sm:text-sm text-content-secondary leading-relaxed">
-                Anonymous submissions are decoupled at ingestion. We do not store origin IP addresses, browser fingerprints, or user identifiers.
+                Planned architectural decoupling of anonymous submissions to safeguard respondent privacy and prevent identification.
               </p>
             </Card>
 
@@ -573,10 +573,10 @@ export const HomePage: React.FC = () => {
                 <Globe2 className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-content-main">
-                Role-Based Access
+                Role-Based Access Control
               </h3>
               <p className="text-xs sm:text-sm text-content-secondary leading-relaxed">
-                Granular member roles ensure only authorized teammates can view sensitive workplace sentiment or customer triage queues.
+                Planned granular member roles to ensure only authorized teammates can view sensitive workplace sentiment or customer triage queues.
               </p>
             </Card>
           </div>
@@ -586,7 +586,7 @@ export const HomePage: React.FC = () => {
               to="/security"
               className="text-xs sm:text-sm font-semibold text-brand-primary hover:underline inline-flex items-center gap-1"
             >
-              <span>Read our full Security Architecture document</span>
+              <span>Read our Security &amp; Architecture Roadmap</span>
               <ArrowRight className="h-4 w-4" />
             </NavLink>
           </div>

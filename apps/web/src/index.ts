@@ -45,4 +45,5 @@ export const webFoundation = {
 
 export { App } from './App';
 export { AppRouter } from './routes/AppRouter';
+export { getMarketingUrl } from './utils/navigation';
 
