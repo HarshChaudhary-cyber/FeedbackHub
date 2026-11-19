@@ -42,3 +42,7 @@ export const webFoundation = {
   radius: RADIUS_TOKENS,
   resolveHostMode,
 };
+
+export { App } from './App';
+export { AppRouter } from './routes/AppRouter';
+
