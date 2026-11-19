@@ -167,12 +167,12 @@ export const PrivacyPage: React.FC = () => {
               8. Privacy Questions &amp; Inquiries
             </h2>
             <p>
-              If you have questions regarding our planned privacy architecture, data protection design principles, or developer preview status, please contact our team via the public Contact page:
+              FeedbackHub is currently in technical preview. While our contact form demonstrates frontend interaction patterns and client-side validation, it is an illustrative UI preview that does not transmit, store, or deliver messages.
             </p>
             <div className="p-5 rounded-xl bg-surface-card border border-border text-xs sm:text-sm space-y-3">
-              <p className="font-bold text-content-main">FeedbackHub Privacy &amp; Architecture Inquiries</p>
+              <p className="font-bold text-content-main">FeedbackHub Privacy &amp; Architecture Roadmap</p>
               <p className="text-content-secondary leading-relaxed">
-                All inquiries regarding technical architecture, privacy roadmap, and enterprise evaluations are managed centrally through our contact form.
+                Inquiries regarding technical architecture, privacy policies, and enterprise evaluations will be accepted through official communication channels established prior to commercial launch. You can preview our contact form design below.
               </p>
               <NavLink to="/contact">
                 <Button variant="outline" size="sm" className="rounded-full mt-1">

@@ -64,6 +64,8 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(h1.textContent).toMatch(/Everything your organization needs/i);
     expect(screen.getByText(/Multi-Channel Feedback Collection/i)).toBeTruthy();
     expect(screen.getByText(/Intuitive Drag-and-Drop Form Builder/i)).toBeTruthy();
+    expect(screen.queryByText(/Enterprise-grade stability verified/i)).toBeNull();
+    expect(screen.getAllByText(/Component reliability and interaction behaviors verified with automated regression and accessibility suites during development\./i).length).toBeGreaterThan(0);
   });
 
   it('renders SolutionsPage with Customer and Employee toggles', () => {
@@ -72,6 +74,8 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(h1).toBeTruthy();
     expect(h1.textContent).toMatch(/Engineered for customer retention/i);
     expect(screen.getByText(/Customer Experience Track/i)).toBeTruthy();
+    expect(screen.queryByText(/See why modern companies are replacing disconnected survey spreadsheets/i)).toBeNull();
+    expect(screen.getByText(/Explore the challenges of disconnected survey spreadsheets and fragmented SaaS accounts/i)).toBeTruthy();
 
     // Click Employee toggle
     const employeeBtn = screen.getByRole('button', { name: /Employee Engagement/i });
@@ -206,6 +210,10 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.getByText(/Development Preview Draft — Not an Active Legal Policy/i)).toBeTruthy();
     expect(screen.queryByText(/privacy@feedbackhub\.com/i)).toBeNull();
 
+    // Verify contact form preview distinction and absence of central management claim
+    expect(screen.queryByText(/managed centrally through our contact form/i)).toBeNull();
+    expect(screen.getByText(/illustrative UI preview that does not transmit, store, or deliver messages/i)).toBeTruthy();
+
     // Verify absolute future promises are reframed as intended principles
     expect(screen.queryByText(/^We will never sell, rent, or monetize customer or employee feedback data/i)).toBeNull();
     expect(screen.getByText(/Intended Privacy Principle:/i)).toBeTruthy();
@@ -258,6 +266,7 @@ describe('FeedbackHub Marketing Website Routes', () => {
     const features = renderWithRouter('/features');
     expect(screen.queryByText(/True Anonymous/i)).toBeNull();
     expect(screen.queryByText(/Launch your first customer or employee feedback survey in under five minutes/i)).toBeNull();
+    expect(screen.queryByText(/Enterprise-grade stability verified/i)).toBeNull();
     features.unmount();
 
     // Check SolutionsPage
@@ -265,6 +274,7 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/\+28% higher response completion rate/i)).toBeNull();
     expect(screen.queryByText(/3x faster escalation/i)).toBeNull();
     expect(screen.queryByText(/82% typical participation rates/i)).toBeNull();
+    expect(screen.queryByText(/replacing disconnected survey spreadsheets/i)).toBeNull();
     solutions.unmount();
 
     // Check PricingPage
@@ -274,6 +284,11 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/Cryptographic anonymous mode/i)).toBeNull();
     expect(screen.queryByText(/reserve your organization's domain/i)).toBeNull();
     pricing.unmount();
+
+    // Check PrivacyPage
+    const privacy = renderWithRouter('/privacy');
+    expect(screen.queryByText(/managed centrally through our contact form/i)).toBeNull();
+    privacy.unmount();
 
     // Check ContactPage
     const contact = renderWithRouter('/contact');

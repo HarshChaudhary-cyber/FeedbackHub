@@ -245,7 +245,7 @@ export const SolutionsPage: React.FC = () => {
           <SectionHeading
             badge="Architecture Comparison"
             title="Siloed tools vs. FeedbackHub Unified System"
-            description="See why modern companies are replacing disconnected survey spreadsheets and fragmented SaaS accounts with a single multi-tenant platform."
+            description="Explore the challenges of disconnected survey spreadsheets and fragmented SaaS accounts, and how our unified platform is designed to address them."
           />
 
           <div className="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">

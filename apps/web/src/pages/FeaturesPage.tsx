@@ -330,7 +330,7 @@ export const FeaturesPage: React.FC = () => {
 
                       <div className="pt-2 text-center">
                         <p className="text-[11px] text-content-muted leading-relaxed">
-                          Enterprise-grade stability verified with automated regression and accessibility suites.
+                          Component reliability and interaction behaviors verified with automated regression and accessibility suites during development.
                         </p>
                       </div>
                     </Card>
