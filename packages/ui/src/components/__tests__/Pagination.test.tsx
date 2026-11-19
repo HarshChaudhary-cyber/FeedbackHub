@@ -76,8 +76,8 @@ describe('Pagination Component Primitives', () => {
     expect(button.className).toContain('bg-brand-primary');
   });
 
-  it('3. renders PaginationEllipsis with sr-only text', () => {
-    render(
+  it('3. renders PaginationEllipsis with accessible description available to screen readers', () => {
+    const { container } = render(
       <Pagination>
         <PaginationContent>
           <PaginationItem>
@@ -87,7 +87,17 @@ describe('Pagination Component Primitives', () => {
       </Pagination>
     );
 
-    expect(screen.getByText('More pages')).toBeTruthy();
+    const srText = screen.getByText('More pages');
+    expect(srText).toBeTruthy();
+    expect(srText.className).toContain('sr-only');
+
+    // The screen reader text MUST NOT be inside an aria-hidden ancestor
+    expect(srText.closest('[aria-hidden="true"]')).toBeNull();
+
+    // The visual icon MUST have aria-hidden="true"
+    const visualWrapper = container.querySelector('svg')?.closest('[aria-hidden="true"]');
+    expect(visualWrapper).toBeTruthy();
+    expect(visualWrapper?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('4. forwards refs to all pagination primitives', () => {

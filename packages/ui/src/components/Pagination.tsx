@@ -152,18 +152,19 @@ export const PaginationEllipsis = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <span
     ref={ref}
-    aria-hidden="true"
     className={cn('flex h-9 w-9 items-center justify-center text-content-secondary', className)}
     {...props}
   >
-    <svg
-      className="h-4 w-4"
-      fill="currentColor"
-      viewBox="0 0 20 20"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
-    </svg>
+    <span aria-hidden="true" className="flex items-center justify-center">
+      <svg
+        className="h-4 w-4"
+        fill="currentColor"
+        viewBox="0 0 20 20"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+      </svg>
+    </span>
     <span className="sr-only">More pages</span>
   </span>
 ));

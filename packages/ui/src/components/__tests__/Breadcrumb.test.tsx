@@ -135,4 +135,30 @@ describe('Breadcrumb Component Primitives', () => {
     expect(ellipsisRef.current).toBeInstanceOf(HTMLSpanElement);
     expect(pageRef.current).toBeInstanceOf(HTMLSpanElement);
   });
+
+  it('6. exposes current page as a non-interactive element with aria-current="page" and without link/disabled semantics', () => {
+    render(
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/surveys">Surveys</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Current Active Survey</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+
+    const currentPage = screen.getByText('Current Active Survey');
+    expect(currentPage.getAttribute('aria-current')).toBe('page');
+    // Ensure no misleading link or disabled link role/attributes
+    expect(currentPage.getAttribute('role')).toBeNull();
+    expect(currentPage.getAttribute('aria-disabled')).toBeNull();
+
+    // Confirm that queryByRole('link') finds only actual link, never current page
+    expect(screen.getByRole('link', { name: 'Surveys' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Current Active Survey' })).toBeNull();
+  });
 });

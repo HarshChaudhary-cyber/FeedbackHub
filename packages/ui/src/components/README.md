@@ -2883,7 +2883,7 @@ Context-driven form composition primitives that automatically wire accessible ID
   - `FormLabel`: Subscribes to field context, binds `htmlFor`, supports `required`, and applies error styling when `indicateError` is enabled.
   - `FormControl`: Clones child element, injecting generated `id`, `aria-describedby` (combining description and message IDs), and `aria-invalid`.
   - `FormDescription`: Helper text paragraph with auto-registered ID (`text-xs text-content-secondary`).
-  - `FormMessage`: Validation message with `role="alert"` and `aria-live="polite"` (`text-xs font-medium text-semantic-error`).
+  - `FormMessage`: Validation message with `role="alert"` (`text-xs font-medium text-semantic-error`). Announces errors assertively without conflicting live-region directives.
   - `useFormField()`: Hook providing field context data (`formItemId`, `hasError`, `error`, etc.).
 
 #### Usage Example:
@@ -2989,7 +2989,7 @@ Hierarchical navigation primitives providing accessible breadcrumb structures co
   - `BreadcrumbList`: `<ol>` wrapping breadcrumb items.
   - `BreadcrumbItem`: `<li>` item wrapper.
   - `BreadcrumbLink`: Accessible `<a>` link supporting `asChild` composition for React Router or Next.js link components.
-  - `BreadcrumbPage`: `<span aria-current="page">` representing current active location.
+  - `BreadcrumbPage`: `<span aria-current="page">` non-interactive current-page element, without misleading link or disabled-link semantics.
   - `BreadcrumbSeparator`: Decorative chevron or slash divider (`role="presentation"`, `aria-hidden="true"`).
   - `BreadcrumbEllipsis`: Collapsed middle breadcrumb segments with `<span className="sr-only">More pages</span>`.
 
@@ -3038,7 +3038,7 @@ Accessible pagination primitives for multi-page data lists, feedback response qu
   - `PaginationLink`: Page link with `isActive` property (applies `aria-current="page"`, `bg-brand-primary text-white shadow-soft-sm`, and `rounded-xl`).
   - `PaginationPrevious`: Accessible link with left chevron icon and `aria-label="Go to previous page"`.
   - `PaginationNext`: Accessible link with right chevron icon and `aria-label="Go to next page"`.
-  - `PaginationEllipsis`: Screen-reader accessible ellipsis (`<span className="sr-only">More pages</span>`).
+  - `PaginationEllipsis`: Screen-reader accessible ellipsis with an `aria-hidden="true"` visual icon and a screen-reader description (`<span className="sr-only">More pages</span>`) exposed in the accessibility tree.
 
 #### Usage Example:
 ```tsx
