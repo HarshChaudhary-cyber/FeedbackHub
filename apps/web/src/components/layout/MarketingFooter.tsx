@@ -93,7 +93,7 @@ export const MarketingFooter: React.FC = () => {
                   to="/contact"
                   className="hover:text-content-main transition-colors"
                 >
-                  Contact &amp; Early Access
+                  Contact &amp; Inquiries Preview
                 </NavLink>
               </li>
             </ul>

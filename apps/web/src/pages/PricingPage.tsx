@@ -111,45 +111,45 @@ export const PricingPage: React.FC = () => {
         { name: 'Monthly responses (target)', free: '50', starter: '500', pro: '5,000', enterprise: 'Unlimited' },
         { name: 'Active survey forms', free: '1', starter: '5', pro: 'Unlimited', enterprise: 'Unlimited' },
         { name: 'Team member seats (target)', free: '1', starter: '3', pro: '10', enterprise: 'Unlimited' },
-        { name: 'Dedicated tenant subdomain (Planned)', free: false, starter: false, pro: false, enterprise: true },
+        { name: 'Dedicated tenant subdomain (Planned)', free: false, starter: false, pro: false, enterprise: 'Planned' },
       ],
     },
     {
       category: 'Distribution & Channels',
       features: [
         { name: 'Direct shareable links', free: true, starter: true, pro: true, enterprise: true },
-        { name: 'Dynamic QR codes (Planned)', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Embeddable web widget (Planned)', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Automated email distribution (Planned)', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Dynamic QR codes (Planned)', free: false, starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Embeddable web widget (Planned)', free: false, starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Automated email distribution (Planned)', free: false, starter: false, pro: 'Planned', enterprise: 'Planned' },
       ],
     },
     {
       category: 'Form Builder & Logic',
       features: [
         { name: 'Standard NPS & CSAT metrics', free: true, starter: true, pro: true, enterprise: true },
-        { name: 'Custom company branding & logo (Planned)', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Conditional question branching (Planned)', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'Likert agreement matrices (Planned)', free: false, starter: true, pro: true, enterprise: true },
+        { name: 'Custom company branding & logo (Planned)', free: false, starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Conditional question branching (Planned)', free: false, starter: false, pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Likert agreement matrices (Planned)', free: false, starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
       ],
     },
     {
-      category: 'Triage & Analytics',
+      category: 'Triage & Analytics (Roadmap Targets)',
       features: [
-        { name: 'Real-time response inbox (Planned)', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Internal team notes & tagging (Planned)', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'Automated sentiment trends (Planned)', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'CSV data export (Planned)', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'Executive PDF summaries (Planned)', free: false, starter: false, pro: true, enterprise: true },
+        { name: 'Real-time response inbox (Planned)', free: false, starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Internal team notes & tagging (Planned)', free: false, starter: false, pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Automated sentiment trends (Planned)', free: false, starter: false, pro: 'Planned', enterprise: 'Planned' },
+        { name: 'CSV data export (Planned)', free: false, starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Executive PDF summaries (Planned)', free: false, starter: false, pro: 'Planned', enterprise: 'Planned' },
       ],
     },
     {
       category: 'Security & Governance (Roadmap Targets)',
       features: [
-        { name: 'Planned anonymous feedback mode (k-anonymity target)', free: false, starter: false, pro: true, enterprise: true },
-        { name: 'Role-Based Access Control (RBAC) (Planned Phase 4)', free: false, starter: true, pro: true, enterprise: true },
-        { name: 'PostgreSQL RLS data isolation (Planned Architecture)', free: true, starter: true, pro: true, enterprise: true },
-        { name: 'Audit activity logs (Planned)', free: false, starter: false, pro: false, enterprise: true },
-        { name: 'SAML / SSO single sign-on (Planned Phase 4)', free: false, starter: false, pro: false, enterprise: true },
+        { name: 'Planned anonymous feedback mode (k-anonymity target)', free: false, starter: false, pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Role-Based Access Control (RBAC) (Planned Phase 4)', free: false, starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
+        { name: 'PostgreSQL RLS data isolation (Planned Architecture)', free: 'Planned', starter: 'Planned', pro: 'Planned', enterprise: 'Planned' },
+        { name: 'Audit activity logs (Planned)', free: false, starter: false, pro: false, enterprise: 'Planned' },
+        { name: 'SAML / SSO single sign-on (Planned Phase 4)', free: false, starter: false, pro: false, enterprise: 'Planned' },
       ],
     },
   ];
@@ -276,7 +276,25 @@ export const PricingPage: React.FC = () => {
             description="A detailed side-by-side comparison of planned features, target limits, and roadmap milestones across every tier."
           />
 
-          <div className="mt-12 overflow-x-auto">
+          {/* Table Legend */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-content-secondary">
+            <div className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-brand-teal stroke-[3]" />
+              <span>Current Preview / Demo Capability</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
+                Planned
+              </span>
+              <span>Roadmap Capability (In Development)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Minus className="h-4 w-4 text-content-muted" />
+              <span>Not Included in Tier</span>
+            </div>
+          </div>
+
+          <div className="mt-8 overflow-x-auto">
             <table className="w-full min-w-[680px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-border">
@@ -359,11 +377,11 @@ export const PricingPage: React.FC = () => {
       {/* 5. CALL TO ACTION */}
       {/* ------------------------------------------------------------------ */}
       <CTASection
-        badge="Join Early Access"
-        title="Ready to transform feedback into momentum?"
-        description="Connect with our team to explore early access cohorts. No payment method required."
+        badge="Product Architecture Preview"
+        title="Explore the FeedbackHub roadmap"
+        description="Review our illustrative pricing models and interactive UI components in technical development."
         primaryAction={{
-          label: 'Request Early Access',
+          label: 'Preview Contact Form',
           href: '/contact',
         }}
         secondaryAction={{
@@ -413,7 +431,7 @@ export const PricingPage: React.FC = () => {
             </div>
 
             <p className="text-xs text-content-secondary leading-relaxed">
-              No payment information will be collected during this preview. To discuss early onboarding or reserve your organization’s domain, submit an inquiry via our contact form.
+              No payment information will be collected during this preview. To explore planned enterprise capabilities or review architectural milestones, test our interactive contact preview form.
             </p>
           </div>
 
@@ -431,7 +449,7 @@ export const PricingPage: React.FC = () => {
               className="w-full sm:w-auto"
             >
               <Button variant="primary" className="w-full sm:w-auto">
-                Request Early Access Inquiries
+                Preview Contact Form
               </Button>
             </NavLink>
           </DialogFooter>
@@ -447,6 +465,13 @@ function renderCellValue(val: string | boolean) {
       <Check className="h-4 w-4 text-brand-teal mx-auto stroke-[3]" />
     ) : (
       <Minus className="h-4 w-4 text-content-muted mx-auto" />
+    );
+  }
+  if (val === 'Planned') {
+    return (
+      <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md bg-brand-primary/10 text-brand-primary border border-brand-primary/20 mx-auto">
+        Planned
+      </span>
     );
   }
   return <span>{val}</span>;

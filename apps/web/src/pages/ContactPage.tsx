@@ -12,28 +12,28 @@ import { ContactForm } from '../components/shared/ContactForm';
 
 export const ContactPage: React.FC = () => {
   useDocumentTitle({
-    title: 'Contact FeedbackHub — Inquiries, Demos & Early Access',
+    title: 'Contact FeedbackHub — Inquiries & Preview',
     description:
-      'Get in touch with the FeedbackHub team for product demonstrations, enterprise onboarding, early platform access, and security inquiries.',
+      'Explore the FeedbackHub project architecture, technical milestones, and our interactive contact form preview.',
   });
 
   const inquiryTopics = [
     {
-      title: 'Sales & Product Walkthroughs',
+      title: 'Sales & Product Walkthroughs (Planned)',
       category: 'Sales & Demo',
-      description: 'Request an architectural walkthrough or discuss early onboarding for your organization.',
+      description: 'Planned pathway for scheduling architectural walkthroughs and enterprise evaluations once active.',
       icon: <Sparkles className="h-5 w-5 text-brand-primary" />,
     },
     {
-      title: 'Security & Architecture',
+      title: 'Security & Architecture (Planned)',
       category: 'Security & Privacy',
-      description: 'Discuss our planned PostgreSQL RLS tenant isolation, privacy design, and technical roadmap.',
+      description: 'Planned pathway to discuss PostgreSQL RLS tenant isolation, privacy design, and technical roadmap.',
       icon: <ShieldCheck className="h-5 w-5 text-brand-teal" />,
     },
     {
-      title: 'General Inquiries & Early Access',
-      category: 'Early Access Program',
-      description: 'Explore partnership opportunities, developer preview feedback, or platform release schedules.',
+      title: 'General Roadmap & Feedback (Planned)',
+      category: 'Roadmap Feedback',
+      description: 'Planned pathway to explore partnership discussions, developer preview feedback, and release milestones.',
       icon: <MessageSquare className="h-5 w-5 text-brand-secondary" />,
     },
   ];
@@ -66,8 +66,7 @@ export const ContactPage: React.FC = () => {
           </h1>
 
           <p className="mt-6 text-base sm:text-xl text-content-secondary max-w-2xl mx-auto leading-relaxed">
-            Have questions about FeedbackHub, want to schedule a tailored product walkthrough,
-            or looking to join our early customer preview cohort? We&apos;d love to connect.
+            Have questions about FeedbackHub or want to explore our technical roadmap? Review our interactive form preview and planned inquiry pathways below.
           </p>
         </PageContainer>
       </section>
@@ -85,10 +84,10 @@ export const ContactPage: React.FC = () => {
                   Inquiry Pathways
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-content-main mt-1 tracking-tight">
-                  Connect with the FeedbackHub team
+                  Planned Communication Pathways
                 </h2>
                 <p className="text-sm text-content-secondary mt-3 leading-relaxed">
-                  FeedbackHub is currently in technical preview. Explore our intended communication pathways below to discuss roadmap priorities, architecture, and planned capabilities.
+                  FeedbackHub is currently in technical preview. Below is an overview of intended communication pathways once backend message routing and inquiry processing are activated.
                 </p>
               </div>
 
@@ -134,7 +133,7 @@ export const ContactPage: React.FC = () => {
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0" />
-                    <span>Submissions in preview mode validate field constraints without transmitting external data.</span>
+                    <span>Submissions in preview mode validate field constraints without transmitting external data. No waiting list or account is registered.</span>
                   </li>
                 </ul>
               </div>

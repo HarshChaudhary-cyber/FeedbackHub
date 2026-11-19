@@ -108,7 +108,7 @@ export const PrivacyPage: React.FC = () => {
               <li>Maintain software security, prevent abuse, and troubleshoot technical platform issues.</li>
             </ul>
             <p className="font-semibold text-content-main">
-              FeedbackHub’s fundamental business model is software subscriptions. We will never sell, rent, or monetize customer or employee feedback data to third-party data brokers or advertisers.
+              Intended Privacy Principle: FeedbackHub’s intended business model is software subscriptions. Our architectural roadmap and planned operating principles prohibit selling, renting, or monetizing customer or employee feedback data to third-party data brokers or advertisers.
             </p>
           </section>
 
@@ -176,7 +176,7 @@ export const PrivacyPage: React.FC = () => {
               </p>
               <NavLink to="/contact">
                 <Button variant="outline" size="sm" className="rounded-full mt-1">
-                  <span>Submit an Inquiry via Contact Form</span>
+                  <span>Preview Contact Form</span>
                   <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                 </Button>
               </NavLink>

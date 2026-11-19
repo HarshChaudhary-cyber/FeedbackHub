@@ -49,6 +49,12 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(featureLinks.length).toBeGreaterThan(0);
     const pricingLinks = screen.getAllByRole('link', { name: /Pricing/i });
     expect(pricingLinks.length).toBeGreaterThan(0);
+
+    // Verify absence of fake testimonials and presence of illustrative scenario label
+    expect(screen.queryByText(/Our customer success manager resolved our API provisioning question/i)).toBeNull();
+    expect(screen.queryByText(/CSAT 5★ Verified/i)).toBeNull();
+    expect(screen.getByText(/Illustrative Customer Scenario/i)).toBeTruthy();
+    expect(screen.getByText(/Illustrative Employee Scenario/i)).toBeTruthy();
   });
 
   it('renders FeaturesPage with feature capabilities and category filters', () => {
@@ -86,6 +92,11 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/Cryptographic anonymous mode/i)).toBeNull();
     expect(screen.queryByText(/our anonymous feedback guarantees/i)).toBeNull();
 
+    // Verify PostgreSQL RLS does NOT render operational checkmarks and renders as Planned
+    const rlsRow = screen.getByText(/PostgreSQL RLS data isolation/i).closest('tr');
+    expect(rlsRow?.querySelectorAll('svg.text-brand-teal').length).toBe(0);
+    expect(screen.getAllByText('Planned').length).toBeGreaterThan(0);
+
     // Initial state: annual billing is active (Save 20%)
     expect(screen.getByText('$64')).toBeTruthy(); // Pro annual
     expect(screen.getByText('$24')).toBeTruthy(); // Starter annual
@@ -103,6 +114,7 @@ describe('FeedbackHub Marketing Website Routes', () => {
     fireEvent.click(selectStarterBtn);
     expect(screen.getByRole('dialog')).toBeTruthy();
     expect(screen.getByText(/Commercial subscriptions are not currently active/i)).toBeTruthy();
+    expect(screen.queryByText(/reserve your organization's domain/i)).toBeNull();
   });
 
   it('renders AboutPage with mission and principles', () => {
@@ -129,6 +141,11 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/24 business hours/i)).toBeNull();
     expect(screen.queryByText(/routed directly to our product and engineering leadership/i)).toBeNull();
     expect(screen.queryByText(/never shared or sold/i)).toBeNull();
+
+    // Verify upfront preview transparency is visible before submission
+    expect(screen.getByText(/Interactive Inquiries Preview/i)).toBeTruthy();
+    expect(screen.getAllByText(/Preview Form:/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/No waiting list or account is registered/i)).toBeTruthy();
 
     const submitBtn = screen.getByRole('button', { name: /Submit Inquiry/i });
     fireEvent.click(submitBtn);
@@ -188,6 +205,10 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(h1.textContent).toMatch(/Privacy Policy \(Draft Notice\)/i);
     expect(screen.getByText(/Development Preview Draft — Not an Active Legal Policy/i)).toBeTruthy();
     expect(screen.queryByText(/privacy@feedbackhub\.com/i)).toBeNull();
+
+    // Verify absolute future promises are reframed as intended principles
+    expect(screen.queryByText(/^We will never sell, rent, or monetize customer or employee feedback data/i)).toBeNull();
+    expect(screen.getByText(/Intended Privacy Principle:/i)).toBeTruthy();
   });
 
   it('renders TermsPage with draft notice, without 99.9% SLA promise or fake email', () => {
@@ -229,18 +250,29 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/cryptographically decoupled/i)).toBeNull();
     expect(screen.queryByText(/architecture guarantees true/i)).toBeNull();
     expect(screen.queryByText(/Zero Fingerprinting/i)).toBeNull();
+    expect(screen.queryByText(/Our customer success manager resolved our API provisioning question/i)).toBeNull();
+    expect(screen.queryByText(/Triage time dropped by 50%/i)).toBeNull();
     home.unmount();
 
     // Check FeaturesPage
     const features = renderWithRouter('/features');
     expect(screen.queryByText(/True Anonymous/i)).toBeNull();
+    expect(screen.queryByText(/Launch your first customer or employee feedback survey in under five minutes/i)).toBeNull();
     features.unmount();
+
+    // Check SolutionsPage
+    const solutions = renderWithRouter('/solutions');
+    expect(screen.queryByText(/\+28% higher response completion rate/i)).toBeNull();
+    expect(screen.queryByText(/3x faster escalation/i)).toBeNull();
+    expect(screen.queryByText(/82% typical participation rates/i)).toBeNull();
+    solutions.unmount();
 
     // Check PricingPage
     const pricing = renderWithRouter('/pricing');
     expect(screen.queryByText(/Target 99\.9% uptime SLA/i)).toBeNull();
     expect(screen.queryByText(/< 24h target/i)).toBeNull();
     expect(screen.queryByText(/Cryptographic anonymous mode/i)).toBeNull();
+    expect(screen.queryByText(/reserve your organization's domain/i)).toBeNull();
     pricing.unmount();
 
     // Check ContactPage

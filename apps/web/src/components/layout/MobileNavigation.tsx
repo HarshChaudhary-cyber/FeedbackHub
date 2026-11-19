@@ -114,7 +114,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
         </Button>
         <NavLink to="/pricing" onClick={onClose} className="block w-full">
           <Button variant="primary" className="w-full justify-center">
-            Get Started
+            View Plans
           </Button>
         </NavLink>
       </div>

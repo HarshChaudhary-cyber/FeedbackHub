@@ -133,7 +133,7 @@ export const ContactForm: React.FC = () => {
           <Info className="h-4 w-4" />
           <AlertTitle className="text-xs">Inquiry Not Transmitted</AlertTitle>
           <AlertDescription className="text-xs leading-relaxed">
-            FeedbackHub is currently in technical preview. Backend email delivery, persistent inbox storage, and notification pipelines are not connected yet. No messages have been transmitted or stored.
+            FeedbackHub is currently in technical preview. Backend email delivery, persistent inbox storage, and waiting list pipelines are not connected yet. No message has been transmitted, and no account or early-access spot has been reserved.
           </AlertDescription>
         </Alert>
 
@@ -160,7 +160,7 @@ export const ContactForm: React.FC = () => {
       <div className="border-b border-border pb-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-xl font-bold text-content-main">
-            Send us an inquiry
+            Interactive Inquiries Preview
           </h3>
           <Badge variant="outline" className="text-[10px] text-brand-primary border-brand-primary/30">
             Interactive UI Preview
@@ -168,12 +168,12 @@ export const ContactForm: React.FC = () => {
         </div>
         <p className="text-xs text-content-secondary">
           Have questions about FeedbackHub, custom company portals, or enterprise security?
-          Fill in your details below.
+          Fill in your details below to test form validation.
         </p>
         <div className="p-3 rounded-xl bg-surface-main border border-border flex items-start gap-2.5 text-xs text-content-secondary">
           <Info className="h-4 w-4 text-brand-primary shrink-0 mt-0.5" />
           <span>
-            <strong>Preview Form:</strong> Validates input constraints locally. Backend email routing and persistent inquiry storage are under development; form submissions are not transmitted.
+            <strong>Preview Form:</strong> Validates input constraints locally. Backend email routing and persistent inquiry storage are under development; form submissions are not transmitted. Submitting this form does not send an email or register you for early access.
           </span>
         </div>
       </div>
@@ -284,7 +284,7 @@ export const ContactForm: React.FC = () => {
           className="w-full sm:w-auto px-8 justify-center shadow-soft-sm"
         >
           <Send className="h-4 w-4 mr-2" />
-          <span>Submit Inquiry</span>
+          <span>Submit Inquiry (Preview)</span>
         </Button>
       </div>
     </form>

@@ -75,7 +75,7 @@ export const HomePage: React.FC = () => {
                   size="lg"
                   className="w-full sm:w-auto shadow-soft-md group justify-center px-8"
                 >
-                  <span>Get Started</span>
+                  <span>Explore Plans</span>
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Button>
               </NavLink>
@@ -349,14 +349,14 @@ export const HomePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual Card Mockup */}
+            {/* Visual Card Mockup: Illustrative Customer Scenario */}
             <div className="rounded-[24px] border border-border bg-surface-card p-6 sm:p-8 shadow-soft-md space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-content-main">
-                  Customer Survey Preview
+                  Survey Flow Preview
                 </span>
-                <Badge variant="success" className="text-xs">
-                  CSAT 5★ Verified
+                <Badge variant="outline" className="text-xs text-brand-primary border-brand-primary/30">
+                  Illustrative Customer Scenario
                 </Badge>
               </div>
               <div className="space-y-3 text-xs sm:text-sm">
@@ -373,8 +373,13 @@ export const HomePage: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                <div className="rounded-xl bg-surface-main p-3 border border-border text-xs text-content-secondary leading-relaxed">
-                  &ldquo;Our customer success manager resolved our API provisioning question in less than an hour. Very smooth launch!&rdquo;
+                <div className="rounded-xl bg-surface-main p-3 border border-border text-xs text-content-secondary leading-relaxed space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-content-muted block">
+                    Hypothetical Feedback Scenario:
+                  </span>
+                  <p>
+                    Example: A customer rates a recent service interaction 5/5 stars and notes that technical questions were resolved clearly during evaluation.
+                  </p>
                 </div>
               </div>
             </div>
@@ -392,11 +397,11 @@ export const HomePage: React.FC = () => {
             <div className="order-2 lg:order-1 rounded-[24px] border border-border bg-surface-card p-6 sm:p-8 shadow-soft-md space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <span className="text-xs font-bold uppercase tracking-wider text-content-main">
-                  Employee Pulse Survey
+                  Pulse Survey Preview
                 </span>
                 <Badge variant="outline" className="text-xs text-brand-teal border-brand-teal/40">
                   <Lock className="h-3 w-3 mr-1" />
-                  Anonymity Protected
+                  Illustrative Employee Scenario
                 </Badge>
               </div>
               <div className="space-y-3 text-xs sm:text-sm">
@@ -415,7 +420,7 @@ export const HomePage: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-[11px] text-content-muted">
-                  Planned design decouples responses from user accounts. Aggregation design targets minimum 5 submissions per group.
+                  Hypothetical retro survey: Planned design decouples responses from user accounts. Aggregation design targets minimum 5 submissions per group.
                 </p>
               </div>
             </div>

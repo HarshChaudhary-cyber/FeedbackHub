@@ -433,15 +433,15 @@ export const FeaturesPage: React.FC = () => {
       {/* 4. CALL TO ACTION */}
       {/* ------------------------------------------------------------------ */}
       <CTASection
-        badge="Ready to Experience the Difference?"
-        title="Start gathering actionable feedback today."
-        description="Launch your first customer or employee feedback survey in under five minutes with FeedbackHub."
+        badge="Product Architecture Preview"
+        title="Discover our planned feedback foundation."
+        description="Explore our interactive design system and feature capabilities under technical development."
         primaryAction={{
-          label: 'Get Started Free',
+          label: 'View Illustrative Pricing',
           href: '/pricing',
         }}
         secondaryAction={{
-          label: 'Request Early Access',
+          label: 'Preview Contact Form',
           href: '/contact',
         }}
       />

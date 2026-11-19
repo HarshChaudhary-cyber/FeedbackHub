@@ -281,11 +281,11 @@ export const AboutPage: React.FC = () => {
       {/* 5. CALL TO ACTION */}
       {/* ------------------------------------------------------------------ */}
       <CTASection
-        badge="Join the Journey"
+        badge="Project Roadmap"
         title="Be part of the next generation of feedback."
-        description="Connect with our founders, request early platform access, or explore our feature breakdown."
+        description="Explore our product roadmap and interactive components, or inspect our feature breakdown."
         primaryAction={{
-          label: 'Request Early Access',
+          label: 'Preview Contact Form',
           href: '/contact',
         }}
         secondaryAction={{

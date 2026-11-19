@@ -87,7 +87,7 @@ export const PricingCard: React.FC<PricingCardProps> = ({
 
         <CardContent className="p-0 pt-4 border-t border-border">
           <p className="text-xs font-semibold text-content-main uppercase tracking-wider mb-4">
-            Included features:
+            Target tier features:
           </p>
           <ul className="space-y-3">
             {plan.features.map((feature, idx) => (

@@ -33,7 +33,7 @@ export const SolutionsPage: React.FC = () => {
       title: 'Voice of the Customer (VoC) Programs',
       description:
         'Continuous listening throughout the entire customer journey — from onboarding to renewal. Understand expectations and pinpoint drop-off reasons.',
-      metrics: '+28% higher response completion rate with minimal, frictionless surveys.',
+      metrics: 'Frictionless survey formats designed to maximize voluntary response rates.',
       icon: <Smile className="h-5 w-5 text-brand-primary" />,
     },
     {
@@ -47,7 +47,7 @@ export const SolutionsPage: React.FC = () => {
       title: 'Customer Churn Prevention & Detractor Triage',
       description:
         'Trigger immediate alerts when an account reports an NPS Detractor score (0-6). Enable customer success teams to intervene and resolve dissatisfaction fast.',
-      metrics: '3x faster escalation and recovery for at-risk enterprise accounts.',
+      metrics: 'Rapid notification routing designed to highlight at-risk accounts quickly.',
       icon: <AlertCircle className="h-5 w-5 text-brand-sky" />,
     },
     {
@@ -64,7 +64,7 @@ export const SolutionsPage: React.FC = () => {
       title: 'Continuous Workplace Pulse Surveys',
       description:
         'Short, frequent, low-burden pulse checks that measure morale, psychological safety, and workload distribution in real time without annual survey fatigue.',
-      metrics: '82% typical participation rates driven by 2-minute weekly pulses.',
+      metrics: 'Designed for lightweight 2-minute pulse checks to prevent survey fatigue.',
       icon: <Repeat className="h-5 w-5 text-brand-primary" />,
     },
     {
@@ -312,15 +312,15 @@ export const SolutionsPage: React.FC = () => {
       {/* 4. CALL TO ACTION */}
       {/* ------------------------------------------------------------------ */}
       <CTASection
-        badge="Ready to Unify Your Feedback?"
-        title="Experience FeedbackHub for your organization."
-        description="Select the plan that fits your current team size or request early platform access."
+        badge="Architectural Preview"
+        title="Discover our planned feedback foundation."
+        description="Explore our planned customer and employee listening tracks and preview our interactive components."
         primaryAction={{
-          label: 'View Pricing & Plans',
+          label: 'View Illustrative Pricing',
           href: '/pricing',
         }}
         secondaryAction={{
-          label: 'Talk to Sales',
+          label: 'Preview Contact Form',
           href: '/contact',
         }}
       />

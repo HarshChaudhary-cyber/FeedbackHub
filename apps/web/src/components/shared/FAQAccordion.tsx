@@ -45,9 +45,9 @@ const defaultFaqs: FAQItem[] = [
   },
   {
     id: 'faq-6',
-    question: 'How do I contact the FeedbackHub team for questions or early access?',
+    question: 'How do I submit questions or explore the product roadmap?',
     answer:
-      'You can submit inquiries directly via our public Contact page to connect regarding early access programs, architecture questions, or roadmap previews.',
+      'You can explore our interactive inquiry preview on the public Contact page to review roadmap topics, architecture questions, and planned capabilities.',
   },
 ];
 

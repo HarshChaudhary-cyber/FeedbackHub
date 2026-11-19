@@ -253,15 +253,15 @@ export const SecurityPage: React.FC = () => {
               Have questions about our security roadmap?
             </h2>
             <p className="text-sm text-content-secondary leading-relaxed">
-              We welcome dialogue with security professionals, enterprise architects, and prospective customers.
-              Submit an inquiry through our central Contact page to connect with our engineering team regarding our planned architecture.
+              We welcome dialogue around our security roadmap and technical architecture.
+              Explore our interactive preview form to see how security and architecture inquiries will be categorized.
             </p>
             <div className="pt-4">
               <NavLink
                 to="/contact"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-brand-primary text-white font-semibold text-sm shadow-soft-sm hover:bg-brand-primary/90 transition-colors"
               >
-                <span>Submit a Security Inquiry via Contact Form</span>
+                <span>Preview Inquiries on Contact Page</span>
                 <ArrowRight className="h-4 w-4" />
               </NavLink>
             </div>
@@ -275,13 +275,13 @@ export const SecurityPage: React.FC = () => {
       <CTASection
         badge="Enterprise Transparency"
         title="Building feedback intelligence with honesty."
-        description="Connect with our team to learn more about our architectural roadmap and technical milestones."
+        description="Review our technical milestones, evidence-based controls, and planned architecture."
         primaryAction={{
-          label: 'Request Technical Overview',
+          label: 'Preview Inquiries Form',
           href: '/contact',
         }}
         secondaryAction={{
-          label: 'View Pricing & Plans',
+          label: 'View Illustrative Pricing',
           href: '/pricing',
         }}
       />

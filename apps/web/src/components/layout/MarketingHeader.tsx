@@ -76,7 +76,7 @@ export const MarketingHeader: React.FC = () => {
 
           <NavLink to="/pricing">
             <Button variant="primary" size="sm" className="shadow-soft-sm">
-              Get Started
+              View Plans
             </Button>
           </NavLink>
         </div>
@@ -137,7 +137,7 @@ export const MarketingHeader: React.FC = () => {
               className="w-full sm:w-auto flex-1"
             >
               <Button variant="outline" className="w-full justify-center">
-                Request Early Access
+                Preview Contact Form
               </Button>
             </NavLink>
             <DialogClose asChild>

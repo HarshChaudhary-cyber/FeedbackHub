@@ -24,7 +24,7 @@ interface CTASectionProps {
 export const CTASection: React.FC<CTASectionProps> = ({
   badge = 'Modern Feedback Architecture',
   title = 'Better feedback starts with listening.',
-  description = 'Join forward-thinking teams using FeedbackHub to bring customer satisfaction and employee culture into one clear, actionable platform.',
+  description = 'Explore the planned feedback architecture designed to bring customer satisfaction and employee culture into one unified platform.',
   primaryCtaText,
   primaryCtaLink,
   secondaryCtaText,
@@ -33,9 +33,9 @@ export const CTASection: React.FC<CTASectionProps> = ({
   secondaryAction,
   className = '',
 }) => {
-  const pText = primaryAction?.label || primaryCtaText || 'Get Started';
+  const pText = primaryAction?.label || primaryCtaText || 'View Illustrative Pricing';
   const pLink = primaryAction?.href || primaryCtaLink || '/pricing';
-  const sText = secondaryAction?.label || secondaryCtaText || 'Contact Us';
+  const sText = secondaryAction?.label || secondaryCtaText || 'Preview Contact Form';
   const sLink = secondaryAction?.href || secondaryCtaLink || '/contact';
 
   return (
