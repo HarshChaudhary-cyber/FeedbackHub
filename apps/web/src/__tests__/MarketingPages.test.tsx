@@ -39,12 +39,13 @@ function renderWithRouter(initialRoute = '/') {
 }
 
 describe('FeedbackHub Marketing Website Routes', () => {
-  it('renders HomePage with hero headline and navigation', () => {
+  it('renders HomePage with hero headline, preview dashboard, and status badges', () => {
     renderWithRouter('/');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
     expect(h1.textContent).toMatch(/Turn feedback into/i);
     expect(screen.getByText(/Dual Audience/i)).toBeTruthy();
+    expect(screen.getByText(/Dedicated Subdomains \(Planned\)/i)).toBeTruthy();
     const featureLinks = screen.getAllByRole('link', { name: /Features/i });
     expect(featureLinks.length).toBeGreaterThan(0);
     const pricingLinks = screen.getAllByRole('link', { name: /Pricing/i });
@@ -55,9 +56,21 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/CSAT 5★ Verified/i)).toBeNull();
     expect(screen.getByText(/Illustrative Customer Scenario/i)).toBeTruthy();
     expect(screen.getByText(/Illustrative Employee Scenario/i)).toBeTruthy();
+
+    // Verify ProductDashboardPreview clearly labels sample metrics and illustrative feed
+    expect(screen.getByText(/Interactive Preview • Illustrative Sample Data/i)).toBeTruthy();
+    expect(screen.getByText(/Simulated Overview Metrics \(Sample Data\)/i)).toBeTruthy();
+    expect(screen.getByText(/Illustrative Response Feed \(Sample Data\)/i)).toBeTruthy();
+    expect(screen.queryByText(/^Live Feedback Queue$/i)).toBeNull();
+    expect(screen.getByText(/All metrics, charts, and feedback entries shown above are illustrative sample data/i)).toBeTruthy();
+
+    // Verify FeatureCard badges communicate status
+    expect(screen.getByText('Planned Builder')).toBeTruthy();
+    expect(screen.getAllByText('Planned Track').length).toBeGreaterThan(0);
+    expect(screen.getByText('Planned Analytics')).toBeTruthy();
   });
 
-  it('renders FeaturesPage with feature capabilities and category filters', () => {
+  it('renders FeaturesPage with feature capabilities, subtle status labels, and plan CTAs', () => {
     renderWithRouter('/features');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
@@ -66,9 +79,18 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.getByText(/Intuitive Drag-and-Drop Form Builder/i)).toBeTruthy();
     expect(screen.queryByText(/Enterprise-grade stability verified/i)).toBeNull();
     expect(screen.getAllByText(/Component reliability and interaction behaviors verified with automated regression and accessibility suites during development\./i).length).toBeGreaterThan(0);
+
+    // Verify status labels exist and are rendered consistently
+    expect(screen.getAllByText('In Development').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Planned').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Architecture Preview').length).toBeGreaterThan(0);
+
+    // Verify CTAs navigate to plan preview without claiming features are already functional
+    expect(screen.queryByText(/Start with this Feature/i)).toBeNull();
+    expect(screen.getAllByRole('button', { name: /View Plan Alignment/i }).length).toBeGreaterThan(0);
   });
 
-  it('renders SolutionsPage with Customer and Employee toggles', () => {
+  it('renders SolutionsPage with Customer and Employee toggles and planned solution models', () => {
     renderWithRouter('/solutions');
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeTruthy();
@@ -77,10 +99,19 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/See why modern companies are replacing disconnected survey spreadsheets/i)).toBeNull();
     expect(screen.getByText(/Explore the challenges of disconnected survey spreadsheets and fragmented SaaS accounts/i)).toBeTruthy();
 
+    // Verify customer solutions framed as designed/planned capabilities
+    expect(screen.getByText(/Designed for continuous listening throughout the customer journey/i)).toBeTruthy();
+    expect(screen.getByText(/Planned alert triggers for NPS Detractor scores/i)).toBeTruthy();
+
     // Click Employee toggle
     const employeeBtn = screen.getByRole('button', { name: /Employee Engagement/i });
     fireEvent.click(employeeBtn);
     expect(screen.getByText(/Employee Engagement Track/i)).toBeTruthy();
+    expect(screen.getByText(/Planned lightweight pulse checks designed to measure morale/i)).toBeTruthy();
+
+    // Verify comparison section frames benefits as planned model
+    expect(screen.getByText(/One planned subscription model supporting both customer and employee listening tracks/i)).toBeTruthy();
+    expect(screen.getByText(/Planned centralized triage inbox connecting customer requests to product priorities/i)).toBeTruthy();
   });
 
   it('renders PricingPage with illustrative preview badge, billing toggle, and plan modal', () => {
@@ -260,6 +291,7 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/Zero Fingerprinting/i)).toBeNull();
     expect(screen.queryByText(/Our customer success manager resolved our API provisioning question/i)).toBeNull();
     expect(screen.queryByText(/Triage time dropped by 50%/i)).toBeNull();
+    expect(screen.queryByText(/^Live Feedback Queue$/i)).toBeNull();
     home.unmount();
 
     // Check FeaturesPage
@@ -267,6 +299,8 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/True Anonymous/i)).toBeNull();
     expect(screen.queryByText(/Launch your first customer or employee feedback survey in under five minutes/i)).toBeNull();
     expect(screen.queryByText(/Enterprise-grade stability verified/i)).toBeNull();
+    expect(screen.queryByText(/Start with this Feature/i)).toBeNull();
+    expect(screen.queryByText(/Live incoming response feed/i)).toBeNull();
     features.unmount();
 
     // Check SolutionsPage

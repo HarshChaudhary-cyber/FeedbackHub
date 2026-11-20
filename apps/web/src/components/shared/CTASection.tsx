@@ -22,7 +22,7 @@ interface CTASectionProps {
 }
 
 export const CTASection: React.FC<CTASectionProps> = ({
-  badge = 'Modern Feedback Architecture',
+  badge = 'Product Architecture Preview',
   title = 'Better feedback starts with listening.',
   description = 'Explore the planned feedback architecture designed to bring customer satisfaction and employee culture into one unified platform.',
   primaryCtaText,

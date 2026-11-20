@@ -103,7 +103,7 @@ export const HomePage: React.FC = () => {
               </span>
               <span className="hidden sm:flex items-center gap-1.5">
                 <CheckCircle className="h-3.5 w-3.5 text-brand-teal" />
-                Dedicated Subdomains
+                Dedicated Subdomains (Planned)
               </span>
             </div>
           </div>
@@ -123,7 +123,7 @@ export const HomePage: React.FC = () => {
           <SectionHeading
             badge="Why FeedbackHub"
             title="Why organize all feedback in one platform?"
-            description="Scattered feedback across disconnected inboxes, forms, and channels creates blind spots. FeedbackHub unifies your perspective so leaders can act with speed and clarity."
+            description="Scattered feedback across disconnected inboxes, forms, and channels creates blind spots. FeedbackHub is designed to unify your perspective so leaders can act with clarity."
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -217,38 +217,38 @@ export const HomePage: React.FC = () => {
             <FeatureCard
               icon={<FileText className="h-6 w-6" />}
               title="Custom Feedback Forms"
-              description="Build tailored surveys with multiple question types including NPS (0-10), CSAT rating stars, Likert scales, and open text fields."
-              badge="Form Builder"
+              description="Designed for tailored surveys with multiple question types including NPS (0-10), CSAT rating stars, Likert scales, and open text fields."
+              badge="Planned Builder"
             />
             <FeatureCard
               icon={<HeartHandshake className="h-6 w-6" />}
               title="Customer Experience (CX)"
-              description="Collect product reviews, bug reports, and service satisfaction directly from customers via web links and custom subdomains."
-              badge="Customer Hub"
+              description="Designed to collect product reviews, feedback, and satisfaction directly from customers via web links and custom subdomains."
+              badge="Planned Track"
             />
             <FeatureCard
               icon={<Users2 className="h-6 w-6" />}
               title="Employee Feedback &amp; Pulse"
-              description="Run quarterly culture surveys, manager check-ins, and team pulse assessments to build an open, high-trust workplace."
-              badge="Employee Hub"
+              description="Planned lightweight pulse checks, culture assessments, and team retrospectives to foster open communication."
+              badge="Planned Track"
             />
             <FeatureCard
               icon={<ShieldAlert className="h-6 w-6" />}
               title="Anonymous Feedback Mode"
               description="Designed for employee psychological safety with submission decoupling and planned k-anonymity aggregation thresholds."
-              badge="Privacy-First"
+              badge="Privacy Design"
             />
             <FeatureCard
               icon={<Inbox className="h-6 w-6" />}
               title="Response Management &amp; Triage"
-              description="Filter by rating, search text, assign internal statuses (New, In Progress, Resolved), and collaborate with internal notes."
-              badge="Operations"
+              description="Planned triage workflows to filter by rating, search text, assign statuses (New, In Progress, Resolved), and collaborate with internal notes."
+              badge="In Development"
             />
             <FeatureCard
               icon={<LineChart className="h-6 w-6" />}
               title="Analytics &amp; Trend Insights"
-              description="Visualize Promoter vs. Detractor distributions, response velocity, and historical sentiment patterns across departments."
-              badge="Reporting"
+              description="Designed to visualize Promoter vs. Detractor distributions, response velocity, and historical sentiment patterns."
+              badge="Planned Analytics"
             />
           </div>
         </PageContainer>
@@ -274,7 +274,7 @@ export const HomePage: React.FC = () => {
                 Create Your Feedback Form
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Choose question formats, customize wording, configure anonymous or identified mode, and set optional rating scales.
+                Planned form canvas: choose question formats, customize wording, select anonymous or identified mode, and set rating scales.
               </p>
             </div>
 
@@ -286,7 +286,7 @@ export const HomePage: React.FC = () => {
                 Share With Your Audience
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Distribute via shareable links, embed on your website, or route employees directly to your branded company portal.
+                Planned distribution: share via direct web links, embedded widgets, or route employees directly to your branded company portal.
               </p>
             </div>
 
@@ -298,7 +298,7 @@ export const HomePage: React.FC = () => {
                 Understand &amp; Take Action
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Review aggregated sentiment trends, assign follow-ups to teammates, track resolution, and close the feedback loop.
+                Planned triage &amp; analytics: review aggregated sentiment trends, assign follow-ups to teammates, and track resolution.
               </p>
             </div>
           </div>
@@ -319,23 +319,23 @@ export const HomePage: React.FC = () => {
                 Understand your customers before they reach for the exit.
               </h2>
               <p className="text-base text-content-secondary leading-relaxed">
-                Customers frequently churn without filing a support ticket. FeedbackHub gives
-                you frictionless listening channels to capture customer sentiment at critical
+                Customers frequently churn without filing a support ticket. FeedbackHub is designed
+                to provide listening channels to capture customer sentiment at critical
                 touchpoints:
               </p>
 
               <ul className="space-y-3.5 text-sm text-content-main">
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
-                  <span><strong>Product Experience:</strong> Gauge feature usability, onboarding friction, and core workflows.</span>
+                  <span><strong>Product Experience:</strong> Designed to gauge feature usability, onboarding friction, and core workflows.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
-                  <span><strong>Satisfaction Tracking:</strong> Track CSAT and NPS across time, versions, and customer tiers.</span>
+                  <span><strong>Satisfaction Tracking:</strong> Planned CSAT and NPS tracking across time, versions, and customer cohorts.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
-                  <span><strong>Complaint Resolution:</strong> Triage customer pain points swiftly with clear ownership statuses.</span>
+                  <span><strong>Issue Resolution:</strong> Planned triage workflows with clear ownership and resolution statuses.</span>
                 </li>
               </ul>
 
@@ -441,7 +441,7 @@ export const HomePage: React.FC = () => {
               <ul className="space-y-3.5 text-sm text-content-main">
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
-                  <span><strong>Safe Feedback Options:</strong> Choose between identified or anonymous submission per survey.</span>
+                  <span><strong>Safe Feedback Options:</strong> Planned option to choose between identified or anonymous submission per survey.</span>
                 </li>
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
@@ -449,7 +449,7 @@ export const HomePage: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2.5">
                   <CheckCircle className="h-5 w-5 text-brand-teal mt-0.5 shrink-0" />
-                  <span><strong>Culture Insights:</strong> Detect team burnout, leadership friction, and organizational hurdles early.</span>
+                  <span><strong>Culture Insights:</strong> Designed to detect team burnout, leadership friction, and organizational hurdles early.</span>
                 </li>
               </ul>
 
@@ -474,7 +474,7 @@ export const HomePage: React.FC = () => {
           <SectionHeading
             badge="Dedicated Portals"
             title="Your brand. Your subdomain. Your feedback hub."
-            description="Give your stakeholders a tailored experience. Each company workspace operates on an independent subdomain with custom logo, accent colors, and branded forms."
+            description="Give your stakeholders a tailored experience. Each company workspace is architected to operate on an independent subdomain with custom logo, accent colors, and branded forms."
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -491,7 +491,7 @@ export const HomePage: React.FC = () => {
                   </div>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-mono">
-                  Tenant Subdomain
+                  Planned Subdomain
                 </Badge>
               </div>
               <div className="rounded-xl bg-surface-main p-4 border border-border space-y-2 text-xs">
@@ -517,7 +517,7 @@ export const HomePage: React.FC = () => {
                   </div>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-mono">
-                  Tenant Subdomain
+                  Planned Subdomain
                 </Badge>
               </div>
               <div className="rounded-xl bg-surface-main p-4 border border-border space-y-2 text-xs">

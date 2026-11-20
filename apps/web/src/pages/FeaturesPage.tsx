@@ -36,20 +36,21 @@ export const FeaturesPage: React.FC = () => {
       icon: <Globe2 className="h-6 w-6 text-brand-primary" />,
       title: 'Multi-Channel Feedback Collection',
       badge: 'Capture Anywhere',
-      tagline: 'Never miss a voice across touchpoints',
+      status: 'In Development',
+      tagline: 'Planned distribution across multiple customer and employee touchpoints',
       description:
-        'Meet your customers and employees exactly where they are. FeedbackHub provides versatile distribution tools that seamlessly integrate into websites, emails, physical locations, and internal workspaces.',
+        'Designed to meet your customers and employees wherever they interact. The FeedbackHub distribution architecture is being developed to integrate smoothly into websites, emails, physical locations, and internal workspaces.',
       details: [
-        'Shareable branded web links for direct survey distribution via SMS or chat.',
-        'Embeddable feedback widgets and subtle bottom-sheet popups for web apps.',
-        'Dynamic QR codes optimized for in-person events, kiosks, and retail environments.',
-        'Automated post-interaction email triggers via transactional webhooks.',
-        'Flexible submission modes: full identity capture or privacy-preserving anonymous feedback.',
+        'Planned shareable branded web links for direct survey distribution via SMS or chat.',
+        'Embeddable feedback widgets and subtle bottom-sheet popups planned for web apps.',
+        'Dynamic QR codes designed for in-person events, kiosks, and retail environments.',
+        'Planned post-interaction automated triggers via transactional webhooks.',
+        'Planned submission options: identified responses or privacy-preserving anonymous feedback.',
       ],
       highlights: [
-        { label: 'Distribution Channels', value: 'Web, Widget, QR, Email' },
+        { label: 'Target Channels', value: 'Web, Widget, QR & Email (Planned)' },
         { label: 'Identity Modes', value: 'Identified & Anonymous Options' },
-        { label: 'Mobile Optimized', value: '100% Responsive Viewports' },
+        { label: 'Viewport Support', value: 'Responsive Mobile & Desktop Layouts' },
       ],
     },
     {
@@ -58,20 +59,21 @@ export const FeaturesPage: React.FC = () => {
       icon: <Sliders className="h-6 w-6 text-brand-secondary" />,
       title: 'Intuitive Drag-and-Drop Form Builder',
       badge: 'Zero Code Required',
-      tagline: 'Create beautiful, conversion-focused feedback forms in minutes',
+      status: 'In Development',
+      tagline: 'Planned visual canvas for conversion-focused feedback forms',
       description:
-        'Construct tailored survey flows with our modular form canvas. Combine quantitative rating indicators with qualitative contextual questions to uncover actionable insights without engineering bottlenecks.',
+        'Designed to let teams construct tailored survey flows using a modular form canvas. Planned capabilities combine quantitative rating indicators with qualitative contextual questions without engineering bottlenecks.',
       details: [
-        'Pre-configured industry metrics: Net Promoter Score (NPS 0-10) and Customer Satisfaction (CSAT 1-5).',
-        'Likert agreement scales, multiple-choice options, and structured multi-line text responses.',
-        'Conditional question logic: dynamically show follow-up questions based on respondent scores.',
-        'Custom branding controls: upload company logos, set brand colors, and craft custom completion messages.',
-        'Instant live preview toggle between mobile and desktop form layouts.',
+        'Pre-configured industry metrics planned: Net Promoter Score (NPS 0-10) and Customer Satisfaction (CSAT 1-5).',
+        'Planned Likert agreement scales, multiple-choice options, and structured multi-line text responses.',
+        'Conditional question logic design: dynamically show follow-up questions based on respondent scores.',
+        'Custom branding controls designed for company logo uploads, custom colors, and completion messages.',
+        'Multi-device preview emulation to inspect mobile and desktop form layouts prior to publishing.',
       ],
       highlights: [
-        { label: 'Question Types', value: 'NPS, CSAT, Likert, Text, Options' },
-        { label: 'Branching Logic', value: 'Score-Based Rules' },
-        { label: 'Live Preview', value: 'Instant Multi-Device Emulation' },
+        { label: 'Planned Formats', value: 'NPS, CSAT, Likert & Open Text' },
+        { label: 'Branching Rules', value: 'Score-Based Conditional Logic' },
+        { label: 'Preview Mode', value: 'Instant Multi-Device Emulation' },
       ],
     },
     {
@@ -80,20 +82,21 @@ export const FeaturesPage: React.FC = () => {
       icon: <Inbox className="h-6 w-6 text-brand-sky" />,
       title: 'Real-Time Response Inbox & Triage Console',
       badge: 'Collaborative Action',
-      tagline: 'Turn incoming sentiment into structured team workflows',
+      status: 'In Development',
+      tagline: 'An upcoming response-management workspace to organize and prioritize feedback',
       description:
-        'A unified, real-time command center for your feedback stream. Triage, tag, filter, and assign customer comments or employee suggestions without letting valuable feedback slip through the cracks.',
+        'A planned centralized command center for incoming feedback streams. Designed to help teams triage, tag, filter, and assign customer comments or employee suggestions with structured accountability.',
       details: [
-        'Live incoming response feed with instantaneous status badges (Open, Under Review, In Progress, Resolved).',
-        'Multi-dimensional filtering: search by date range, sentiment score, rating category, or custom tag.',
+        'Planned response feed featuring structured lifecycle statuses (Open, Under Review, In Progress, Resolved).',
+        'Multi-dimensional filtering design: search by date range, sentiment score, rating category, or custom tag.',
         'Internal collaboration notes: leave private team comments on responses without exposing them to respondents.',
-        'Direct ticket routing: assign feedback items to designated team members or department leads.',
-        'Archiving and audit history to preserve complete compliance and review trails.',
+        'Direct ticket routing design: assign feedback items to designated team members or department leads.',
+        'Planned archiving and audit history to maintain complete compliance and review trails.',
       ],
       highlights: [
-        { label: 'Triage Workflows', value: '4-Stage Lifecycle Status' },
-        { label: 'Internal Notes', value: 'Private Team Collaboration' },
-        { label: 'Response Tagging', value: 'Color-Coded Custom Labels' },
+        { label: 'Triage Lifecycle', value: '4-Stage Planned Workflow' },
+        { label: 'Internal Notes', value: 'Private Team Collaboration Design' },
+        { label: 'Response Tagging', value: 'Custom Categorization Labels' },
       ],
     },
     {
@@ -102,20 +105,21 @@ export const FeaturesPage: React.FC = () => {
       icon: <LineChart className="h-6 w-6 text-brand-teal" />,
       title: 'Analytics & Sentiment Intelligence',
       badge: 'Actionable Insights',
-      tagline: 'Spot recurring trends and quantify organizational sentiment',
+      status: 'Planned',
+      tagline: 'Analytics capabilities planned for NPS, CSAT, response trends, and sentiment',
       description:
-        'Move beyond raw comment spreadsheets. FeedbackHub aggregates responses into high-level visual dashboards, tracking score trajectories, distribution spreads, and sentiment shifts over time.',
+        'Designed to move beyond raw spreadsheets. FeedbackHub is architected to aggregate responses into high-level visual dashboards, tracking score trajectories, distribution spreads, and sentiment shifts over time.',
       details: [
-        'Automated computation of core loyalty and satisfaction metrics (NPS breakdown: Promoters, Passives, Detractors).',
-        'Historical trend monitoring: observe customer sentiment changes across weekly and monthly cohorts.',
-        'Sentiment clustering: identify key recurring positive and critical themes across open text answers.',
-        'One-click data export: download complete raw datasets in CSV or structured PDF executive summaries.',
+        'Planned computation of core loyalty and satisfaction metrics (NPS breakdown: Promoters, Passives, Detractors).',
+        'Historical trend monitoring designed to observe customer sentiment changes across weekly and monthly cohorts.',
+        'Planned sentiment clustering to identify recurring themes across open text answers.',
+        'Structured data export roadmap: planned raw CSV downloads and executive summary reports.',
         'Visual distribution charts powered by clean, accessible data representations.',
       ],
       highlights: [
-        { label: 'Core Metrics', value: 'Real-time NPS, CSAT & Response Rates' },
+        { label: 'Planned Metrics', value: 'Calculated NPS, CSAT & Response Rates' },
         { label: 'Cohort Tracking', value: 'Historical Sentiment Trajectories' },
-        { label: 'Export Formats', value: 'CSV, Excel & Executive PDF' },
+        { label: 'Export Roadmap', value: 'CSV, Excel & Executive PDF' },
       ],
     },
     {
@@ -123,7 +127,8 @@ export const FeaturesPage: React.FC = () => {
       category: 'management',
       icon: <Users2 className="h-6 w-6 text-brand-primary" />,
       title: 'Multi-Tenant Workspaces & Role-Based Access',
-      badge: 'Planned Architecture',
+      badge: 'Multi-Tenant Isolation',
+      status: 'Architecture Preview',
       tagline: 'Planned organization boundaries and granular team control',
       description:
         'Designed from the foundation up for B2B SaaS multi-tenancy. Every organization will operate within its own partitioned workspace with dedicated settings and planned access governance.',
@@ -145,21 +150,22 @@ export const FeaturesPage: React.FC = () => {
       category: 'management',
       icon: <Bell className="h-6 w-6 text-brand-secondary" />,
       title: 'Automated Notifications & Alert Triggers',
-      badge: 'Immediate Awareness',
-      tagline: 'Notify the right teams the moment critical feedback arrives',
+      badge: 'Alert Workflows',
+      status: 'Planned',
+      tagline: 'Planned notification workflows for urgent feedback and important response events',
       description:
-        'Stay ahead of customer churn and urgent employee concerns. Configure intelligent alert policies that notify designated stakeholders instantly when negative sentiment or urgent issues are reported.',
+        'Designed to help teams stay ahead of customer churn and urgent employee concerns. Planned alert policies will notify designated stakeholders when negative sentiment or critical issues are reported.',
       details: [
-        'Instant alert triggers: automatically notify support leads when an NPS Detractor (0-6) or low CSAT is submitted.',
-        'Weekly summary digest emails delivering high-level response velocity and sentiment trajectory to executives.',
-        'Customizable email delivery preferences per team member to prevent notification fatigue.',
+        'Planned alert triggers: notify support leads when an NPS Detractor (0-6) or low CSAT is submitted.',
+        'Planned weekly digest summaries delivering response velocity and sentiment trajectory to leadership.',
+        'Customizable notification preferences per team member to prevent notification fatigue.',
         'Upcoming integration webhook roadmap for Slack, Microsoft Teams, and Jira ticket generation.',
-        'Rate-limited notification delivery engine designed for high-volume enterprise stability.',
+        'Rate-limited delivery architecture designed for high-volume notification reliability.',
       ],
       highlights: [
-        { label: 'Trigger Rules', value: 'Detractor Alerts & Milestone Triggers' },
-        { label: 'Digests', value: 'Automated Weekly Executive Summaries' },
-        { label: 'Integrations', value: 'Webhooks & Collaboration Connectors' },
+        { label: 'Trigger Rules', value: 'Detractor Alerts & Milestone Rules' },
+        { label: 'Digests', value: 'Planned Weekly Summary Reports' },
+        { label: 'Integrations', value: 'Webhooks & Collaboration Roadmap' },
       ],
     },
   ];
@@ -196,8 +202,8 @@ export const FeaturesPage: React.FC = () => {
           </h1>
 
           <p className="mt-6 text-base sm:text-xl text-content-secondary max-w-2xl mx-auto leading-relaxed">
-            FeedbackHub unites multi-channel survey collection, intuitive form building,
-            real-time team triage, and executive sentiment analytics into one unified architecture.
+            FeedbackHub is designed to unite multi-channel survey collection, intuitive form building,
+            team response triage, and executive sentiment analytics into one unified architecture.
           </p>
 
           {/* Category Filter Pills */}
@@ -246,12 +252,15 @@ export const FeaturesPage: React.FC = () => {
                       isEven ? 'lg:order-1' : 'lg:order-2'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-card border border-border shadow-soft-sm">
                         {pillar.icon}
                       </div>
                       <Badge variant="outline" className="text-xs font-semibold text-brand-primary border-brand-primary/30">
                         {pillar.badge}
+                      </Badge>
+                      <Badge variant="secondary" className="text-[11px] font-medium bg-surface-main text-content-secondary border border-border/80">
+                        {pillar.status}
                       </Badge>
                     </div>
 
@@ -282,7 +291,7 @@ export const FeaturesPage: React.FC = () => {
                     <div className="pt-4 flex flex-wrap gap-4">
                       <NavLink to="/pricing">
                         <Button variant="primary" size="sm" className="rounded-full shadow-soft-sm">
-                          <span>Start with this Feature</span>
+                          <span>View Plan Alignment</span>
                           <ArrowRight className="ml-2 h-3.5 w-3.5" />
                         </Button>
                       </NavLink>
@@ -350,7 +359,7 @@ export const FeaturesPage: React.FC = () => {
           <SectionHeading
             badge="Unified Platform"
             title="Two audiences. One shared source of truth."
-            description="Traditional tools force companies to buy separate systems for customer surveys and employee engagement. FeedbackHub brings them together securely."
+            description="Traditional tools force companies to buy separate systems for customer surveys and employee engagement. FeedbackHub is designed to bring them together securely."
           />
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -363,20 +372,20 @@ export const FeaturesPage: React.FC = () => {
                   Customer Experience &amp; Product Validation
                 </h3>
                 <p className="text-sm text-content-secondary leading-relaxed">
-                  Understand churn signals before they happen, benchmark Net Promoter Scores across product releases, and gather targeted feedback on new feature prototypes.
+                  Designed to help teams understand churn signals before they happen, benchmark Net Promoter Scores across product releases, and gather targeted feedback on new feature prototypes.
                 </p>
                 <ul className="space-y-2 text-xs sm:text-sm text-content-main pt-2">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal" />
-                    Targeted in-app micro-surveys
+                    Planned in-app micro-surveys
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal" />
-                    Automated Detractor alerts for support escalation
+                    Planned Detractor alerts for support escalation
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal" />
-                    Exportable feedback reports for product roadmaps
+                    Planned exportable feedback reports for product roadmaps
                   </li>
                 </ul>
               </div>
@@ -399,7 +408,7 @@ export const FeaturesPage: React.FC = () => {
                   Employee Engagement &amp; Culture Listening
                 </h3>
                 <p className="text-sm text-content-secondary leading-relaxed">
-                  Provide safe, anonymous channels for genuine workplace sentiment, routine team pulse checks, and structured continuous improvement suggestions.
+                  Designed to provide safe, anonymous channels for genuine workplace sentiment, routine team pulse checks, and structured continuous improvement suggestions.
                 </p>
                 <ul className="space-y-2 text-xs sm:text-sm text-content-main pt-2">
                   <li className="flex items-center gap-2">
@@ -408,7 +417,7 @@ export const FeaturesPage: React.FC = () => {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal" />
-                    Departmental pulse surveys with trend benchmarks
+                    Planned departmental pulse surveys with trend benchmarks
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-brand-teal" />

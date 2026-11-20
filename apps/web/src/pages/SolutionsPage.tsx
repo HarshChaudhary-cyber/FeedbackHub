@@ -32,29 +32,29 @@ export const SolutionsPage: React.FC = () => {
     {
       title: 'Voice of the Customer (VoC) Programs',
       description:
-        'Continuous listening throughout the entire customer journey — from onboarding to renewal. Understand expectations and pinpoint drop-off reasons.',
+        'Designed for continuous listening throughout the customer journey — from onboarding to renewal. Built to help teams understand expectations and identify drop-off reasons.',
       metrics: 'Frictionless survey formats designed to maximize voluntary response rates.',
       icon: <Smile className="h-5 w-5 text-brand-primary" />,
     },
     {
       title: 'Product Validation & Roadmap Input',
       description:
-        'Validate new product features with active power users before writing code. Prioritize engineering roadmaps based on quantified user demand.',
-      metrics: 'Eliminate feature guesswork with targeted feedback segmentation.',
+        'Designed to validate new product concepts with active power users before writing code, helping teams prioritize engineering roadmaps based on user demand.',
+      metrics: 'Planned feedback segmentation designed to remove feature guesswork.',
       icon: <Compass className="h-5 w-5 text-brand-secondary" />,
     },
     {
       title: 'Customer Churn Prevention & Detractor Triage',
       description:
-        'Trigger immediate alerts when an account reports an NPS Detractor score (0-6). Enable customer success teams to intervene and resolve dissatisfaction fast.',
+        'Planned alert triggers for NPS Detractor scores (0-6), designed to enable customer success teams to intervene and resolve dissatisfaction quickly.',
       metrics: 'Rapid notification routing designed to highlight at-risk accounts quickly.',
       icon: <AlertCircle className="h-5 w-5 text-brand-sky" />,
     },
     {
       title: 'Support Satisfaction (CSAT / CES)',
       description:
-        'Capture immediate post-resolution customer sentiment. Track individual agent helpfulness and resolution effort metrics automatically.',
-      metrics: 'Instant CSAT score calculation and automated weekly team digests.',
+        'Designed to capture post-resolution customer sentiment, helping teams track helpfulness and resolution effort metrics over time.',
+      metrics: 'Planned CSAT score computation and automated weekly team summaries.',
       icon: <CheckCircle2 className="h-5 w-5 text-brand-teal" />,
     },
   ];
@@ -63,29 +63,29 @@ export const SolutionsPage: React.FC = () => {
     {
       title: 'Continuous Workplace Pulse Surveys',
       description:
-        'Short, frequent, low-burden pulse checks that measure morale, psychological safety, and workload distribution in real time without annual survey fatigue.',
+        'Planned lightweight pulse checks designed to measure morale, psychological safety, and workload distribution without annual survey fatigue.',
       metrics: 'Designed for lightweight 2-minute pulse checks to prevent survey fatigue.',
       icon: <Repeat className="h-5 w-5 text-brand-primary" />,
     },
     {
       title: 'Anonymous Suggestion Box',
       description:
-        'Give employees complete peace of mind to voice critical concerns, ethical questions, and creative ideas without fear of managerial retaliation.',
+        'Designed to give employees peace of mind when voicing constructive concerns, ideas, and feedback without fear of attribution.',
       metrics: 'Planned privacy-preserving anonymization with k-anonymity (k >= 5) targets.',
       icon: <Lock className="h-5 w-5 text-brand-secondary" />,
     },
     {
       title: 'Departmental & Team Health Benchmarks',
       description:
-        'Compare sentiment trajectories across engineering, design, sales, and support departments while safeguarding individual anonymity.',
-      metrics: 'Identify cross-departmental friction before it drives attrition.',
+        'Planned comparative sentiment tracking across departments, designed to safeguard individual anonymity through aggregate reporting.',
+      metrics: 'Designed to highlight departmental friction before it leads to attrition.',
       icon: <BarChart className="h-5 w-5 text-brand-sky" />,
     },
     {
       title: 'Structured Exit & Onboarding Interviews',
       description:
-        'Standardize feedback from new hires at day 30 and departing employees on day zero. Uncover honest patterns regarding company culture and management.',
-      metrics: 'Clear retrospective reporting on retention factors and leadership impact.',
+        'Designed to standardize feedback from onboarding cohorts and departing employees, revealing constructive patterns in culture and management.',
+      metrics: 'Planned retrospective reporting on retention factors and leadership themes.',
       icon: <Users2 className="h-5 w-5 text-brand-teal" />,
     },
   ];
@@ -119,7 +119,7 @@ export const SolutionsPage: React.FC = () => {
 
           <p className="mt-6 text-base sm:text-xl text-content-secondary max-w-2xl mx-auto leading-relaxed">
             Organizations excel when they listen to the people who buy their products
-            and the people who build them. FeedbackHub provides tailored workflows for both.
+            and the people who build them. FeedbackHub is designed to provide tailored workflows for both.
           </p>
 
           {/* Interactive Toggle for View Tracks */}
@@ -167,7 +167,7 @@ export const SolutionsPage: React.FC = () => {
                   Turn user feedback into revenue retention
                 </h2>
                 <p className="text-sm sm:text-base text-content-secondary">
-                  Eliminate guesswork by asking customers at precisely the right moment in their journey.
+                  Designed to eliminate guesswork by asking customers at timely moments in their journey.
                 </p>
               </div>
 
@@ -288,11 +288,11 @@ export const SolutionsPage: React.FC = () => {
               <ul className="space-y-4 text-xs sm:text-sm text-content-main">
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0 mt-0.5" />
-                  <span>One predictable subscription supporting both customer and employee listening tracks.</span>
+                  <span>One planned subscription model supporting both customer and employee listening tracks.</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0 mt-0.5" />
-                  <span>Centralized triage inbox connecting customer requests directly to product priorities.</span>
+                  <span>Planned centralized triage inbox connecting customer requests to product priorities.</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0 mt-0.5" />
@@ -300,7 +300,7 @@ export const SolutionsPage: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <CheckCircle2 className="h-4 w-4 text-brand-teal shrink-0 mt-0.5" />
-                  <span>Real-time executive dashboards with automatic trend calculation and zero CSV wrangling.</span>
+                  <span>Planned executive dashboards with automatic trend calculation and simplified reporting.</span>
                 </li>
               </ul>
             </Card>

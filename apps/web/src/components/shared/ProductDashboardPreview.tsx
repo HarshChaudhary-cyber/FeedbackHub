@@ -76,7 +76,7 @@ export const ProductDashboardPreview: React.FC = () => {
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-[11px] font-mono text-brand-primary border-brand-primary/30 bg-brand-primary/5">
             <Sparkles className="h-3 w-3 mr-1" />
-            Demo Workspace Preview
+            Interactive Preview &bull; Illustrative Sample Data
           </Badge>
         </div>
       </div>
@@ -118,58 +118,69 @@ export const ProductDashboardPreview: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 KPI Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
-            <div className="flex items-center justify-between text-xs text-content-secondary">
-              <span>Total Responses</span>
-              <MessageSquare className="h-4 w-4 text-brand-primary" />
-            </div>
-            <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
-              1,284
-            </div>
-            <div className="mt-1 flex items-center gap-1 text-[11px] text-semantic-success font-medium">
-              <TrendingUp className="h-3 w-3" />
-              <span>+18.4% this month</span>
-            </div>
+        {/* 4 KPI Summary Cards (Simulated Sample Metrics) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">
+              Simulated Overview Metrics (Sample Data)
+            </span>
+            <span className="text-[11px] text-content-muted italic hidden sm:inline">
+              Interactive Dashboard Mockup
+            </span>
           </div>
 
-          <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
-            <div className="flex items-center justify-between text-xs text-content-secondary">
-              <span>CSAT Rating</span>
-              <BarChart3 className="h-4 w-4 text-brand-sky" />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
+              <div className="flex items-center justify-between text-xs text-content-secondary">
+                <span>Total Responses (Sample)</span>
+                <MessageSquare className="h-4 w-4 text-brand-primary" />
+              </div>
+              <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
+                1,284
+              </div>
+              <div className="mt-1 flex items-center gap-1 text-[11px] text-semantic-success font-medium">
+                <TrendingUp className="h-3 w-3" />
+                <span>+18.4% sample trend</span>
+              </div>
             </div>
-            <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
-              94.2%
-            </div>
-            <div className="mt-1 text-[11px] text-content-secondary">
-              Avg score 4.8 / 5.0 (420 reviews)
-            </div>
-          </div>
 
-          <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
-            <div className="flex items-center justify-between text-xs text-content-secondary">
-              <span>Employee Pulse</span>
-              <Users className="h-4 w-4 text-brand-teal" />
+            <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
+              <div className="flex items-center justify-between text-xs text-content-secondary">
+                <span>CSAT Rating (Sample)</span>
+                <BarChart3 className="h-4 w-4 text-brand-sky" />
+              </div>
+              <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
+                94.2%
+              </div>
+              <div className="mt-1 text-[11px] text-content-secondary">
+                Avg score 4.8 / 5.0 (Sample cohort)
+              </div>
             </div>
-            <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
-              88.0%
-            </div>
-            <div className="mt-1 text-[11px] text-content-secondary">
-              eNPS score: +58 (Safe anonymity)
-            </div>
-          </div>
 
-          <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
-            <div className="flex items-center justify-between text-xs text-content-secondary">
-              <span>Resolution Rate</span>
-              <CheckCircle2 className="h-4 w-4 text-brand-secondary" />
+            <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
+              <div className="flex items-center justify-between text-xs text-content-secondary">
+                <span>Employee Pulse (Sample)</span>
+                <Users className="h-4 w-4 text-brand-teal" />
+              </div>
+              <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
+                88.0%
+              </div>
+              <div className="mt-1 text-[11px] text-content-secondary">
+                eNPS score: +58 (Sample cohort)
+              </div>
             </div>
-            <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
-              92.5%
-            </div>
-            <div className="mt-1 text-[11px] text-semantic-success font-medium">
-              32 closed this week
+
+            <div className="rounded-[16px] border border-border bg-surface-main p-3.5">
+              <div className="flex items-center justify-between text-xs text-content-secondary">
+                <span>Resolution Rate (Sample)</span>
+                <CheckCircle2 className="h-4 w-4 text-brand-secondary" />
+              </div>
+              <div className="mt-2 text-xl sm:text-2xl font-bold text-content-main">
+                92.5%
+              </div>
+              <div className="mt-1 text-[11px] text-semantic-success font-medium">
+                Sample weekly resolution
+              </div>
             </div>
           </div>
         </div>
@@ -179,7 +190,7 @@ export const ProductDashboardPreview: React.FC = () => {
           {/* Rating Breakdown */}
           <div className="rounded-[16px] border border-border bg-surface-main p-4 space-y-3">
             <h5 className="text-xs font-bold uppercase tracking-wider text-content-main">
-              Sentiment Distribution
+              Sentiment Distribution (Sample)
             </h5>
             <div className="space-y-2.5 pt-1 text-xs">
               <div className="space-y-1">
@@ -217,7 +228,7 @@ export const ProductDashboardPreview: React.FC = () => {
           <div className="lg:col-span-2 rounded-[16px] border border-border bg-surface-main p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2.5">
               <h5 className="text-xs font-bold uppercase tracking-wider text-content-main">
-                Live Feedback Queue
+                Illustrative Response Feed (Sample Data)
               </h5>
 
               {/* Filter Tabs */}
@@ -302,6 +313,13 @@ export const ProductDashboardPreview: React.FC = () => {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Illustrative Preview Notice Footer */}
+        <div className="pt-2 text-center border-t border-border/60">
+          <p className="text-[11px] text-content-muted">
+            All metrics, charts, and feedback entries shown above are illustrative sample data created for frontend evaluation and preview purposes.
+          </p>
         </div>
       </div>
     </div>
