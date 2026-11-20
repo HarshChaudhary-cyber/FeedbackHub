@@ -3,6 +3,8 @@ import {
   ConflictException,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
+  InternalServerErrorException,
   Logger,
   OnModuleInit,
 } from '@nestjs/common';
@@ -147,8 +149,17 @@ export class AuthService implements OnModuleInit {
       },
     });
 
-    // Send verification email
-    await this.emailService.sendVerificationEmail(user.email, rawToken);
+    // Send verification email with failure rollback
+    try {
+      await this.emailService.sendVerificationEmail(user.email, rawToken);
+    } catch (_emailErr) {
+      this.logger.error(`Failed to send verification email for ${user.email}, rolling back registration`);
+      await this.prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } }).catch(() => {});
+      await this.prisma.platformUser.delete({ where: { id: user.id } }).catch(() => {});
+      throw new InternalServerErrorException(
+        'Unable to deliver verification email. Please check your email address and try again later.'
+      );
+    }
 
     return {
       user: this.sanitizeUser(user),
@@ -195,6 +206,17 @@ export class AuthService implements OnModuleInit {
 
     // Reset email rate limit on successful credentials
     this.rateLimiter.reset(`login_email:${normalizedEmail}`);
+
+    // Enforce email verification: Credentials are valid, but email must be verified
+    if (!user.isEmailVerified) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        error: 'EmailVerificationRequired',
+        message: 'Please verify your email address before signing in.',
+        email: user.email,
+        emailVerificationRequired: true,
+      });
+    }
 
     // Create session
     const rawToken = this.generateSecureToken();
@@ -260,8 +282,19 @@ export class AuthService implements OnModuleInit {
     };
   }
 
-  async verifyEmail(rawToken: string): Promise<{ message: string }> {
+  async verifyEmail(rawToken: string, ip?: string): Promise<{ message: string }> {
     const validated = verifyEmailSchema.parse({ token: rawToken });
+
+    // Rate limit verification attempts by IP
+    if (ip) {
+      this.rateLimiter.assert(
+        `verify_ip:${ip}`,
+        30,
+        15 * 60 * 1000,
+        'Too many verification attempts from this network. Please try again later.'
+      );
+    }
+
     const tokenHash = this.hashToken(validated.token);
 
     const record = await this.prisma.emailVerificationToken.findFirst({
@@ -274,8 +307,17 @@ export class AuthService implements OnModuleInit {
 
     const expiresAt = record.expiresAt instanceof Date ? record.expiresAt : new Date(record.expiresAt);
     if (expiresAt.getTime() <= Date.now()) {
-      await this.prisma.emailVerificationToken.delete({ where: { id: record.id } });
+      await this.prisma.emailVerificationToken.deleteMany({ where: { id: record.id } }).catch(() => {});
       throw new BadRequestException('Verification token has expired. Please request a new one.');
+    }
+
+    // Atomically consume token to prevent race conditions & replay attacks
+    const deleted = await this.prisma.emailVerificationToken.deleteMany({
+      where: { id: record.id, tokenHash },
+    });
+
+    if (deleted.count === 0) {
+      throw new BadRequestException('Verification token has already been used or has expired.');
     }
 
     await this.prisma.platformUser.update({
@@ -286,12 +328,20 @@ export class AuthService implements OnModuleInit {
       },
     });
 
-    await this.prisma.emailVerificationToken.delete({ where: { id: record.id } });
-
     return { message: 'Email address verified successfully. You can now use all platform features.' };
   }
 
-  async resendVerification(email?: string, userId?: string, _ip?: string): Promise<{ message: string }> {
+  async resendVerification(email?: string, userId?: string, ip?: string): Promise<{ message: string }> {
+    // Rate limit resend attempts per IP
+    if (ip) {
+      this.rateLimiter.assert(
+        `resend_ip:${ip}`,
+        5,
+        15 * 60 * 1000,
+        'Too many verification email requests from this network. Please try again later.'
+      );
+    }
+
     let targetUser: {
       id: string;
       email: string;
@@ -312,9 +362,9 @@ export class AuthService implements OnModuleInit {
       return { message: 'This email address is already verified.' };
     }
 
-    // Rate limit resend attempts
+    // Rate limit resend attempts per user
     this.rateLimiter.assert(
-      `resend_verif:${targetUser.id}`,
+      `resend_user:${targetUser.id}`,
       3,
       15 * 60 * 1000,
       'Too many verification email requests. Please wait a few minutes.'
@@ -335,7 +385,12 @@ export class AuthService implements OnModuleInit {
       },
     });
 
-    await this.emailService.sendVerificationEmail(targetUser.email, rawToken);
+    try {
+      await this.emailService.sendVerificationEmail(targetUser.email, rawToken);
+    } catch (_err) {
+      this.logger.error(`Failed to deliver verification email on resend for user ${targetUser.id}`);
+      throw new InternalServerErrorException('Unable to deliver verification email. Please try again later.');
+    }
 
     return { message: 'A fresh verification link has been sent to your email.' };
   }
@@ -370,7 +425,11 @@ export class AuthService implements OnModuleInit {
         },
       });
 
-      await this.emailService.sendPasswordResetEmail(user.email, rawToken);
+      try {
+        await this.emailService.sendPasswordResetEmail(user.email, rawToken);
+      } catch (_err) {
+        this.logger.error(`Failed to send password reset email for user ${user.id}`);
+      }
     } else {
       await this.verifyDummy('DummyDelayPasswordForTimingAttackMitigation123!');
     }
@@ -398,8 +457,17 @@ export class AuthService implements OnModuleInit {
 
     const expiresAt = record.expiresAt instanceof Date ? record.expiresAt : new Date(record.expiresAt);
     if (expiresAt.getTime() <= Date.now()) {
-      await this.prisma.passwordResetToken.delete({ where: { id: record.id } });
+      await this.prisma.passwordResetToken.deleteMany({ where: { id: record.id } }).catch(() => {});
       throw new BadRequestException('Password reset link has expired. Please request a new one.');
+    }
+
+    // Atomically consume token
+    const deleted = await this.prisma.passwordResetToken.deleteMany({
+      where: { id: record.id, tokenHash },
+    });
+
+    if (deleted.count === 0) {
+      throw new BadRequestException('Password reset link has already been used or has expired.');
     }
 
     const newHash = await this.hashPassword(validated.password);
@@ -413,9 +481,6 @@ export class AuthService implements OnModuleInit {
     await this.prisma.authSession.deleteMany({
       where: { userId: record.userId },
     });
-
-    // Invalidate token
-    await this.prisma.passwordResetToken.delete({ where: { id: record.id } });
 
     return { message: 'Password reset successfully. Please log in with your new password.' };
   }

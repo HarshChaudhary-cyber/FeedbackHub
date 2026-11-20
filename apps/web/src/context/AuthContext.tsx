@@ -7,11 +7,18 @@ import type {
   ChangePasswordInput,
 } from '@feedbackhub/validation';
 
+export interface LoginResult {
+  success: boolean;
+  emailVerificationRequired?: boolean;
+  email?: string;
+  error?: string;
+}
+
 export interface AuthContextType {
   user: SessionUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (data: LoginInput) => Promise<{ success: boolean; error?: string }>;
+  login: (data: LoginInput) => Promise<LoginResult>;
   register: (data: RegisterInput) => Promise<{ success: boolean; message?: string; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (data: UpdateProfileInput) => Promise<{ success: boolean; error?: string }>;
@@ -53,7 +60,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     refreshSession();
   }, [refreshSession]);
 
-  const login = async (data: LoginInput): Promise<{ success: boolean; error?: string }> => {
+  const login = async (data: LoginInput): Promise<LoginResult> => {
     try {
       const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
@@ -64,6 +71,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 403 || body.emailVerificationRequired) {
+          return {
+            success: false,
+            emailVerificationRequired: true,
+            email: body.email || data.email,
+            error: body.message || 'Please verify your email address before signing in.',
+          };
+        }
         return {
           success: false,
           error: body.message || 'Invalid email or password. Please try again.',

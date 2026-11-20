@@ -103,22 +103,42 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.memoryStore.users.set(id, user);
         return { ...user };
       },
-      update: async (args: { where: { id: string }; data: any }) => {
+      update: async (args: { where: { id?: string; email?: string }; data: any }) => {
         if (!this.isInMemory) return realPlatformUser.update(args as any);
-        const existing = this.memoryStore.users.get(args.where.id);
+        let targetId = args.where.id;
+        if (!targetId && args.where.email) {
+          for (const u of this.memoryStore.users.values()) {
+            if (u.email.toLowerCase() === args.where.email.toLowerCase()) {
+              targetId = u.id;
+              break;
+            }
+          }
+        }
+        if (!targetId) throw new Error('User not found');
+        const existing = this.memoryStore.users.get(targetId);
         if (!existing) throw new Error('User not found');
         const updated = {
           ...existing,
           ...args.data,
           updatedAt: new Date(),
         };
-        this.memoryStore.users.set(args.where.id, updated);
+        this.memoryStore.users.set(targetId, updated);
         return { ...updated };
       },
-      delete: async (args: { where: { id: string } }) => {
+      delete: async (args: { where: { id?: string; email?: string } }) => {
         if (!this.isInMemory) return realPlatformUser.delete(args as any);
-        const existing = this.memoryStore.users.get(args.where.id);
-        this.memoryStore.users.delete(args.where.id);
+        let targetId = args.where.id;
+        if (!targetId && args.where.email) {
+          for (const u of this.memoryStore.users.values()) {
+            if (u.email.toLowerCase() === args.where.email.toLowerCase()) {
+              targetId = u.id;
+              break;
+            }
+          }
+        }
+        if (!targetId) return null;
+        const existing = this.memoryStore.users.get(targetId);
+        this.memoryStore.users.delete(targetId);
         return existing || null;
       },
     };
@@ -228,6 +248,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           if (match) return { ...s };
         }
         return null;
+      },
+      findMany: async (args?: { where?: { userId?: string } }) => {
+        if (!this.isInMemory) return realAuthSession.findMany(args as any);
+        const results = [];
+        for (const s of this.memoryStore.sessions.values()) {
+          if (!args?.where?.userId || s.userId === args.where.userId) {
+            results.push({ ...s });
+          }
+        }
+        return results;
       },
       findUnique: async (args: { where: { id: string } }) => {
         if (!this.isInMemory) return realAuthSession.findUnique(args as any);

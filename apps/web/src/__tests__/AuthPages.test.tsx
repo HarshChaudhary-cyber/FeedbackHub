@@ -127,6 +127,128 @@ describe('FeedbackHub Authentication Frontend Pages', () => {
         );
       });
     });
+
+    it('displays email verification warning and single-click resend button when unverified user logs in', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.includes('/api/v1/auth/login')) {
+          return {
+            ok: false,
+            status: 403,
+            json: async () => ({
+              statusCode: 403,
+              emailVerificationRequired: true,
+              message: 'Please verify your email address before signing in.',
+              email: 'unverified@example.com',
+            }),
+          };
+        }
+        if (url.includes('/api/v1/auth/resend-verification')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              message: 'A fresh verification link has been sent to your email.',
+            }),
+          };
+        }
+        return {
+          ok: false,
+          json: async () => ({ authenticated: false }),
+        };
+      });
+
+      await act(async () => {
+        render(
+          <MemoryRouter initialEntries={['/login']}>
+            <AuthProvider>
+              <LoginPage />
+            </AuthProvider>
+          </MemoryRouter>
+        );
+      });
+
+      fireEvent.change(screen.getByLabelText(/Work Email/i), {
+        target: { value: 'unverified@example.com' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Password$/i), {
+        target: { value: 'ValidP@ssw0rd123!' },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Sign In/i }));
+
+      // Warning alert should appear
+      await waitFor(() => {
+        expect(screen.getByText(/Please verify your email address before signing in/i)).toBeTruthy();
+      });
+
+      // Resend button should be rendered
+      const resendBtn = screen.getByRole('button', { name: /Resend Verification Link/i });
+      expect(resendBtn).toBeTruthy();
+
+      // Clicking resend verification sends request and gives feedback
+      fireEvent.click(resendBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/A fresh verification link has been sent/i)).toBeTruthy();
+      });
+    });
+
+    it('protects against open redirects by defaulting to /account on malicious redirect targets', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.includes('/api/v1/auth/login')) {
+          return {
+            ok: true,
+            json: async () => ({
+              message: 'Sign in successful.',
+              user: {
+                id: 'u-123',
+                email: 'user@example.com',
+                fullName: 'Test User',
+                isEmailVerified: true,
+                createdAt: new Date().toISOString(),
+              },
+            }),
+          };
+        }
+        return {
+          ok: false,
+          json: async () => ({ authenticated: false }),
+        };
+      });
+
+      await act(async () => {
+        render(
+          <MemoryRouter
+            initialEntries={[
+              {
+                pathname: '/login',
+                state: { from: { pathname: '//evil-phishing.com' } },
+              },
+            ]}
+          >
+            <AuthProvider>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/account" element={<div>Safe Account Dashboard</div>} />
+              </Routes>
+            </AuthProvider>
+          </MemoryRouter>
+        );
+      });
+
+      fireEvent.change(screen.getByLabelText(/Work Email/i), {
+        target: { value: 'user@example.com' },
+      });
+      fireEvent.change(screen.getByLabelText(/^Password$/i), {
+        target: { value: 'ValidP@ssw0rd123!' },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Sign In/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Safe Account Dashboard/i)).toBeTruthy();
+      });
+    });
   });
 
   describe('RegisterPage', () => {

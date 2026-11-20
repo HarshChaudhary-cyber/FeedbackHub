@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { loginSchema } from '@feedbackhub/validation';
 
 export const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+  const { login, resendVerification } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -27,11 +27,16 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendSuccess, setResendSuccess] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
+    setResendSuccess(null);
+    setUnverifiedEmail(null);
     setErrors({});
 
     const validation = loginSchema.safeParse({ email, password });
@@ -51,13 +56,40 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(false);
 
     if (!res.success) {
-      setServerError(res.error || 'Invalid email or password.');
+      if (res.emailVerificationRequired) {
+        setUnverifiedEmail(res.email || email);
+        setServerError(res.error || 'Please verify your email address before signing in.');
+      } else {
+        setServerError(res.error || 'Invalid email or password.');
+      }
       return;
     }
 
+    // Protect against open redirects: validate destination path
+    const rawDest = (location.state as { from?: { pathname?: string } })?.from?.pathname;
     const destination =
-      (location.state as { from?: { pathname?: string } })?.from?.pathname || '/account';
+      rawDest &&
+      rawDest.startsWith('/') &&
+      !rawDest.startsWith('//') &&
+      !rawDest.includes('\\')
+        ? rawDest
+        : '/account';
+
     navigate(destination, { replace: true });
+  };
+
+  const handleResend = async () => {
+    if (!unverifiedEmail) return;
+    setIsResending(true);
+    setResendSuccess(null);
+    const result = await resendVerification(unverifiedEmail);
+    setIsResending(false);
+
+    if (result.success) {
+      setResendSuccess(result.message || 'A fresh verification link has been sent to your email.');
+    } else {
+      setServerError(result.error || 'Failed to resend verification email.');
+    }
   };
 
   return (
@@ -85,9 +117,39 @@ export const LoginPage: React.FC = () => {
 
           <CardContent>
             {serverError && (
-              <Alert variant="error" className="mb-5">
+              <Alert variant={unverifiedEmail ? 'warning' : 'error'} className="mb-5">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{serverError}</AlertDescription>
+                <div className="flex-1 space-y-2">
+                  <AlertDescription>{serverError}</AlertDescription>
+                  {unverifiedEmail && (
+                    <div className="pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isResending || isSubmitting}
+                        onClick={handleResend}
+                        className="text-xs"
+                      >
+                        {isResending ? (
+                          <>
+                            <Spinner size="sm" className="mr-1.5" />
+                            Sending link...
+                          </>
+                        ) : (
+                          'Resend Verification Link'
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Alert>
+            )}
+
+            {resendSuccess && (
+              <Alert variant="success" className="mb-5">
+                <ShieldCheck className="h-4 w-4" />
+                <AlertDescription>{resendSuccess}</AlertDescription>
               </Alert>
             )}
 
@@ -104,7 +166,7 @@ export const LoginPage: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   error={errors.email}
                   leftIcon={<Mail className="h-4 w-4 text-content-muted" />}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isResending}
                 />
               </div>
 
@@ -135,13 +197,14 @@ export const LoginPage: React.FC = () => {
                     error={errors.password}
                     leftIcon={<Lock className="h-4 w-4 text-content-muted" />}
                     className="pr-10"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isResending}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-3 top-3 text-content-muted hover:text-content-main focus:outline-none"
+                    disabled={isSubmitting || isResending}
+                    className="absolute right-3 top-3 text-content-muted hover:text-content-main focus:outline-none disabled:opacity-50"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -152,7 +215,7 @@ export const LoginPage: React.FC = () => {
                 type="submit"
                 variant="primary"
                 className="w-full justify-center mt-2 shadow-soft-sm"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isResending}
               >
                 {isSubmitting ? (
                   <>

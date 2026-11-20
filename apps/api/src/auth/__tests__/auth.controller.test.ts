@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Request, Response, CookieOptions } from 'express';
 import { AuthController } from '../auth.controller';
 import { AuthService } from '../auth.service';
@@ -36,6 +36,12 @@ describe('AuthController', () => {
       confirmPassword: 'StrongP@ssword123!',
     });
 
+    // Mark email as verified for login to succeed
+    await prisma.platformUser.update({
+      where: { email: 'ctrl@example.com' },
+      data: { isEmailVerified: true },
+    });
+
     const mockCookies: Record<string, { val: string; options: CookieOptions }> = {};
     const mockRes = {
       cookie: (name: string, val: string, options: CookieOptions) => {
@@ -61,6 +67,38 @@ describe('AuthController', () => {
     expect(mockCookies[SESSION_COOKIE_NAME].options.path).toBe('/');
   });
 
+  it('rejects login for unverified user and does not set session cookie', async () => {
+    await authService.register({
+      fullName: 'Unverified Controller User',
+      email: 'unverified-ctrl@example.com',
+      password: 'StrongP@ssword123!',
+      confirmPassword: 'StrongP@ssword123!',
+    });
+
+    const mockCookies: Record<string, { val: string; options: CookieOptions }> = {};
+    const mockRes = {
+      cookie: (name: string, val: string, options: CookieOptions) => {
+        mockCookies[name] = { val, options };
+      },
+    } as unknown as Response;
+
+    const mockReq = {
+      headers: {},
+      ip: '127.0.0.1',
+      socket: {},
+    } as unknown as Request;
+
+    await expect(
+      controller.login(
+        { email: 'unverified-ctrl@example.com', password: 'StrongP@ssword123!' },
+        mockReq,
+        mockRes
+      )
+    ).rejects.toThrow();
+
+    expect(mockCookies[SESSION_COOKIE_NAME]).toBeUndefined();
+  });
+
   it('clears session cookie on logout', async () => {
     let clearedName = '';
     let clearOptions: CookieOptions | undefined;
@@ -83,17 +121,22 @@ describe('AuthController', () => {
   });
 
   it('verifies active session via getSession endpoint', async () => {
-    const { rawToken } = await authService.register({
+    await authService.register({
       fullName: 'Session User',
       email: 'sess@example.com',
       password: 'StrongP@ssword123!',
       confirmPassword: 'StrongP@ssword123!',
-    }).then(() =>
-      authService.login({
-        email: 'sess@example.com',
-        password: 'StrongP@ssword123!',
-      })
-    );
+    });
+
+    await prisma.platformUser.update({
+      where: { email: 'sess@example.com' },
+      data: { isEmailVerified: true },
+    });
+
+    const { rawToken } = await authService.login({
+      email: 'sess@example.com',
+      password: 'StrongP@ssword123!',
+    });
 
     const mockReq = {
       cookies: { [SESSION_COOKIE_NAME]: rawToken },
@@ -106,5 +149,43 @@ describe('AuthController', () => {
     const result = await controller.getSession(mockReq, mockRes);
     expect(result.authenticated).toBe(true);
     expect(result.user.email).toBe('sess@example.com');
+  });
+
+  describe('IP Extraction & Proxy Spoofing Protection', () => {
+    const originalEnv = process.env.TRUSTED_PROXY;
+
+    afterEach(() => {
+      process.env.TRUSTED_PROXY = originalEnv;
+    });
+
+    it('ignores x-forwarded-for header when TRUSTED_PROXY is false or unset', async () => {
+      delete process.env.TRUSTED_PROXY;
+
+      const mockReq = {
+        headers: {
+          'x-forwarded-for': '203.0.113.195, 70.41.3.18',
+        },
+        ip: '198.51.100.2',
+        socket: { remoteAddress: '198.51.100.2' },
+      } as unknown as Request;
+
+      const ip = (controller as unknown as { extractIp: (req: Request) => string }).extractIp(mockReq);
+      expect(ip).toBe('198.51.100.2');
+    });
+
+    it('trusts and parses first x-forwarded-for IP when TRUSTED_PROXY is true', async () => {
+      process.env.TRUSTED_PROXY = 'true';
+
+      const mockReq = {
+        headers: {
+          'x-forwarded-for': '203.0.113.195, 70.41.3.18',
+        },
+        ip: '198.51.100.2',
+        socket: { remoteAddress: '198.51.100.2' },
+      } as unknown as Request;
+
+      const ip = (controller as unknown as { extractIp: (req: Request) => string }).extractIp(mockReq);
+      expect(ip).toBe('203.0.113.195');
+    });
   });
 });

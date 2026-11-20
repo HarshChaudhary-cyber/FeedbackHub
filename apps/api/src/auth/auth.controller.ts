@@ -41,11 +41,14 @@ export class AuthController {
   }
 
   private extractIp(req: Request): string {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-      return forwarded.split(',')[0].trim();
+    const isTrustedProxy = process.env.TRUSTED_PROXY === 'true';
+    if (isTrustedProxy) {
+      const forwarded = req.headers['x-forwarded-for'];
+      if (typeof forwarded === 'string') {
+        return forwarded.split(',')[0].trim();
+      }
     }
-    return req.ip || req.socket.remoteAddress || 'unknown';
+    return req.socket?.remoteAddress || req.ip || 'unknown';
   }
 
   @Post('register')
@@ -125,15 +128,17 @@ export class AuthController {
 
   @Get('verify-email')
   @ApiOperation({ summary: 'Verify email address with token' })
-  async verifyEmailGet(@Query('token') token: string) {
-    return this.authService.verifyEmail(token);
+  async verifyEmailGet(@Query('token') token: string, @Req() req: Request) {
+    const ip = this.extractIp(req);
+    return this.authService.verifyEmail(token, ip);
   }
 
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify email address via POST with token in body' })
-  async verifyEmailPost(@Body('token') token: string) {
-    return this.authService.verifyEmail(token);
+  async verifyEmailPost(@Body('token') token: string, @Req() req: Request) {
+    const ip = this.extractIp(req);
+    return this.authService.verifyEmail(token, ip);
   }
 
   @Post('resend-verification')

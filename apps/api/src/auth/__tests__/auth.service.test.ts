@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AuthService } from '../auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailService } from '../../email/email.service';
 import { RateLimiterService } from '../rate-limiter.service';
-import { ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  ConflictException,
+  UnauthorizedException,
+  BadRequestException,
+  ForbiddenException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -131,6 +137,24 @@ describe('AuthService', () => {
         })
       ).rejects.toThrow();
     });
+
+    it('rolls back user and token creation if email delivery fails during registration', async () => {
+      const emailSpy = vi.spyOn(emailService, 'sendVerificationEmail').mockRejectedValueOnce(new Error('SMTP down'));
+
+      await expect(
+        authService.register({
+          fullName: 'Rollback User',
+          email: 'rollback@example.com',
+          password: 'ValidP@ssw0rd123!',
+          confirmPassword: 'ValidP@ssw0rd123!',
+        })
+      ).rejects.toThrow(InternalServerErrorException);
+
+      const user = await prisma.platformUser.findUnique({ where: { email: 'rollback@example.com' } });
+      expect(user).toBeNull();
+
+      emailSpy.mockRestore();
+    });
   });
 
   describe('Email Verification Flow', () => {
@@ -160,6 +184,34 @@ describe('AuthService', () => {
       await expect(authService.verifyEmail(token)).rejects.toThrow(BadRequestException);
     });
 
+    it('atomically consumes verification token and prevents concurrent replay', async () => {
+      await authService.register({
+        fullName: 'Concurrent Verify User',
+        email: 'concurrent-verify@example.com',
+        password: 'ValidP@ssw0rd123!',
+        confirmPassword: 'ValidP@ssw0rd123!',
+      });
+
+      const sentEmail = emailService.getLastEmailFor('concurrent-verify@example.com');
+      const token = sentEmail?.token as string;
+
+      const res1 = await authService.verifyEmail(token);
+      expect(res1.message).toMatch(/verified successfully/i);
+
+      await expect(authService.verifyEmail(token)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rate limits verification attempts by IP', async () => {
+      const ip = '198.51.100.99';
+      for (let i = 0; i < 30; i++) {
+        rateLimiter.check(`verify_ip:${ip}`, 30, 15 * 60 * 1000);
+      }
+
+      await expect(
+        authService.verifyEmail('some-token', ip)
+      ).rejects.toThrow();
+    });
+
     it('rejects tampered or non-existent token', async () => {
       await expect(authService.verifyEmail('invalid-fake-token')).rejects.toThrow(BadRequestException);
     });
@@ -173,6 +225,60 @@ describe('AuthService', () => {
         password: 'SecureP@ssword123!',
         confirmPassword: 'SecureP@ssword123!',
       });
+      // Mark John as verified so valid session tests pass
+      await prisma.platformUser.update({
+        where: { email: 'john@example.com' },
+        data: { isEmailVerified: true },
+      });
+    });
+
+    it('rejects login for unverified user with ForbiddenException and emailVerificationRequired flag', async () => {
+      await authService.register({
+        fullName: 'Unverified John',
+        email: 'unverified-john@example.com',
+        password: 'SecureP@ssword123!',
+        confirmPassword: 'SecureP@ssword123!',
+      });
+
+      try {
+        await authService.login({
+          email: 'unverified-john@example.com',
+          password: 'SecureP@ssword123!',
+        });
+        expect.unreachable('Should have thrown ForbiddenException');
+      } catch (err: unknown) {
+        expect(err).toBeInstanceOf(ForbiddenException);
+        const response = (err as ForbiddenException).getResponse() as {
+          emailVerificationRequired?: boolean;
+          statusCode?: number;
+          email?: string;
+        };
+        expect(response.emailVerificationRequired).toBe(true);
+        expect(response.statusCode).toBe(403);
+        expect(response.email).toBe('unverified-john@example.com');
+      }
+
+      // Ensure NO active session was created
+      const user = await prisma.platformUser.findUnique({ where: { email: 'unverified-john@example.com' } });
+      const sessions = await prisma.authSession.findMany({ where: { userId: user!.id } });
+      expect(sessions).toHaveLength(0);
+    });
+
+    it('verifies credentials before checking email verification to prevent timing oracle and account enumeration', async () => {
+      await authService.register({
+        fullName: 'Unverified Bob',
+        email: 'unverified-bob@example.com',
+        password: 'SecureP@ssword123!',
+        confirmPassword: 'SecureP@ssword123!',
+      });
+
+      // Wrong password on unverified user should return generic 401 UnauthorizedException, NOT 403 Forbidden
+      await expect(
+        authService.login({
+          email: 'unverified-bob@example.com',
+          password: 'WrongPassword123!',
+        })
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('authenticates valid credentials and generates an opaque session token', async () => {
@@ -252,6 +358,11 @@ describe('AuthService', () => {
         password: 'OriginalP@ssword123!',
         confirmPassword: 'OriginalP@ssword123!',
       });
+      // Mark as verified so login works
+      await prisma.platformUser.update({
+        where: { email: 'recovery@example.com' },
+        data: { isEmailVerified: true },
+      });
       emailService.clearSentEmails();
     });
 
@@ -311,7 +422,7 @@ describe('AuthService', () => {
         })
       ).rejects.toThrow(UnauthorizedException);
 
-      // Token cannot be reused
+      // Token cannot be reused (atomic consumption)
       await expect(
         authService.resetPassword({
           token: resetToken,
@@ -333,6 +444,11 @@ describe('AuthService', () => {
         email: 'alice@example.com',
         password: 'Password123!@#',
         confirmPassword: 'Password123!@#',
+      });
+      // Mark as verified so login works
+      await prisma.platformUser.update({
+        where: { email: 'alice@example.com' },
+        data: { isEmailVerified: true },
       });
 
       const login = await authService.login({
@@ -384,6 +500,49 @@ describe('AuthService', () => {
     });
   });
 
+  describe('Resend Verification Flow & Rate Limiting', () => {
+    beforeEach(async () => {
+      await authService.register({
+        fullName: 'Resend Test User',
+        email: 'resend-test@example.com',
+        password: 'ValidP@ssw0rd123!',
+        confirmPassword: 'ValidP@ssw0rd123!',
+      });
+    });
+
+    it('rate limits resend requests by user account', async () => {
+      await authService.resendVerification('resend-test@example.com');
+      await authService.resendVerification('resend-test@example.com');
+      await authService.resendVerification('resend-test@example.com');
+
+      // 4th request exceeds limit
+      await expect(
+        authService.resendVerification('resend-test@example.com')
+      ).rejects.toThrow();
+    });
+
+    it('rate limits resend requests by IP address', async () => {
+      const ip = '198.51.100.77';
+      for (let i = 0; i < 5; i++) {
+        await authService.resendVerification(`ip-test-${i}@example.com`, undefined, ip);
+      }
+
+      await expect(
+        authService.resendVerification('ip-test-overflow@example.com', undefined, ip)
+      ).rejects.toThrow();
+    });
+
+    it('notifies if user is already verified without creating duplicate tokens', async () => {
+      await prisma.platformUser.update({
+        where: { email: 'resend-test@example.com' },
+        data: { isEmailVerified: true },
+      });
+
+      const res = await authService.resendVerification('resend-test@example.com');
+      expect(res.message).toMatch(/already verified/i);
+    });
+  });
+
   describe('Rate Limiting Service', () => {
     it('enforces request limits within the configured time window', () => {
       const key = 'test-key-limit';
@@ -393,6 +552,15 @@ describe('AuthService', () => {
       expect(rateLimiter.check(key, 3, 1000).allowed).toBe(false);
 
       expect(() => rateLimiter.assert(key, 3, 1000)).toThrow();
+    });
+
+    it('tracks active keys and prunes expired buckets to prevent memory leaks', () => {
+      const shortLimiter = new RateLimiterService();
+      shortLimiter.check('active-test-key-1', 5, 60000);
+      shortLimiter.check('active-test-key-2', 5, 60000);
+
+      expect(shortLimiter.getActiveKeyCount()).toBeGreaterThanOrEqual(2);
+      shortLimiter.onModuleDestroy();
     });
   });
 });

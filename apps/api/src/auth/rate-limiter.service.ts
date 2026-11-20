@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger, OnModuleDestroy } from '@nestjs/common';
 
 interface RateLimitBucket {
   count: number;
@@ -6,8 +6,38 @@ interface RateLimitBucket {
 }
 
 @Injectable()
-export class RateLimiterService {
+export class RateLimiterService implements OnModuleDestroy {
+  private readonly logger = new Logger(RateLimiterService.name);
   private buckets: Map<string, RateLimitBucket> = new Map();
+  private cleanupInterval: NodeJS.Timeout | null = null;
+
+  constructor() {
+    // Periodically prune expired buckets every 5 minutes to prevent memory leak
+    if (process.env.NODE_ENV !== 'test') {
+      this.cleanupInterval = setInterval(() => {
+        this.pruneExpiredBuckets();
+      }, 5 * 60 * 1000);
+      if (this.cleanupInterval.unref) {
+        this.cleanupInterval.unref();
+      }
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
+  private pruneExpiredBuckets(): void {
+    const now = Date.now();
+    for (const [key, bucket] of this.buckets.entries()) {
+      if (now >= bucket.resetAt) {
+        this.buckets.delete(key);
+      }
+    }
+  }
 
   check(key: string, maxAttempts: number, windowMs: number): { allowed: boolean; remaining: number; resetAt: number } {
     const now = Date.now();
@@ -52,5 +82,9 @@ export class RateLimiterService {
 
   clearAll(): void {
     this.buckets.clear();
+  }
+
+  getActiveKeyCount(): number {
+    return this.buckets.size;
   }
 }
