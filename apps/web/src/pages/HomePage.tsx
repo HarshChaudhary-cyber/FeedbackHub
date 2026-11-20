@@ -135,7 +135,7 @@ export const HomePage: React.FC = () => {
                 Centralized Feedback
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                No more chasing comments across Slack, email threads, and disparate surveys. All signals converge in one searchable inbox.
+                Designed to bring customer and employee feedback into a single searchable workspace as the platform develops, reducing the friction of disparate tools.
               </p>
             </Card>
 
@@ -147,7 +147,7 @@ export const HomePage: React.FC = () => {
                 Better Visibility
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Real-time sentiment indicators and trend analysis reveal what customers love and where friction emerges before it affects churn.
+                Planned analytics and sentiment visualizations are designed to help teams identify response patterns, satisfaction trends, and areas needing proactive attention.
               </p>
             </Card>
 
@@ -159,7 +159,7 @@ export const HomePage: React.FC = () => {
                 Faster Response
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Route inquiries to the right team members, add internal notes, and track resolution status through structured triage workflows.
+                Planned triage workflows aim to support team assignments, private internal collaboration notes, and structured resolution tracking.
               </p>
             </Card>
 
@@ -171,7 +171,7 @@ export const HomePage: React.FC = () => {
                 Organized Suggestions
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Tag customer requests by product area and group employee ideas by department to prioritize product roadmaps and workplace initiatives.
+                Designed to support custom tagging by product area and category groupings by department, helping teams structure feedback for product roadmaps and culture initiatives.
               </p>
             </Card>
 
@@ -183,7 +183,7 @@ export const HomePage: React.FC = () => {
                 Confident Decision-Making
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Base strategic decisions on empirical feedback trends and quantitative ratings rather than loudest-voice bias or intuition.
+                Aims to provide leadership with empirical feedback trends and quantitative metrics, helping teams inform strategic decisions with structured data rather than intuition.
               </p>
             </Card>
 
@@ -195,7 +195,7 @@ export const HomePage: React.FC = () => {
                 Customer &amp; Employee Harmony
               </h3>
               <p className="text-sm text-content-secondary leading-relaxed">
-                Understand the complete organizational picture. Great customer experiences begin with a psychologically safe, empowered team.
+                Designed to give leaders a balanced perspective across both audiences. Meaningful customer satisfaction begins with a psychologically safe, empowered internal team.
               </p>
             </Card>
           </div>
@@ -210,7 +210,7 @@ export const HomePage: React.FC = () => {
           <SectionHeading
             badge="Platform Capabilities"
             title="Everything required to capture and manage feedback"
-            description="From dynamic multi-question forms to deep sentiment triage, FeedbackHub equips your team with production-grade tooling."
+            description="From modular survey forms to structured sentiment triage, explore the planned feature capabilities and interactive previews in active development."
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

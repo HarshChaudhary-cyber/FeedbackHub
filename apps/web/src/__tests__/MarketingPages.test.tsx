@@ -68,6 +68,17 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.getByText('Planned Builder')).toBeTruthy();
     expect(screen.getAllByText('Planned Track').length).toBeGreaterThan(0);
     expect(screen.getByText('Planned Analytics')).toBeTruthy();
+
+    // Verify Value Proposition cards use planned, non-operational wording
+    expect(screen.queryByText(/All signals converge in one searchable inbox/i)).toBeNull();
+    expect(screen.queryByText(/Real-time sentiment indicators and trend analysis reveal/i)).toBeNull();
+    expect(screen.queryByText(/Route inquiries to the right team members/i)).toBeNull();
+    expect(screen.queryByText(/Tag customer requests by product area and group/i)).toBeNull();
+    expect(screen.getByText(/Designed to bring customer and employee feedback into a single searchable workspace/i)).toBeTruthy();
+
+    // Verify Platform Capabilities section does NOT claim production-grade tooling
+    expect(screen.queryByText(/production-grade tooling/i)).toBeNull();
+    expect(screen.getByText(/explore the planned feature capabilities and interactive previews in active development/i)).toBeTruthy();
   });
 
   it('renders FeaturesPage with feature capabilities, subtle status labels, and plan CTAs', () => {
@@ -77,6 +88,7 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(h1.textContent).toMatch(/Everything your organization needs/i);
     expect(screen.getByText(/Multi-Channel Feedback Collection/i)).toBeTruthy();
     expect(screen.getByText(/Intuitive Drag-and-Drop Form Builder/i)).toBeTruthy();
+    expect(screen.getByText('Response Inbox & Triage Console')).toBeTruthy();
     expect(screen.queryByText(/Enterprise-grade stability verified/i)).toBeNull();
     expect(screen.getAllByText(/Component reliability and interaction behaviors verified with automated regression and accessibility suites during development\./i).length).toBeGreaterThan(0);
 
@@ -292,6 +304,9 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.queryByText(/Our customer success manager resolved our API provisioning question/i)).toBeNull();
     expect(screen.queryByText(/Triage time dropped by 50%/i)).toBeNull();
     expect(screen.queryByText(/^Live Feedback Queue$/i)).toBeNull();
+    expect(screen.queryByText(/production-grade tooling/i)).toBeNull();
+    expect(screen.queryByText(/All signals converge in one searchable inbox/i)).toBeNull();
+    expect(screen.queryByText(/Real-time sentiment indicators and trend analysis/i)).toBeNull();
     home.unmount();
 
     // Check FeaturesPage

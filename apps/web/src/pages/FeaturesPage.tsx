@@ -73,14 +73,14 @@ export const FeaturesPage: React.FC = () => {
       highlights: [
         { label: 'Planned Formats', value: 'NPS, CSAT, Likert & Open Text' },
         { label: 'Branching Rules', value: 'Score-Based Conditional Logic' },
-        { label: 'Preview Mode', value: 'Instant Multi-Device Emulation' },
+        { label: 'Preview Mode', value: 'Interactive Multi-Device Emulation' },
       ],
     },
     {
       id: 'inbox',
       category: 'management',
       icon: <Inbox className="h-6 w-6 text-brand-sky" />,
-      title: 'Real-Time Response Inbox & Triage Console',
+      title: 'Response Inbox & Triage Console',
       badge: 'Collaborative Action',
       status: 'In Development',
       tagline: 'An upcoming response-management workspace to organize and prioritize feedback',
