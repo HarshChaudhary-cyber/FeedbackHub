@@ -4,6 +4,7 @@ import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from '../context/AuthContext';
 import { MarketingLayout } from '../components/layout/MarketingLayout';
 import { HomePage } from '../pages/HomePage';
 import { FeaturesPage } from '../pages/FeaturesPage';
@@ -20,20 +21,22 @@ import { NotFoundPage } from '../pages/NotFoundPage';
 function renderWithRouter(initialRoute = '/') {
   return render(
     <MemoryRouter initialEntries={[initialRoute]}>
-      <Routes>
-        <Route element={<MarketingLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/solutions" element={<SolutionsPage />} />
-          <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/security" element={<SecurityPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route element={<MarketingLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/solutions" element={<SolutionsPage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/security" element={<SecurityPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </MemoryRouter>
   );
 }
@@ -283,16 +286,11 @@ describe('FeedbackHub Marketing Website Routes', () => {
     expect(screen.getByRole('link', { name: /Return to Homepage/i })).toBeTruthy();
   });
 
-  it('opens Sign In Phase 4 notice dialog when clicking header Sign In button', async () => {
+  it('renders Sign In link in header leading to /login', () => {
     renderWithRouter('/');
-    const signInBtn = screen.getByRole('button', { name: /Sign In/i });
-    fireEvent.click(signInBtn);
-
-    await waitFor(() => {
-      const dialog = screen.getByRole('dialog');
-      expect(dialog).toBeTruthy();
-      expect(screen.getByText(/Authentication Arriving in Phase 4/i)).toBeTruthy();
-    });
+    const signInLinks = screen.getAllByRole('link', { name: /Sign In/i });
+    expect(signInLinks.length).toBeGreaterThan(0);
+    expect(signInLinks[0].getAttribute('href')).toBe('/login');
   });
 
   it('verifies absence of unsupported operational and security claims across marketing pages', () => {

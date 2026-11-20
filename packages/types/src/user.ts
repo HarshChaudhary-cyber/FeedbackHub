@@ -13,6 +13,8 @@ export interface PlatformUser {
   avatarUrl: string | null;
   isSuperAdmin: boolean;
   isEmailVerified: boolean;
+  status: 'ACTIVE' | 'SUSPENDED';
+  emailVerifiedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,7 +33,27 @@ export interface SessionUser {
   id: string;
   email: string;
   fullName: string;
+  isEmailVerified: boolean;
   isSuperAdmin: boolean;
+  createdAt: string;
+  status?: string;
   currentCompanyId?: string;
   currentRole?: TenantRole;
+}
+
+export interface AuthSession {
+  id: string;
+  userId: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  user: SessionUser;
+  message?: string;
+}
+
+export interface AuthStatusResponse {
+  authenticated: boolean;
+  user: SessionUser | null;
 }

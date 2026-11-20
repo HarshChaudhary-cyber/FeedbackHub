@@ -1,6 +1,10 @@
 import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
+// Enable React 19 act environment
+// @ts-expect-error React 19 test environment flag
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
 // Polyfill ResizeObserver for Radix UI primitives in jsdom
 if (typeof window !== 'undefined' && !window.ResizeObserver) {
   window.ResizeObserver = class ResizeObserver {

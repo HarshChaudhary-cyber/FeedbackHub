@@ -1,19 +1,28 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors();
+  app.use(cookieParser());
+
+  const clientOrigin = process.env.APP_URL || 'http://localhost:3000';
+  app.enableCors({
+    origin: [clientOrigin, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    credentials: true,
+  });
+
   app.setGlobalPrefix('api/v1');
 
   const config = new DocumentBuilder()
     .setTitle('FeedbackHub API')
-    .setDescription('FeedbackHub Central REST API Gateway')
+    .setDescription('FeedbackHub Central REST API Gateway & Authentication Services')
     .setVersion('0.1.0')
     .addTag('Health', 'System health and status verification')
+    .addTag('Authentication', 'User registration, login, session, and account management')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

@@ -12,17 +12,21 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@feedbackhub/database": "workspace:*",
     "@feedbackhub/types": "workspace:*",
     "@feedbackhub/validation": "workspace:*",
     "@nestjs/common": "^11.0.10",
     "@nestjs/core": "^11.0.10",
     "@nestjs/platform-express": "^11.0.10",
     "@nestjs/swagger": "^11.0.4",
+    "argon2": "^0.45.2",
+    "cookie-parser": "^1.4.7",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@feedbackhub/config": "workspace:*",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.1",
     "tsx": "^4.19.3",

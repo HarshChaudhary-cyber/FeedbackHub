@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
-import { X, ArrowRight } from 'lucide-react';
+import { NavLink, Link } from 'react-router-dom';
+import { X, ArrowRight, User, LogOut } from 'lucide-react';
 import { Button } from '@feedbackhub/ui';
+import { useAuth } from '../../context/AuthContext';
 
 interface MobileNavigationProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenSignIn: () => void;
 }
 
 const navItems = [
@@ -20,8 +20,9 @@ const navItems = [
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   isOpen,
   onClose,
-  onOpenSignIn,
 }) => {
+  const { user, isAuthenticated, logout } = useAuth();
+
   // Close menu on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -102,21 +103,43 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
       {/* Action Buttons */}
       <div className="border-t border-border p-5 space-y-3 bg-surface-card">
-        <Button
-          variant="outline"
-          className="w-full justify-center rounded-xl"
-          onClick={() => {
-            onClose();
-            onOpenSignIn();
-          }}
-        >
-          Sign In
-        </Button>
-        <NavLink to="/pricing" onClick={onClose} className="block w-full">
-          <Button variant="primary" className="w-full justify-center">
-            View Plans
-          </Button>
-        </NavLink>
+        {isAuthenticated && user ? (
+          <>
+            <Link to="/account" onClick={onClose} className="block w-full">
+              <Button variant="primary" className="w-full justify-center">
+                <User className="mr-2 h-4 w-4" />
+                Account ({user.fullName})
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="w-full justify-center rounded-xl text-danger-main hover:bg-danger-subtle"
+              onClick={() => {
+                onClose();
+                logout();
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" onClick={onClose} className="block w-full">
+              <Button
+                variant="outline"
+                className="w-full justify-center rounded-xl"
+              >
+                Sign In
+              </Button>
+            </Link>
+            <Link to="/register" onClick={onClose} className="block w-full">
+              <Button variant="primary" className="w-full justify-center">
+                Create Account
+              </Button>
+            </Link>
+          </>
+        )}
       </div>
     </div>
   );
