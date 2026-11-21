@@ -6,6 +6,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import Redis from 'ioredis';
 
 export interface RateLimitResult {
@@ -103,6 +104,17 @@ export class RateLimiterService implements OnModuleInit, OnModuleDestroy {
     } else if (process.env.NODE_ENV === 'production') {
       this.logger.error('REDIS_URL is not configured in production environment.');
     }
+
+    // Verify HMAC rate-limit secret configuration in production
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        this.getHmacSecret();
+      } catch (_err) {
+        this.logger.error(
+          'RATE_LIMIT_SECRET is not configured or insufficiently strong in production environment.'
+        );
+      }
+    }
   }
 
   async onModuleDestroy() {
@@ -122,14 +134,110 @@ export class RateLimiterService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Retrieves the HMAC secret used for privacy-preserving rate-limit identifier hashing.
+   *
+   * In production (NODE_ENV=production):
+   * Requires a shared secret of at least 32 characters configured via RATE_LIMIT_SECRET.
+   * If missing or set to placeholder, fails closed with HTTP 503 to prevent PII exposure.
+   *
+   * In development/test:
+   * Uses a stable fallback string to allow deterministic local testing and shared rate-limiting
+   * without requiring manual secret configuration.
+   */
+  private getHmacSecret(): string {
+    const configuredSecret = process.env.RATE_LIMIT_SECRET?.trim();
+    if (
+      configuredSecret &&
+      configuredSecret.length >= 32 &&
+      !configuredSecret.includes('change-this')
+    ) {
+      return configuredSecret;
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      this.logger.error(
+        'CRITICAL SECURITY CONFIGURATION ERROR: RATE_LIMIT_SECRET must be configured ' +
+          'with a secure secret of at least 32 characters in production. Failing closed.'
+      );
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+          message: 'Rate limit service configuration error. Protected operation rejected.',
+          error: 'Service Unavailable',
+        },
+        HttpStatus.SERVICE_UNAVAILABLE
+      );
+    }
+
+    return 'feedbackhub_dev_rate_limit_hmac_secret_stable_32chars_minimum';
+  }
+
+  /**
+   * Cryptographically hashes a sensitive rate-limit identifier (email, IP, token hash)
+   * using HMAC-SHA256 with the shared cluster secret.
+   *
+   * Threat Model & Privacy Defense:
+   * Low-entropy identifiers such as IPv4 addresses (~4.3 billion possible values) and common
+   * email addresses are trivial to reverse via precomputed dictionary or rainbow-table attacks
+   * if hashed with a plain unsalted or unkeyed SHA-256. Using HMAC with an application-wide
+   * shared secret prevents external parties with read access to Redis dumps or monitoring
+   * from identifying users or reversing access locations, while ensuring all distributed API
+   * instances produce the exact same deterministic key for rate enforcement.
+   */
+  hashIdentifier(identifier: string): string {
+    const secret = this.getHmacSecret();
+    return crypto.createHmac('sha256', secret).update(identifier).digest('hex');
+  }
+
+  /**
    * Normalizes keys to guarantee case-insensitivity, trim whitespace,
    * prevent formatting bypasses, and prevent PII leakage.
+   *
+   * Formats keys as: fh:rl:<action>:<hashed-identifier>
+   * Where <action> is a clean, readable action name (e.g. login_email, reset_token),
+   * and <hashed-identifier> is an HMAC-SHA256 digest of the normalized identifier.
+   *
+   * This guarantees:
+   * 1. Sensitive identifiers (emails, IP addresses, token hashes) are never stored
+   *    in plaintext in Redis keys, logs, or memory dumps.
+   * 2. Low-entropy identifiers (such as IPv4 addresses) cannot be reversed via
+   *    offline dictionary or rainbow-table attacks without the HMAC secret.
+   * 3. Consistent, deterministic hashing across all distributed application instances.
    */
   normalizeKey(rawKey: string): string {
-    const parts = rawKey.split(':');
-    const prefix = parts[0].trim().toLowerCase();
-    const identifier = parts.slice(1).join(':').trim().toLowerCase();
-    return `fh:rl:${prefix}:${identifier}`;
+    const trimmed = rawKey.trim();
+    // Return early if already normalized in the format fh:rl:<action>:<64-hex-hmac>
+    if (/^fh:rl:[a-z0-9_]+:[0-9a-f]{64}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    let clean = trimmed;
+    if (clean.startsWith('fh:rl:')) {
+      clean = clean.slice(6);
+    }
+
+    const colonIdx = clean.indexOf(':');
+    if (colonIdx === -1) {
+      return `fh:rl:${clean.toLowerCase().replace(/[\r\n\t]/g, '')}`;
+    }
+
+    const action = clean
+      .slice(0, colonIdx)
+      .trim()
+      .toLowerCase()
+      .replace(/[\r\n\t]/g, '');
+    const identifier = clean
+      .slice(colonIdx + 1)
+      .trim()
+      .toLowerCase()
+      .replace(/[\r\n\t]/g, '');
+
+    if (!identifier) {
+      return `fh:rl:${action}`;
+    }
+
+    const hashedId = this.hashIdentifier(identifier);
+    return `fh:rl:${action}:${hashedId}`;
   }
 
   /**

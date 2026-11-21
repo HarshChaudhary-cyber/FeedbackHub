@@ -9,6 +9,8 @@ import {
   BadRequestException,
   ForbiddenException,
   InternalServerErrorException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 
 describe('AuthService', () => {
@@ -535,6 +537,125 @@ describe('AuthService', () => {
       expect(loginCheck.user.email).toBe('recovery@example.com');
 
       sessionSpy.mockRestore();
+    });
+
+    it('enforces IP-based rate limiting on password reset endpoint', async () => {
+      const testIp = '198.51.100.77';
+      // 10 attempts allowed per IP
+      for (let i = 0; i < 10; i++) {
+        await expect(
+          authService.resetPassword(
+            {
+              token: `unique-token-${i}-12345678901234567890`,
+              password: 'ValidP@ssword123!',
+              confirmPassword: 'ValidP@ssword123!',
+            },
+            testIp
+          )
+        ).rejects.toThrow(BadRequestException);
+      }
+
+      // 11th attempt from same IP is throttled
+      await expect(
+        authService.resetPassword(
+          {
+            token: 'unique-token-11-12345678901234567890',
+            password: 'ValidP@ssword123!',
+            confirmPassword: 'ValidP@ssword123!',
+          },
+          testIp
+        )
+      ).rejects.toThrow(/Too many password reset attempts/i);
+    });
+
+    it('enforces token-based rate limiting independently across different IPs', async () => {
+      const targetToken = 'fixed-target-token-under-attack-1234567890';
+      // 5 attempts allowed per token across 5 different IPs
+      for (let i = 1; i <= 5; i++) {
+        const ip = `203.0.113.${i}`;
+        await expect(
+          authService.resetPassword(
+            {
+              token: targetToken,
+              password: 'ValidP@ssword123!',
+              confirmPassword: 'ValidP@ssword123!',
+            },
+            ip
+          )
+        ).rejects.toThrow(BadRequestException);
+      }
+
+      // 6th attempt with same token from a brand-new IP is throttled
+      await expect(
+        authService.resetPassword(
+          {
+            token: targetToken,
+            password: 'ValidP@ssword123!',
+            confirmPassword: 'ValidP@ssword123!',
+          },
+          '203.0.113.99'
+        )
+      ).rejects.toThrow(/Too many reset attempts for this link/i);
+    });
+
+    it('hashes token before passing to rate limiter and never exposes raw token in rate-limiter keys', async () => {
+      const rawToken = 'confidential-raw-reset-token-secret-xyz';
+      const expectedTokenHash = authService.hashToken(rawToken);
+
+      const assertSpy = vi.spyOn(rateLimiter, 'assert');
+
+      await expect(
+        authService.resetPassword({
+          token: rawToken,
+          password: 'ValidP@ssword123!',
+          confirmPassword: 'ValidP@ssword123!',
+        })
+      ).rejects.toThrow(BadRequestException);
+
+      expect(assertSpy).toHaveBeenCalled();
+      const tokenCall = assertSpy.mock.calls.find(([key]) => key.startsWith('reset_token:'));
+      expect(tokenCall).toBeDefined();
+
+      const passedKey = tokenCall![0];
+      // Passes hashed token, NOT raw token
+      expect(passedKey).toBe(`reset_token:${expectedTokenHash}`);
+      expect(passedKey).not.toContain(rawToken);
+
+      // Verify that normalizeKey generates a privacy-preserving key without raw token or token hash
+      const normalizedKey = rateLimiter.normalizeKey(passedKey);
+      expect(normalizedKey).not.toContain(rawToken);
+      expect(normalizedKey).toMatch(/^fh:rl:reset_token:[0-9a-f]{64}$/);
+
+      assertSpy.mockRestore();
+    });
+
+    it('fails closed with HTTP 503 during password reset if Redis fails in production', async () => {
+      const originalEnv = { ...process.env };
+      try {
+        process.env.NODE_ENV = 'production';
+        process.env.RATE_LIMIT_SECRET = 'valid-production-secret-with-64-characters-for-testing-purposes-12';
+
+        const mockRedis = {
+          eval: vi.fn().mockRejectedValue(new Error('Redis cluster connection failure')),
+        } as unknown as import('ioredis').default;
+
+        rateLimiter.setMockRedisClient(mockRedis, true);
+
+        try {
+          await authService.resetPassword({
+            token: 'test-token-during-redis-outage',
+            password: 'ValidP@ssword123!',
+            confirmPassword: 'ValidP@ssword123!',
+          });
+          expect.unreachable('Should have failed closed with 503');
+        } catch (err: unknown) {
+          expect(err).toBeInstanceOf(HttpException);
+          expect((err as HttpException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+        }
+      } finally {
+        process.env = originalEnv;
+        rateLimiter.setMockRedisClient(null, false);
+      }
     });
   });
 

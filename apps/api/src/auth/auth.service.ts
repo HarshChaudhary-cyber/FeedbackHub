@@ -445,11 +445,32 @@ export class AuthService implements OnModuleInit {
   async resetPassword(input: ResetPasswordInput, ip?: string): Promise<{ message: string }> {
     const validated = resetPasswordSchema.parse(input);
 
+    // 1. IP-based rate limiting (10 attempts per 15 minutes per IP)
     if (ip) {
-      await this.rateLimiter.assert(`reset_ip:${ip}`, 10, 15 * 60 * 1000);
+      await this.rateLimiter.assert(
+        `reset_ip:${ip}`,
+        10,
+        15 * 60 * 1000,
+        'Too many password reset attempts from this network. Please try again later.'
+      );
     }
 
+    // 2. Token-specific attempt limiting (Finding #1)
+    // Rate limit per reset token (5 attempts per 15 minutes window).
+    // Hashing the token first ensures raw token is never exposed in rate-limit keys or logs.
+    // Throttles rapid brute-force or replay attempts against a specific token (valid or invalid)
+    // across distributed clients/IPs without requiring an extra database lookup beforehand.
+    // Reasoning: Legitimate users typically succeed within 1-2 attempts; 5 attempts grants margin
+    // for typographical errors while bounding attacker attempts to 5 per 15m window,
+    // matching the account-level threshold used across the authentication architecture (e.g. login_email).
     const tokenHash = this.hashToken(validated.token);
+    await this.rateLimiter.assert(
+      `reset_token:${tokenHash}`,
+      5,
+      15 * 60 * 1000,
+      'Too many reset attempts for this link. Please try again later.'
+    );
+
     const newHash = await this.hashPassword(validated.password);
 
     // Atomic transaction: validate & consume token, update password hash, and invalidate all sessions
