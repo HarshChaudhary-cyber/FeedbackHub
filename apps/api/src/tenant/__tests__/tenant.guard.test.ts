@@ -5,6 +5,7 @@ import { Reflector } from '@nestjs/core';
 import { TenantResolutionGuard } from '../guards/tenant-resolution.guard';
 import { TenantMembershipGuard } from '../guards/tenant-membership.guard';
 import { TenantRoleGuard } from '../guards/tenant-role.guard';
+import { TenantContextManager } from '../tenant.context';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   UnauthorizedException,
@@ -101,6 +102,57 @@ describe('Tenant Guards', () => {
       expect(mockReq.tenant.userId).toBe(user.id);
       expect(mockReq.tenant.membershipId).toBe(membership.id);
       expect(mockReq.tenant.membershipRole).toBe('ADMIN');
+    });
+
+    it('synchronizes enriched tenant context to both request.tenant and TenantContextManager', async () => {
+      const user = await prisma.platformUser.create({
+        data: {
+          email: 'sync@example.com',
+          fullName: 'Sync User',
+          passwordHash: 'hash',
+          isEmailVerified: true,
+          status: 'ACTIVE',
+        },
+      });
+
+      const company = await prisma.company.create({
+        data: {
+          name: 'Sync Co',
+          slug: 'sync-co',
+          status: 'ACTIVE',
+          isActive: true,
+        },
+      });
+
+      const membership = await prisma.companyMembership.create({
+        data: {
+          companyId: company.id,
+          userId: user.id,
+          role: 'MANAGER',
+          status: 'ACTIVE',
+        },
+      });
+
+      const initialContext: any = { companyId: company.id, companySlug: company.slug };
+      const mockReq: any = {
+        user: { id: user.id, email: user.email, status: 'ACTIVE' },
+        tenant: initialContext,
+      };
+      const context = createMockExecutionContext(mockReq);
+
+      await TenantContextManager.run(initialContext, async () => {
+        const result = await guard.canActivate(context);
+        expect(result).toBe(true);
+        expect(mockReq.tenant.userId).toBe(user.id);
+        expect(mockReq.tenant.membershipId).toBe(membership.id);
+        expect(mockReq.tenant.membershipRole).toBe('MANAGER');
+
+        const alsContext = TenantContextManager.getContext();
+        expect(alsContext).toBeDefined();
+        expect(alsContext?.userId).toBe(user.id);
+        expect(alsContext?.membershipId).toBe(membership.id);
+        expect(alsContext?.membershipRole).toBe('MANAGER');
+      });
     });
 
     it('throws 401 Unauthorized if request user is missing', async () => {
@@ -262,6 +314,30 @@ describe('Tenant Guards', () => {
     it('throws 403 Forbidden when membershipRole is unassigned or missing', () => {
       reflector.getAllAndOverride = () => ['MANAGER'];
       const mockReq = { tenant: {} };
+      const context = createMockExecutionContext(mockReq);
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
+
+    it('throws 403 Forbidden when required role metadata contains invalid or unknown role (fail-closed)', () => {
+      reflector.getAllAndOverride = () => ['NONEXISTENT_ROLE' as any];
+      const mockReq = { tenant: { membershipRole: 'OWNER' } };
+      const context = createMockExecutionContext(mockReq);
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
+
+    it('throws 403 Forbidden when required role metadata is an empty array', () => {
+      reflector.getAllAndOverride = () => [];
+      const mockReq = { tenant: { membershipRole: 'OWNER' } };
+      const context = createMockExecutionContext(mockReq);
+
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
+    });
+
+    it('throws 403 Forbidden when caller membership role is invalid or unrecognized enum', () => {
+      reflector.getAllAndOverride = () => ['MANAGER'];
+      const mockReq = { tenant: { membershipRole: 'SUPER_USER' } };
       const context = createMockExecutionContext(mockReq);
 
       expect(() => guard.canActivate(context)).toThrow(ForbiddenException);

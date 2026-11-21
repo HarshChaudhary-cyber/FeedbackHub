@@ -307,7 +307,10 @@ As a secondary layer of defense behind application-level scoping, PostgreSQL RLS
 ### 5.1 Enforcing RLS with Table Owner Protection
 By default, PostgreSQL bypasses RLS for the table owner role. To prevent accidental bypass by database administrators or service connections owning the schema:
 ```sql
--- Enable and FORCE Row-Level Security
+-- Enable and FORCE Row-Level Security on all tenant-owned tables
+ALTER TABLE "Company" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Company" FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE "CompanyMembership" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "CompanyMembership" FORCE ROW LEVEL SECURITY;
 
@@ -318,31 +321,64 @@ ALTER TABLE "CompanyInvitation" FORCE ROW LEVEL SECURITY;
 ### 5.2 Transaction-Local Setting for Connection Poolers
 When using connection pooling (PgBouncer, AWS RDS Proxy), database sessions are reused across requests. Standard `SET` statements leak state to subsequent connection checkouts.
 
-FeedbackHub sets the session variable with transaction scope:
+FeedbackHub sets session variables strictly with transaction scope:
 ```sql
 SELECT set_config('app.current_tenant_id', '<company-uuid>', true);
+SELECT set_config('app.current_user_id', '<user-uuid>', true);
+SELECT set_config('app.invitation_token_hash', '<sha256-hash>', true);
 ```
 Passing `true` as the third parameter (`is_local`) guarantees the setting is automatically cleared upon transaction `COMMIT` or `ROLLBACK`.
 
-### 5.3 Tenant Isolation Policies
+### 5.3 Tenant Isolation Policies (Without Bypass GUCs)
 ```sql
-CREATE POLICY tenant_isolation_membership ON "CompanyMembership"
-    FOR ALL
-    USING (
-        companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+-- 1. Company Table: Public active lookup for resolution, tenant-scoped mutations
+CREATE POLICY company_select_policy ON "Company"
+    FOR SELECT USING (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "id" = current_setting('app.current_tenant_id', true)::uuid)
+        OR ("isActive" = true AND "status" = 'ACTIVE')
     );
 
-CREATE POLICY tenant_isolation_invitation ON "CompanyInvitation"
-    FOR ALL
-    USING (
-        companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+CREATE POLICY company_update_policy ON "Company"
+    FOR UPDATE USING ("id" = current_setting('app.current_tenant_id', true)::uuid)
+    WITH CHECK ("id" = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE POLICY company_delete_policy ON "Company"
+    FOR DELETE USING ("id" = current_setting('app.current_tenant_id', true)::uuid);
+
+-- 2. CompanyMembership Table: Tenant context or platform user listing
+CREATE POLICY tenant_membership_isolation ON "CompanyMembership"
+    FOR ALL USING (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.current_tenant_id', true) IS NULL AND "userId" = current_setting('app.current_user_id', true)::uuid)
+    )
+    WITH CHECK (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.current_tenant_id', true) IS NULL AND "userId" = current_setting('app.current_user_id', true)::uuid)
+    );
+
+-- 3. CompanyInvitation Table: Tenant context or token hash pre-membership lookup
+CREATE POLICY tenant_invitation_isolation ON "CompanyInvitation"
+    FOR ALL USING (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.invitation_token_hash', true) IS NOT NULL AND "tokenHash" = current_setting('app.invitation_token_hash', true))
+    )
+    WITH CHECK (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.invitation_token_hash', true) IS NOT NULL AND "tokenHash" = current_setting('app.invitation_token_hash', true))
     );
 ```
 
 ### 5.4 Application-Level Integration (`PrismaService`)
-`PrismaService` provides the `withTenantContext<T>()` helper method to wrap tenant operations inside an isolated transaction:
+`PrismaService` provides dedicated transaction helpers to wrap operations inside isolated transactions:
+- `withTenantContext(tenantId, userId, tx => ...)`: Used for all tenant routes and membership operations.
+- `withInvitationTokenContext(tokenHash, userId, tx => ...)`: Used for secure pre-membership invitation acceptance.
+- `withUserContext(userId, tx => ...)`: Used for platform-level user company listings.
+- `setTransactionTenantContext(tx, tenantId, userId)`: Used to transition transactions into tenant context during company creation and invitation acceptance.
 ```typescript
-await prisma.withTenantContext(companyId, async (tx) => {
+await prisma.withTenantContext(companyId, userId, async (tx) => {
+  return tx.companyMembership.findMany();
+});
+```
   return tx.companyMembership.findMany();
 });
 ```

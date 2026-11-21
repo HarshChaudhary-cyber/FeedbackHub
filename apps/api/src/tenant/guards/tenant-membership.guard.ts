@@ -6,6 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TenantContextManager } from '../tenant.context';
 import type { CompanyRole } from '@feedbackhub/types';
 
 /**
@@ -36,15 +37,21 @@ export class TenantMembershipGuard implements CanActivate {
       throw new ForbiddenException('Tenant context missing. Cannot verify organization membership.');
     }
 
-    // 4. Verify explicit database membership
-    const membership = await this.prisma.companyMembership.findUnique({
-      where: {
-        companyId_userId: {
-          companyId: tenant.companyId,
-          userId: user.id,
-        },
-      },
-    });
+    // 4. Verify explicit database membership within transaction-local tenant RLS context
+    const membership = await this.prisma.withTenantContext(
+      tenant.companyId,
+      user.id,
+      async (tx) => {
+        return tx.companyMembership.findUnique({
+          where: {
+            companyId_userId: {
+              companyId: tenant.companyId,
+              userId: user.id,
+            },
+          },
+        });
+      }
+    );
 
     if (!membership) {
       throw new ForbiddenException(
@@ -58,13 +65,15 @@ export class TenantMembershipGuard implements CanActivate {
       );
     }
 
-    // 5. Enrich request tenant context with verified membership identity
-    request.tenant = Object.freeze({
+    // 5. Enrich request tenant context with verified membership identity in both request and AsyncLocalStorage
+    const enriched = Object.freeze({
       ...tenant,
       userId: user.id,
       membershipId: membership.id,
       membershipRole: membership.role as CompanyRole,
     });
+    TenantContextManager.enrich(enriched);
+    request.tenant = enriched;
 
     return true;
   }

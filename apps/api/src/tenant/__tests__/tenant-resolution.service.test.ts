@@ -97,6 +97,63 @@ describe('TenantResolutionService', () => {
       expect(service.extractHost(mockReq)).toBe('acme.feedbackhub.com');
     });
 
+    it('extracts and normalizes IPv6 bracketed hosts with and without port', () => {
+      const mockReqWithPort = {
+        headers: { host: '[::1]:3000' },
+      } as unknown as Request;
+      expect(service.extractHost(mockReqWithPort)).toBe('[::1]');
+
+      const mockReqBare = {
+        headers: { host: '[::1]' },
+      } as unknown as Request;
+      expect(service.extractHost(mockReqBare)).toBe('[::1]');
+    });
+
+    it('normalizes single trailing dot from FQDN host headers', () => {
+      const mockReq = {
+        headers: { host: 'acme.feedbackhub.com.:3000' },
+      } as unknown as Request;
+      expect(service.extractHost(mockReq)).toBe('acme.feedbackhub.com');
+    });
+
+    it('rejects ports outside valid range 1-65535 with BadRequestException', () => {
+      const mockReqTooHigh = {
+        headers: { host: 'acme.feedbackhub.com:99999' },
+      } as unknown as Request;
+      expect(() => service.extractHost(mockReqTooHigh)).toThrow(BadRequestException);
+
+      const mockReqZero = {
+        headers: { host: 'acme.feedbackhub.com:0' },
+      } as unknown as Request;
+      expect(() => service.extractHost(mockReqZero)).toThrow(BadRequestException);
+    });
+
+    it('rejects authority injection delimiters in Host header', () => {
+      const maliciousHosts = [
+        'attacker.com/evil',
+        'attacker.com\\evil',
+        'user:pass@legit.com',
+        'legit.com?query=1',
+        'legit.com#frag',
+        'legit..com',
+      ];
+      for (const host of maliciousHosts) {
+        const mockReq = { headers: { host } } as unknown as Request;
+        expect(() => service.extractHost(mockReq)).toThrow(BadRequestException);
+      }
+    });
+
+    it('handles repeated array values in X-Forwarded-Host when proxy trust is enabled', () => {
+      process.env.TRUSTED_PROXY = 'true';
+      const mockReq = {
+        headers: {
+          host: 'internal-proxy',
+          'x-forwarded-host': ['acme.feedbackhub.com', 'spoof.com'],
+        },
+      } as unknown as Request;
+      expect(service.extractHost(mockReq)).toBe('acme.feedbackhub.com');
+    });
+
     it('ignores X-Forwarded-Host when TRUSTED_PROXY is not enabled (prevents header spoofing)', () => {
       process.env.TRUSTED_PROXY = 'false';
       const mockReq = {

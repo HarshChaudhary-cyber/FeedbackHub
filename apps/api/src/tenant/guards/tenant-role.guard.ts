@@ -29,27 +29,32 @@ export class TenantRoleGuard implements CanActivate {
     );
 
     // If no roles specified on endpoint, pass
-    if (!requiredRoles || requiredRoles.length === 0) {
+    if (!requiredRoles) {
       return true;
+    }
+
+    if (!Array.isArray(requiredRoles) || requiredRoles.length === 0) {
+      throw new ForbiddenException('Invalid or empty role requirement configuration.');
+    }
+
+    // Fail-closed validation: verify every required role is a recognized, valid CompanyRole
+    for (const role of requiredRoles) {
+      if (typeof role !== 'string' || ROLE_HIERARCHY[role as CompanyRole] === undefined) {
+        throw new ForbiddenException(`Invalid or unknown role requirement: "${String(role)}".`);
+      }
     }
 
     const request = context.switchToHttp().getRequest();
     const callerRole = request.tenant?.membershipRole as CompanyRole | undefined;
 
-    if (!callerRole) {
-      throw new ForbiddenException('Missing tenant membership role.');
+    if (!callerRole || typeof callerRole !== 'string' || ROLE_HIERARCHY[callerRole] === undefined) {
+      throw new ForbiddenException('Missing, invalid, or unassigned membership role.');
     }
 
     const callerLevel = ROLE_HIERARCHY[callerRole];
-    if (callerLevel === undefined) {
-      throw new ForbiddenException('Invalid or unassigned membership role.');
-    }
 
-    // Determine the minimum required level among the required roles
-    // If endpoint requires OWNER, caller must be OWNER.
-    // If endpoint requires ADMIN, caller can be ADMIN or OWNER.
-    // If endpoint requires MANAGER, caller can be MANAGER, ADMIN, or OWNER.
-    const minRequiredLevel = Math.min(...requiredRoles.map((r) => ROLE_HIERARCHY[r]));
+    // Determine the minimum required level among the validated required roles
+    const minRequiredLevel = Math.min(...requiredRoles.map((r) => ROLE_HIERARCHY[r as CompanyRole]));
 
     if (callerLevel < minRequiredLevel) {
       throw new ForbiddenException(

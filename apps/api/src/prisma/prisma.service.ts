@@ -129,12 +129,88 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     userId: string | undefined,
     fn: (tx: PrismaService) => Promise<T>
   ): Promise<T> {
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('Tenant context required: tenantId is missing or empty (fail-closed).');
+    }
+    const cleanTenantId = tenantId.trim();
+    const cleanUserId = userId && typeof userId === 'string' && userId.trim() !== '' ? userId.trim() : undefined;
+
     return this.$transaction(async (tx) => {
       if (!this.isInMemory) {
-        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-        if (userId) {
-          await (tx as any).$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
+        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${cleanTenantId}, true)`;
+        if (cleanUserId) {
+          await (tx as any).$executeRaw`SELECT set_config('app.current_user_id', ${cleanUserId}, true)`;
         }
+      }
+      return fn(tx as PrismaService);
+    });
+  }
+
+  /**
+   * Executes pre-membership invitation operations bound to an invitation token context.
+   * Allows safely resolving an invitation by token hash without an unrestricted bypass.
+   */
+  async withInvitationTokenContext<T>(
+    tokenHash: string,
+    userId: string | undefined,
+    fn: (tx: PrismaService) => Promise<T>
+  ): Promise<T> {
+    if (!tokenHash || typeof tokenHash !== 'string' || tokenHash.trim() === '') {
+      throw new Error('Invitation token context required: tokenHash is missing or empty (fail-closed).');
+    }
+    const cleanTokenHash = tokenHash.trim();
+    const cleanUserId = userId && typeof userId === 'string' && userId.trim() !== '' ? userId.trim() : undefined;
+
+    return this.$transaction(async (tx) => {
+      if (!this.isInMemory) {
+        await (tx as any).$executeRaw`SELECT set_config('app.invitation_token_hash', ${cleanTokenHash}, true)`;
+        if (cleanUserId) {
+          await (tx as any).$executeRaw`SELECT set_config('app.current_user_id', ${cleanUserId}, true)`;
+        }
+      }
+      return fn(tx as PrismaService);
+    });
+  }
+
+  /**
+   * Transitions an existing active transaction into tenant context.
+   * Used during invitation acceptance after the invitation has been resolved and verified.
+   */
+  async setTransactionTenantContext(
+    tx: PrismaService,
+    tenantId: string,
+    userId?: string
+  ): Promise<void> {
+    if (!tenantId || typeof tenantId !== 'string' || tenantId.trim() === '') {
+      throw new Error('Tenant context required: tenantId is missing or empty.');
+    }
+    const cleanTenantId = tenantId.trim();
+    const cleanUserId = userId && typeof userId === 'string' && userId.trim() !== '' ? userId.trim() : undefined;
+
+    if (!this.isInMemory) {
+      await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${cleanTenantId}, true)`;
+      if (cleanUserId) {
+        await (tx as any).$executeRaw`SELECT set_config('app.current_user_id', ${cleanUserId}, true)`;
+      }
+    }
+  }
+
+  /**
+   * Executes platform-level operations for a user across tenants.
+   * Sets transaction-local `app.current_user_id` so the user can only see their own memberships.
+   */
+  async withUserContext<T>(
+    userId: string,
+    fn: (tx: PrismaService) => Promise<T>
+  ): Promise<T> {
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('User context required: userId is missing or empty (fail-closed).');
+    }
+    const cleanUserId = userId.trim();
+
+    return this.$transaction(async (tx) => {
+      if (!this.isInMemory) {
+        await (tx as any).$executeRaw`SELECT set_config('app.current_user_id', ${cleanUserId}, true)`;
       }
       return fn(tx as PrismaService);
     });
@@ -663,6 +739,24 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.memoryStore.companyMemberships.delete(args.where.id);
         return existing || null;
       },
+      updateMany: async (args: { where: any; data: any }) => {
+        if (!this.isInMemory) return realCompanyMembership.updateMany(args as any);
+        let count = 0;
+        for (const [key, m] of this.memoryStore.companyMemberships.entries()) {
+          let match = true;
+          if (args.where?.id && m.id !== args.where.id) match = false;
+          if (args.where?.companyId && m.companyId !== args.where.companyId) match = false;
+          if (args.where?.userId && m.userId !== args.where.userId) match = false;
+          if (args.where?.role && m.role !== args.where.role) match = false;
+          if (args.where?.status && m.status !== args.where.status) match = false;
+          if (match) {
+            const updated = { ...m, ...args.data, updatedAt: new Date() };
+            this.memoryStore.companyMemberships.set(key, updated);
+            count++;
+          }
+        }
+        return { count };
+      },
       deleteMany: async (args?: { where?: any }) => {
         if (!this.isInMemory) return realCompanyMembership.deleteMany(args as any);
         let count = 0;
@@ -730,6 +824,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             error.meta = { target: ['tokenHash'] };
             throw error;
           }
+          if (
+            existing.companyId === args.data.companyId &&
+            existing.email.toLowerCase() === args.data.email.toLowerCase() &&
+            existing.status === 'PENDING' &&
+            (!args.data.status || args.data.status === 'PENDING')
+          ) {
+            const error: any = new Error('Unique constraint failed on partial index (`companyId`, `email`) WHERE status = PENDING');
+            error.code = 'P2002';
+            error.meta = { target: ['companyId', 'email'] };
+            throw error;
+          }
         }
         const id = args.data.id || `inv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
         const invitation = {
@@ -768,6 +873,27 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         };
         this.memoryStore.invitations.set(targetId, updated);
         return { ...updated };
+      },
+      updateMany: async (args: { where: any; data: any }) => {
+        if (!this.isInMemory) return realCompanyInvitation.updateMany(args as any);
+        let count = 0;
+        for (const [key, inv] of this.memoryStore.invitations.entries()) {
+          let match = true;
+          if (args.where?.id && inv.id !== args.where.id) match = false;
+          if (args.where?.companyId && inv.companyId !== args.where.companyId) match = false;
+          if (args.where?.status && inv.status !== args.where.status) match = false;
+          if (args.where?.expiresAt?.gt) {
+            const expTime = inv.expiresAt instanceof Date ? inv.expiresAt.getTime() : new Date(inv.expiresAt).getTime();
+            const gtTime = args.where.expiresAt.gt instanceof Date ? args.where.expiresAt.gt.getTime() : new Date(args.where.expiresAt.gt).getTime();
+            if (!(expTime > gtTime)) match = false;
+          }
+          if (match) {
+            const updated = { ...inv, ...args.data, updatedAt: new Date() };
+            this.memoryStore.invitations.set(key, updated);
+            count++;
+          }
+        }
+        return { count };
       },
       delete: async (args: { where: { id: string } }) => {
         if (!this.isInMemory) return realCompanyInvitation.delete(args as any);

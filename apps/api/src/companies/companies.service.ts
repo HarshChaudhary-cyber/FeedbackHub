@@ -113,6 +113,8 @@ export class CompaniesService {
           },
         });
 
+        await this.prisma.setTransactionTenantContext(tx as PrismaService, company.id, userId);
+
         const membership = await tx.companyMembership.create({
           data: {
             companyId: company.id,
@@ -157,17 +159,19 @@ export class CompaniesService {
       throw new UnauthorizedException('Authentication required.');
     }
 
-    const memberships = await this.prisma.companyMembership.findMany({
-      where: {
-        userId,
-        status: 'ACTIVE',
-      },
-      include: {
-        company: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
+    const memberships = await this.prisma.withUserContext(userId, async (tx) => {
+      return tx.companyMembership.findMany({
+        where: {
+          userId,
+          status: 'ACTIVE',
+        },
+        include: {
+          company: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
     });
 
     return memberships

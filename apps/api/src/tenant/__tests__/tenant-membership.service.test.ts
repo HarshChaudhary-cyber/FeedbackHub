@@ -527,6 +527,162 @@ describe('TenantMembershipService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('rejects invitation creation when attempting to grant OWNER role', async () => {
+      await expect(
+        service.createInvitation(company.id, ownerUser.id, 'OWNER', {
+          email: 'wouldbeowner@nexus.com',
+          role: 'OWNER',
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects invitation acceptance when accepting user account status is not ACTIVE (e.g. SUSPENDED)', async () => {
+      const inviteResult = await service.createInvitation(
+        company.id,
+        ownerUser.id,
+        'OWNER',
+        {
+          email: 'suspended.candidate@nexus.com',
+          role: 'MANAGER',
+        }
+      );
+
+      const suspendedUser = await prisma.platformUser.create({
+        data: {
+          email: 'suspended.candidate@nexus.com',
+          fullName: 'Suspended Candidate',
+          passwordHash: 'hash',
+          isEmailVerified: true,
+          status: 'SUSPENDED',
+        },
+      });
+
+      await expect(
+        service.acceptInvitation(suspendedUser.id, suspendedUser.email, {
+          token: inviteResult.invitationToken!,
+        })
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects invitation acceptance when company is inactive or suspended', async () => {
+      const inactiveCompany = await prisma.company.create({
+        data: {
+          name: 'Inactive Company',
+          slug: 'inactive-co',
+          status: 'SUSPENDED',
+          isActive: false,
+        },
+      });
+
+      const inviteResult = await service.createInvitation(
+        inactiveCompany.id,
+        ownerUser.id,
+        'OWNER',
+        {
+          email: 'candidate@inactive.com',
+          role: 'MANAGER',
+        }
+      );
+
+      const candidateUser = await prisma.platformUser.create({
+        data: {
+          email: 'candidate@inactive.com',
+          fullName: 'Candidate',
+          passwordHash: 'hash',
+          isEmailVerified: true,
+          status: 'ACTIVE',
+        },
+      });
+
+      await expect(
+        service.acceptInvitation(candidateUser.id, candidateUser.email, {
+          token: inviteResult.invitationToken!,
+        })
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('reactivates existing suspended membership upon valid invitation acceptance', async () => {
+      const candidateUser = await prisma.platformUser.create({
+        data: {
+          email: 'reactivate@nexus.com',
+          fullName: 'Reactivate Member',
+          passwordHash: 'hash',
+          isEmailVerified: true,
+          status: 'ACTIVE',
+        },
+      });
+
+      // Existing suspended membership
+      await prisma.companyMembership.create({
+        data: {
+          companyId: company.id,
+          userId: candidateUser.id,
+          role: 'MANAGER',
+          status: 'SUSPENDED',
+        },
+      });
+
+      const inviteResult = await service.createInvitation(
+        company.id,
+        ownerUser.id,
+        'OWNER',
+        {
+          email: candidateUser.email,
+          role: 'ADMIN',
+        }
+      );
+
+      const acceptRes = await service.acceptInvitation(candidateUser.id, candidateUser.email, {
+        token: inviteResult.invitationToken!,
+      });
+      expect(acceptRes.role).toBe('ADMIN');
+
+      const updatedMembership = await prisma.companyMembership.findUnique({
+        where: {
+          companyId_userId: {
+            companyId: company.id,
+            userId: candidateUser.id,
+          },
+        },
+      });
+      expect(updatedMembership?.status).toBe('ACTIVE');
+      expect(updatedMembership?.role).toBe('ADMIN');
+    });
+
+    it('rejects double acceptance of the same invitation', async () => {
+      const candidateUser = await prisma.platformUser.create({
+        data: {
+          email: 'double.accept@nexus.com',
+          fullName: 'Double Accept',
+          passwordHash: 'hash',
+          isEmailVerified: true,
+          status: 'ACTIVE',
+        },
+      });
+
+      const inviteResult = await service.createInvitation(
+        company.id,
+        ownerUser.id,
+        'OWNER',
+        {
+          email: candidateUser.email,
+          role: 'MANAGER',
+        }
+      );
+
+      // First acceptance succeeds
+      await service.acceptInvitation(candidateUser.id, candidateUser.email, {
+        token: inviteResult.invitationToken!,
+      });
+
+      // Second acceptance fails
+      await expect(
+        service.acceptInvitation(candidateUser.id, candidateUser.email, {
+          token: inviteResult.invitationToken!,
+        })
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('revokes an invitation and prevents acceptance', async () => {
       const inviteResult = await service.createInvitation(
         company.id,

@@ -1,7 +1,7 @@
 # FeedbackHub — Multi-Tenant System Architecture & Implementation Guide
 
-**Document Version:** 1.0.0  
-**Phase:** Phase 5 — Multi-Tenant Foundation  
+**Document Version:** 1.1.0  
+**Phase:** Phase 5 — Multi-Tenant Foundation (Hardened)  
 **Status:** Implemented & Verified  
 
 ---
@@ -12,7 +12,7 @@ FeedbackHub operates as a **centralized multi-tenant SaaS application** with str
 1. Every tenant's data, members, invitations, settings, and future feedback forms/responses are completely partitioned.
 2. Tenant identification and membership are verified cryptographically and authorization-checked on every request.
 3. No user can access or mutate tenant data merely by supplying a tenant ID or company slug in a client payload.
-4. Database-level protections (PostgreSQL Row-Level Security) act as an immutable fail-safe backstop behind application-level controls.
+4. Database-level protections (PostgreSQL Row-Level Security) act as an immutable fail-safe backstop behind application-level controls without unrestricted bypass GUCs.
 
 ---
 
@@ -25,7 +25,7 @@ FeedbackHub classifies every incoming HTTP request by hostname before it reaches
 | Hostname Pattern | Type | Target Resource | Tenant Scoped? |
 | :--- | :--- | :--- | :--- |
 | `feedbackhub.com`, `www.feedbackhub.com` | `MARKETING` | Public landing page, pricing, blogs | No |
-| `localhost:3000`, `localhost:4000` | `MARKETING` | Local marketing site / base API | No |
+| `localhost:3000`, `127.0.0.1`, `[::1]` | `MARKETING` | Local marketing site / base API | No |
 | `app.feedbackhub.com` | `APP` | Central SaaS application / account hub | No |
 | `app.localhost:3000` | `APP` | Local central SaaS application | No |
 | `admin.feedbackhub.com`, `ops.feedbackhub.com` | `PLATFORM` | System administration portal | No |
@@ -40,21 +40,19 @@ Per **RFC 6761 Section 6.3**, all `.localhost` domains loop back to `127.0.0.1` 
 - `http://app.localhost:3000` resolves to the central application console.
 - `http://localhost:3000` resolves to the marketing website.
 
-Port numbers (e.g. `:3000`, `:4000`) are automatically stripped during hostname extraction before database lookup.
-
-### 2.3 Reverse-Proxy & Host Spoofing Security (`TRUSTED_PROXY`)
+### 2.3 Robust Authority Extraction & Proxy Security (`TRUSTED_PROXY`)
 
 In production environments behind reverse proxies (Nginx, Cloudflare, AWS ALB), clients may attempt to spoof hostnames via `X-Forwarded-Host` or `Host` headers.
 
-`TenantResolutionService` enforces secure host extraction:
-```typescript
-// If TRUSTED_PROXY=true (or 1), trust the leftmost client-facing host in X-Forwarded-Host.
-// If TRUSTED_PROXY is false/absent, ignore X-Forwarded-Host and read req.headers.host only.
-```
-- Multi-valued `X-Forwarded-Host` headers (comma-delimited) are parsed strictly by extracting the first (client-supplied) hop.
-- All extracted hosts are lowercased and stripped of port numbers.
-- Subdomain slugs are validated against regex `^[a-z0-9]+(-[a-z0-9]+)*$` before database execution.
-- If a resolved company is inactive (`isActive: false` or `status !== 'ACTIVE'`), resolution fails closed with `404 Not Found`.
+`TenantResolutionService` enforces secure, standards-compliant host extraction:
+- **Proxy Trust Enforcement**: `X-Forwarded-Host` is read **only** when `TRUSTED_PROXY=true` or `TRUSTED_PROXY=1`. When disabled (default), forwarded headers are strictly ignored and `req.headers.host` is used exclusively.
+- **Multi-Hop Parsing**: In trusted proxy mode, multi-valued `X-Forwarded-Host` headers (comma-delimited) are parsed strictly by extracting the leftmost (client-supplied) hop.
+- **Authority Delimiter Sanitization**: Rejects any Host header containing authority delimiters (`/`, `\`, `?`, `#`, `@`, or whitespace) with `400 Bad Request` to prevent path/query/userinfo injection.
+- **IPv6 Authority Parsing**: Robustly supports bracketed IPv6 hosts (e.g. `[::1]:3000` or `[::1]`) and validates brackets and port syntax.
+- **Port Boundary Validation**: Validates that port numbers fall within the valid TCP port range (1-65535), rejecting out-of-range ports with `400 Bad Request`.
+- **RFC 1034 Trailing Dot Normalization**: Strips single trailing dots from FQDN host headers (`acme.feedbackhub.com.` $\to$ `acme.feedbackhub.com`).
+- **RFC 1035 Label Validation**: Enforces maximum host length of 253 characters and label lengths of 1-63 characters matching alphanumeric patterns, rejecting consecutive dots (`..`).
+- **Inactive Tenant Rejection**: Resolving a company that is `isActive: false` or `status !== 'ACTIVE'` immediately returns `null` and yields a `404 Not Found`.
 
 ---
 
@@ -83,23 +81,26 @@ sequenceDiagram
     Middleware->>ALS: run(context, next)
     Note over ALS,Controller: Context is immutable (Object.freeze) & concurrency-safe
     Middleware->>Guards: TenantResolutionGuard -> TenantMembershipGuard -> TenantRoleGuard
+    Note over Guards: Enriches context atomically via TenantContextManager.enrich()
     Guards-->>Controller: Authorized
-    Controller->>DB: withTenantContext(companyId, tx => ...)
+    Controller->>DB: withTenantContext(companyId, userId, tx => ...)
     DB->>DB: set_config('app.current_tenant_id', companyId, true)
+    DB->>DB: set_config('app.current_user_id', userId, true)
     DB-->>Controller: Isolated Query Results
     Controller-->>Client: 200 OK (Tenant-Scoped Data)
 ```
 
-### 3.1 Context Immutability & Concurrency Safety
+### 3.1 Context Immutability, Synchronization & Concurrency Safety
 - Context objects are frozen via `Object.freeze()` before being bound to `AsyncLocalStorage`.
+- **Zero Drift Context Enrichment**: When `TenantMembershipGuard` verifies active membership, it calls `TenantContextManager.enrich(...)` to atomically update the active async execution store alongside `request.tenant`. Both access points always return identical, frozen metadata.
 - Nested asynchronous microtasks, promise chains, and concurrent HTTP requests preserve discrete isolated contexts with zero cross-request contamination.
 - The `@CurrentTenant()` decorator accesses `TenantContextManager.getOrThrow()` or `req.tenant` cleanly.
 
 ---
 
-## 4. Authorization & Guard Hierarchy
+## 4. Authorization & Role Hierarchy
 
-Tenant routes are protected by a three-tiered defense-in-depth guard pipeline:
+Tenant routes are protected by a four-tiered defense-in-depth guard pipeline:
 
 ```
 [ SessionAuthGuard ] -> [ TenantResolutionGuard ] -> [ TenantMembershipGuard ] -> [ TenantRoleGuard ]
@@ -108,10 +109,10 @@ Tenant routes are protected by a three-tiered defense-in-depth guard pipeline:
 ### 4.1 Guard Responsibilities
 1. **`SessionAuthGuard`**: Authenticates user identity via secure server-side session cookie. Rejects unauthenticated requests with `401 Unauthorized`.
 2. **`TenantResolutionGuard`**: Validates that the request has successfully resolved to an active tenant. Fails closed with `404 Not Found` if accessed on a non-tenant domain.
-3. **`TenantMembershipGuard`**: Queries the user's membership for the resolved `companyId`. Requires `status === 'ACTIVE'`. Rejects inactive, suspended, or non-members with `403 Forbidden`.
+3. **`TenantMembershipGuard`**: Queries the user's membership for the resolved `companyId` inside transaction-local tenant context (`withTenantContext`). Requires `status === 'ACTIVE'`. Rejects inactive, suspended, or non-members with `403 Forbidden`. Enriches context via `TenantContextManager.enrich()`.
 4. **`TenantRoleGuard`**: Reads `@RequireRoles(...)` metadata and verifies the user's role against the required hierarchy.
 
-### 4.2 Role Hierarchy
+### 4.2 Role Hierarchy & Fail-Closed Guard Enforcement
 
 FeedbackHub enforces a strict three-tier role hierarchy:
 
@@ -121,11 +122,16 @@ $$\text{OWNER (Weight 3)} > \text{ADMIN (Weight 2)} > \text{MANAGER (Weight 1)}$
 - **ADMIN**: Operations, template management, team invites, manager role modifications. Cannot modify, demote, or suspend the OWNER or other ADMINs.
 - **MANAGER**: Read and operational interaction with assigned feedback workflows. Cannot modify members, change company settings, or invite users.
 
+#### Fail-Closed Guard Rules:
+- If endpoint role metadata contains any unrecognized or invalid role string, `TenantRoleGuard` throws `403 Forbidden` (`"Invalid or unknown role requirement"`).
+- If required role metadata is an empty array (`@RequireRoles()`), `TenantRoleGuard` fails closed with `403 Forbidden`.
+- If caller membership role is missing or unrecognized, `TenantRoleGuard` fails closed with `403 Forbidden`.
+
 ---
 
-## 5. Membership Lifecycle & Security Controls
+## 5. Membership Lifecycle & Concurrency Hardening
 
-All membership mutations are encapsulated within `TenantMembershipService` and executed inside transactional boundaries.
+All membership operations are encapsulated within `TenantMembershipService` and executed inside transaction-local RLS contexts.
 
 ### 5.1 Owner Protection Rules
 - **No Self-Demotion**: An OWNER cannot demote their own role to ADMIN or MANAGER.
@@ -133,121 +139,162 @@ All membership mutations are encapsulated within `TenantMembershipService` and e
 - **No Removal**: An OWNER cannot be removed from the company. A company cannot be rendered ownerless.
 - **Admin Privilege Isolation**: ADMINs cannot promote users to OWNER, nor can they alter or remove other ADMINs or the OWNER.
 
-### 5.2 Atomic Ownership Transfer
+### 5.2 Atomic Ownership Transfer with Concurrency Safety
 Ownership transfer swaps roles between the current OWNER and an active member inside an atomic database transaction:
-1. Validates that the caller is the current OWNER.
-2. Validates that the target user is an `ACTIVE` member of the same company.
-3. Demotes current OWNER to `ADMIN`.
-4. Promotes target user to `OWNER`.
-5. Emits an audit log event.
-
-### 5.3 Member Removal & Data Integrity
-- When a member is removed (`removeMember`), their `CompanyMembership` record is deleted.
-- If the member had active pending invitations created, those invitations remain attributed for auditing or are managed by remaining admins.
-- If the target is the OWNER, the operation is blocked with `403 Forbidden`.
+1. Validates that the company exists and is active (`status === 'ACTIVE'` and `isActive === true`).
+2. Validates that the caller is the current active OWNER.
+3. Validates that the target user exists and has `status === 'ACTIVE'`.
+4. Validates that the target user is currently an `ACTIVE` member of the company.
+5. Executes atomic conditional updates (`updateMany`):
+   - Demotes current owner only if still active OWNER (`count === 1`).
+   - Promotes target user only if still active member (`count === 1`).
+   If either update fails, transaction aborts with `409 Conflict`, mathematically preventing split-brain ownership or ownerless companies under concurrent requests.
+6. Rate limited via Redis sliding window (`tenant_transfer_ownership:companyId`, 5 per hour).
 
 ---
 
-## 6. Invitation Workflow & Token Security
-
-Team member onboarding uses a cryptographically secure tokenized invitation pattern:
+## 6. Pre-Membership Invitation Workflow & Security
 
 ### 6.1 Invitation Issuance
 1. Caller (`OWNER` or `ADMIN`) submits `{ email, role }`.
-2. Normalized email (`lowercase`, trimmed) is checked against existing memberships:
-   - If an active membership exists: `409 Conflict` (`"User is already a member of this company"`).
-   - If a pending invitation already exists: `409 Conflict` (`"An active pending invitation already exists for this email"`).
-3. A **32-byte cryptographically secure random token** is generated using `crypto.randomBytes(32).toString('hex')`.
-4. The token is hashed with **SHA-256**:
+2. Validated against `createInvitationSchema`:
+   - Role must be `'ADMIN'` or `'MANAGER'`.
+   - Rejects `'OWNER'` role with `400 Bad Request`.
+3. Normalized email (`lowercase`, trimmed) is checked against existing memberships:
+   - If an active membership exists: `409 Conflict`.
+   - If a pending invitation already exists: `409 Conflict`.
+4. A **32-byte cryptographically secure random token** is generated using `crypto.randomBytes(32).toString('hex')`.
+5. The token is hashed with **SHA-256**:
    $$\text{tokenHash} = \text{SHA-256}(\text{rawToken})$$
-5. The `CompanyInvitation` record stores `tokenHash`, `email`, `role`, `status = 'PENDING'`, and `expiresAt` (default: **7 days**).
-6. **Zero Raw Token Persistence**: The plaintext `rawToken` is returned only once to the caller (for email delivery) and is never persisted in the database or written to logs.
+6. Stored in `CompanyInvitation` with partial unique index `("companyId", "email") WHERE status = 'PENDING'`.
+7. **Zero Raw Token Persistence**: Plaintext `rawToken` is returned only once to caller; never stored in DB or written to logs.
+8. Rate limited via Redis sliding window (`tenant_invite_create:companyId`, 50 per hour).
 
-### 6.2 Invitation Acceptance
-1. Invitee submits `{ token }` to `/api/v1/tenant/invitations/accept` while authenticated.
-2. Token is hashed: `tokenHash = SHA-256(token)`.
-3. Database looks up the invitation by `tokenHash`:
-   - If not found: `400 Bad Request` (`"Invalid or expired invitation token"`).
+### 6.2 Pre-Membership Invitation Acceptance Workflow Under RLS
+Acceptance is a pre-membership operation where the invitee is not yet a company member:
+1. Invitee submits `{ token }` while authenticated.
+2. Accepts only when invitee account is strictly `status === 'ACTIVE'`.
+3. Token is hashed: `tokenHash = SHA-256(token)`.
+4. Runs inside dedicated transactional token context:
+   ```sql
+   SELECT set_config('app.invitation_token_hash', ${tokenHash}, true);
+   SELECT set_config('app.current_user_id', ${userId}, true);
+   ```
+5. Looks up the invitation by `tokenHash`:
+   - If not found or expired: `400 Bad Request`.
    - If status $\ne$ `'PENDING'`: `400 Bad Request`.
-   - If `expiresAt < now()`: marks status as `'EXPIRED'` and rejects with `400 Bad Request`.
-4. **Email Identity Enforcement**:
-   - The authenticated user's email **must match** the invitation email.
-   - If the user's email does not match: `403 Forbidden` (`"This invitation was sent to a different email address"`).
-   - The authenticated user's account must be active (`status === 'ACTIVE'`).
-5. In an atomic transaction:
-   - Marks invitation as `'ACCEPTED'`.
-   - Creates `CompanyMembership` with `{ companyId, userId, role, status: 'ACTIVE' }`.
-
-### 6.3 Invitation Revocation
-- An `OWNER` or `ADMIN` can revoke any pending invitation via `DELETE /api/v1/tenant/invitations/:id`.
-- Revoked invitations transition to `status = 'REVOKED'` and cannot subsequently be accepted.
+6. Enforces **email identity match**: authenticated user's email must match `invitation.email` (`403 Forbidden` on mismatch).
+7. Verifies target company exists and is active (`status === 'ACTIVE'` and `isActive === true`).
+8. Transitions transaction into tenant context:
+   ```sql
+   SELECT set_config('app.current_tenant_id', ${invitation.companyId}, true);
+   ```
+9. Concurrency-safe conditional update:
+   ```typescript
+   const updateRes = await tx.companyInvitation.updateMany({
+     where: { id: invitation.id, status: 'PENDING', expiresAt: { gt: new Date() } },
+     data: { status: 'ACCEPTED' },
+   });
+   if (updateRes.count !== 1) throw new BadRequestException('Already accepted or no longer pending.');
+   ```
+10. Upserts / reactivates membership record with invited role and `status: 'ACTIVE'`.
+11. Rate limited via Redis sliding window (`tenant_invite_accept:userId`, 10 per minute).
 
 ---
 
-## 7. Database-Level Isolation: PostgreSQL Row-Level Security (RLS)
+## 7. Database Layer & PostgreSQL Row-Level Security (RLS)
 
-FeedbackHub enforces multi-layered tenant isolation:
-1. **Application Layer**: NestJS middleware, guards, and services always scope queries by `companyId`.
-2. **Database Layer**: PostgreSQL Row-Level Security policies prevent cross-tenant data leaks even if an application query omits `where: { companyId }`.
+FeedbackHub enforces multi-layered tenant isolation without any permissive bypass flags (`app.bypass_rls` eliminated):
 
 ### 7.1 PostgreSQL Configuration & Force RLS
 ```sql
--- Force RLS ensures policies apply to table owners as well as standard connection roles
+ALTER TABLE "Company" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Company" FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE "CompanyMembership" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "CompanyMembership" FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE "CompanyInvitation" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "CompanyInvitation" FORCE ROW LEVEL SECURITY;
+```
+`FORCE ROW LEVEL SECURITY` prevents database table owners and connection roles from bypassing RLS.
 
--- Tenant Isolation Policies
-CREATE POLICY tenant_isolation_membership ON "CompanyMembership"
-    FOR ALL
-    USING (
-        companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+### 7.2 Hardened PostgreSQL Policies
+```sql
+-- 1. Company Table: Public active lookup for resolution, tenant-scoped mutations
+CREATE POLICY company_select_policy ON "Company"
+    FOR SELECT USING (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "id" = current_setting('app.current_tenant_id', true)::uuid)
+        OR ("isActive" = true AND "status" = 'ACTIVE')
     );
 
-CREATE POLICY tenant_isolation_invitation ON "CompanyInvitation"
-    FOR ALL
-    USING (
-        companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+CREATE POLICY company_update_policy ON "Company"
+    FOR UPDATE USING ("id" = current_setting('app.current_tenant_id', true)::uuid)
+    WITH CHECK ("id" = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE POLICY company_delete_policy ON "Company"
+    FOR DELETE USING ("id" = current_setting('app.current_tenant_id', true)::uuid);
+
+-- 2. CompanyMembership Table: Tenant context or platform user listing
+CREATE POLICY tenant_membership_isolation ON "CompanyMembership"
+    FOR ALL USING (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.current_tenant_id', true) IS NULL AND "userId" = current_setting('app.current_user_id', true)::uuid)
+    )
+    WITH CHECK (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.current_tenant_id', true) IS NULL AND "userId" = current_setting('app.current_user_id', true)::uuid)
+    );
+
+-- 3. CompanyInvitation Table: Tenant context or token hash pre-membership lookup
+CREATE POLICY tenant_invitation_isolation ON "CompanyInvitation"
+    FOR ALL USING (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.invitation_token_hash', true) IS NOT NULL AND "tokenHash" = current_setting('app.invitation_token_hash', true))
+    )
+    WITH CHECK (
+        (current_setting('app.current_tenant_id', true) IS NOT NULL AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+        OR (current_setting('app.invitation_token_hash', true) IS NOT NULL AND "tokenHash" = current_setting('app.invitation_token_hash', true))
     );
 ```
 
-### 7.2 Connection Pooling Compatibility
-In pooled database connection architectures (PgBouncer, AWS RDS Proxy), database sessions are shared across requests. Standard `SET` statements leak session state across connection checkouts.
-
-FeedbackHub uses **transaction-local settings**:
+### 7.3 Transaction-Local Settings for Connection Poolers
+FeedbackHub sets context with transaction scope:
 ```sql
 SELECT set_config('app.current_tenant_id', '<company-uuid>', true);
 ```
-- The third argument (`is_local = true`) guarantees that `app.current_tenant_id` is scoped strictly to the active database transaction.
-- Upon `COMMIT` or `ROLLBACK`, the variable is immediately cleared, preventing state contamination across pooled connections.
+Passing `true` as the third parameter (`is_local`) guarantees the setting is cleared on `COMMIT` or `ROLLBACK`, eliminating state contamination across PgBouncer / pooled connection checkouts.
 
-### 7.3 `withTenantContext` Helper
-The `PrismaService` exposes a type-safe transactional execution wrapper:
-```typescript
-await prisma.withTenantContext(companyId, async (tx) => {
-  return tx.companyMembership.findMany();
-});
-```
+### 7.4 Application Query Path Classification
+
+| Service / Guard | Query Operation | Transaction Mechanism | Context GUCs Set | Reason |
+| :--- | :--- | :--- | :--- | :--- |
+| `TenantResolutionService` | `company.findUnique` | Standalone Query | None | Public discovery by slug / domain before tenant context exists |
+| `CompaniesService.getUserCompanies` | `companyMembership.findMany` | `withUserContext` | `app.current_user_id` | Platform-level listing of user's own companies across tenants |
+| `CompaniesService.createCompany` | `company.create` + `membership.create` | `$transaction` + `setTransactionTenantContext` | `app.current_tenant_id` | Atomic company establishment and owner assignment |
+| `TenantMembershipGuard` | `companyMembership.findUnique` | `withTenantContext` | `app.current_tenant_id`, `app.current_user_id` | Route authorization verifying membership in resolved tenant |
+| `TenantMembershipService.*` (all member & invite methods) | Member & invitation queries / mutations | `withTenantContext` | `app.current_tenant_id`, `app.current_user_id` | Strict tenant-scoped operations |
+| `TenantMembershipService.acceptInvitation` | `invitation.findUnique` $\to$ `membership.create` | `withInvitationTokenContext` $\to$ `setTransactionTenantContext` | `app.invitation_token_hash` $\to$ `app.current_tenant_id` | Secure pre-membership acceptance transition |
 
 ---
 
-## 8. Pattern for Adding Future Tenant-Scoped Models
+## 8. Reproducible PostgreSQL Integration Test Setup
 
-When introducing new domain entities in Phase 6+ (e.g. `FeedbackForm`, `FeedbackResponse`, `FeedbackAnswer`, `Tag`):
+To run the integration tests against real PostgreSQL:
 
-1. **Schema Definition**:
-   - Always include a non-nullable `companyId String @db.Uuid` field with an index.
-   - Add foreign key relation to `Company` with `onDelete: Cascade`.
-2. **Migration & RLS**:
-   - Enable and force RLS in the migration:
-     ```sql
-     ALTER TABLE "FeedbackForm" ENABLE ROW LEVEL SECURITY;
-     ALTER TABLE "FeedbackForm" FORCE ROW LEVEL SECURITY;
-     CREATE POLICY tenant_isolation_feedback_form ON "FeedbackForm"
-       FOR ALL USING (companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
-     ```
-3. **Service Layer**:
-   - Inject `companyId` into all `where` and `data` clauses from `@CurrentTenant()`.
-   - Wrap operations using `prisma.withTenantContext(companyId, ...)`.
+1. **Start an isolated test database container**:
+   ```bash
+   docker run -d --name feedbackhub-test-pg \
+     -e POSTGRES_PASSWORD=postgres \
+     -e POSTGRES_DB=feedbackhub_test \
+     -p 5433:5432 \
+     postgres:16-alpine
+   ```
+2. **Apply migrations**:
+   ```bash
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5433/feedbackhub_test?schema=public" pnpm --filter @feedbackhub/database db:deploy
+   ```
+3. **Execute RLS integration tests**:
+   ```bash
+   DATABASE_URL_REAL="postgresql://postgres:postgres@localhost:5433/feedbackhub_test?schema=public" pnpm test apps/api/src/tenant/__tests__/postgres-rls.integration.test.ts
+   ```

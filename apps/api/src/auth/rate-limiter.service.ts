@@ -37,6 +37,11 @@ export const SUPPORTED_RATE_LIMIT_ACTIONS = new Set<string>([
   'forgot_email',
   'reset_ip',
   'reset_token',
+  // Tenant rate-limiting namespaces
+  'tenant_invite_create',
+  'tenant_invite_accept',
+  'tenant_transfer_ownership',
+  'tenant_member_mutation',
   // Diagnostic and test namespaces permitted for internal testing
   'test_ip',
   'test_reset',
