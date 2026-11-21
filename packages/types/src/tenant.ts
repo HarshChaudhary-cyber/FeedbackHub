@@ -4,7 +4,8 @@
 
 export type CompanyRole = 'OWNER' | 'ADMIN' | 'MANAGER';
 export type CompanyStatus = 'ACTIVE' | 'SUSPENDED';
-export type MembershipStatus = 'ACTIVE' | 'SUSPENDED';
+export type MembershipStatus = 'ACTIVE' | 'SUSPENDED' | 'INVITED';
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
 
 export interface Company {
   id: string;
@@ -49,6 +50,41 @@ export interface CreateCompanyResponse {
   updatedAt: string;
 }
 
+export interface CompanyInvitation {
+  id: string;
+  companyId: string;
+  invitedByUserId: string;
+  email: string;
+  role: CompanyRole;
+  status: InvitationStatus;
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantMemberResponse {
+  id: string;
+  userId: string;
+  companyId: string;
+  email: string;
+  fullName: string;
+  role: CompanyRole;
+  status: string;
+  joinedAt: string;
+  createdAt: string;
+}
+
+export interface TenantContext {
+  companyId: string;
+  companySlug: string;
+  companyName: string;
+  companyStatus: string;
+  userId?: string;
+  membershipId?: string;
+  membershipRole?: CompanyRole;
+  correlationId?: string;
+}
+
 export interface TenantBranding {
   logoUrl: string | null;
   brandColorHex: string;
@@ -61,16 +97,6 @@ export interface TenantSettings {
   allowAnonymousEmployeeFeedback: boolean;
   minimumEmployeePrivacyThreshold: number; // e.g. 5
   timeZone: string;
-}
-
-export interface TenantContext {
-  id: string;
-  name: string;
-  slug: string;
-  customDomain: string | null;
-  branding: TenantBranding;
-  settings: TenantSettings;
-  isActive: boolean;
 }
 
 export type TenantResolutionMode = 'marketing' | 'app' | 'tenant';

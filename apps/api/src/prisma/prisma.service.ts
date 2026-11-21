@@ -9,6 +9,7 @@ interface InMemoryStore {
   sessions: Map<string, any>;
   companies: Map<string, any>;
   companyMemberships: Map<string, any>;
+  invitations: Map<string, any>;
 }
 
 @Injectable()
@@ -22,6 +23,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     sessions: new Map(),
     companies: new Map(),
     companyMemberships: new Map(),
+    invitations: new Map(),
   };
 
   constructor() {
@@ -101,6 +103,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         companyMemberships: new Map(
           Array.from(this.memoryStore.companyMemberships.entries()).map(([k, v]) => [k, { ...v }])
         ),
+        invitations: new Map(
+          Array.from(this.memoryStore.invitations.entries()).map(([k, v]) => [k, { ...v }])
+        ),
       };
 
       try {
@@ -114,6 +119,27 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     return (await Promise.all(fnOrArray)) as unknown as T;
   }
 
+  /**
+   * Executes database operations bound to a transaction-local tenant context.
+   * In PostgreSQL mode, sets transaction-local `app.current_tenant_id` (and optionally `app.current_user_id`)
+   * safely within an atomic transaction block so connection pooling never leaks tenant state.
+   */
+  async withTenantContext<T>(
+    tenantId: string,
+    userId: string | undefined,
+    fn: (tx: PrismaService) => Promise<T>
+  ): Promise<T> {
+    return this.$transaction(async (tx) => {
+      if (!this.isInMemory) {
+        await (tx as any).$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+        if (userId) {
+          await (tx as any).$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
+        }
+      }
+      return fn(tx as PrismaService);
+    });
+  }
+
   public resetMemoryStore() {
     this.memoryStore.users.clear();
     this.memoryStore.verificationTokens.clear();
@@ -121,6 +147,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     this.memoryStore.sessions.clear();
     this.memoryStore.companies.clear();
     this.memoryStore.companyMemberships.clear();
+    this.memoryStore.invitations.clear();
   }
 
   private setupMemoryDelegates() {
@@ -130,6 +157,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const realAuthSession = this.authSession;
     const realCompany = this.company;
     const realCompanyMembership = this.companyMembership;
+    const realCompanyInvitation = this.companyInvitation;
 
     // PlatformUser memory delegate
     const memoryPlatformUser = {
@@ -403,13 +431,19 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     // Company memory delegate
     const memoryCompany = {
-      findUnique: async (args: { where: { id?: string; slug?: string } }) => {
+      findUnique: async (args: { where: { id?: string; slug?: string; customDomain?: string } }) => {
         if (!this.isInMemory) return realCompany.findUnique(args as any);
         if (args.where.id) return this.memoryStore.companies.get(args.where.id) || null;
         if (args.where.slug) {
           const lower = args.where.slug.toLowerCase();
           for (const c of this.memoryStore.companies.values()) {
             if (c.slug.toLowerCase() === lower) return { ...c };
+          }
+        }
+        if (args.where.customDomain) {
+          const lower = args.where.customDomain.toLowerCase();
+          for (const c of this.memoryStore.companies.values()) {
+            if (c.customDomain && c.customDomain.toLowerCase() === lower) return { ...c };
           }
         }
         return null;
@@ -650,6 +684,118 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       },
     };
 
+    // CompanyInvitation memory delegate
+    const memoryCompanyInvitation = {
+      findUnique: async (args: { where: { id?: string; tokenHash?: string } }) => {
+        if (!this.isInMemory) return realCompanyInvitation.findUnique(args as any);
+        if (args.where.id) return this.memoryStore.invitations.get(args.where.id) || null;
+        if (args.where.tokenHash) {
+          for (const inv of this.memoryStore.invitations.values()) {
+            if (inv.tokenHash === args.where.tokenHash) return { ...inv };
+          }
+        }
+        return null;
+      },
+      findFirst: async (args: { where: any }) => {
+        if (!this.isInMemory) return realCompanyInvitation.findFirst(args as any);
+        for (const inv of this.memoryStore.invitations.values()) {
+          let match = true;
+          if (args.where?.id && inv.id !== args.where.id) match = false;
+          if (args.where?.companyId && inv.companyId !== args.where.companyId) match = false;
+          if (args.where?.email && inv.email.toLowerCase() !== args.where.email.toLowerCase()) match = false;
+          if (args.where?.tokenHash && inv.tokenHash !== args.where.tokenHash) match = false;
+          if (args.where?.status && inv.status !== args.where.status) match = false;
+          if (match) return { ...inv };
+        }
+        return null;
+      },
+      findMany: async (args?: { where?: any; orderBy?: any }) => {
+        if (!this.isInMemory) return realCompanyInvitation.findMany(args as any);
+        const results: any[] = [];
+        for (const inv of this.memoryStore.invitations.values()) {
+          let match = true;
+          if (args?.where?.companyId && inv.companyId !== args.where.companyId) match = false;
+          if (args?.where?.email && inv.email.toLowerCase() !== args.where.email.toLowerCase()) match = false;
+          if (args?.where?.status && inv.status !== args.where.status) match = false;
+          if (match) results.push({ ...inv });
+        }
+        return results;
+      },
+      create: async (args: { data: any }) => {
+        if (!this.isInMemory) return realCompanyInvitation.create(args as any);
+        for (const existing of this.memoryStore.invitations.values()) {
+          if (existing.tokenHash === args.data.tokenHash) {
+            const error: any = new Error('Unique constraint failed on the fields: (`tokenHash`)');
+            error.code = 'P2002';
+            error.meta = { target: ['tokenHash'] };
+            throw error;
+          }
+        }
+        const id = args.data.id || `inv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const invitation = {
+          id,
+          companyId: args.data.companyId,
+          invitedByUserId: args.data.invitedByUserId,
+          email: args.data.email.toLowerCase(),
+          role: args.data.role || 'MANAGER',
+          tokenHash: args.data.tokenHash,
+          status: args.data.status || 'PENDING',
+          expiresAt: args.data.expiresAt,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        this.memoryStore.invitations.set(id, invitation);
+        return { ...invitation };
+      },
+      update: async (args: { where: { id?: string; tokenHash?: string }; data: any }) => {
+        if (!this.isInMemory) return realCompanyInvitation.update(args as any);
+        let targetId = args.where.id;
+        if (!targetId && args.where.tokenHash) {
+          for (const inv of this.memoryStore.invitations.values()) {
+            if (inv.tokenHash === args.where.tokenHash) {
+              targetId = inv.id;
+              break;
+            }
+          }
+        }
+        if (!targetId) throw new Error('Invitation not found');
+        const existing = this.memoryStore.invitations.get(targetId);
+        if (!existing) throw new Error('Invitation not found');
+        const updated = {
+          ...existing,
+          ...args.data,
+          updatedAt: new Date(),
+        };
+        this.memoryStore.invitations.set(targetId, updated);
+        return { ...updated };
+      },
+      delete: async (args: { where: { id: string } }) => {
+        if (!this.isInMemory) return realCompanyInvitation.delete(args as any);
+        const existing = this.memoryStore.invitations.get(args.where.id);
+        this.memoryStore.invitations.delete(args.where.id);
+        return existing || null;
+      },
+      deleteMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realCompanyInvitation.deleteMany(args as any);
+        let count = 0;
+        if (!args?.where) {
+          count = this.memoryStore.invitations.size;
+          this.memoryStore.invitations.clear();
+          return { count };
+        }
+        for (const [key, inv] of this.memoryStore.invitations.entries()) {
+          let match = true;
+          if (args.where.companyId && inv.companyId !== args.where.companyId) match = false;
+          if (args.where.email && inv.email !== args.where.email) match = false;
+          if (match) {
+            this.memoryStore.invitations.delete(key);
+            count++;
+          }
+        }
+        return { count };
+      },
+    };
+
     // Override the getters on this instance
     Object.defineProperty(this, 'platformUser', {
       get: () => (this.isInMemory ? memoryPlatformUser : realPlatformUser),
@@ -673,6 +819,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
     Object.defineProperty(this, 'companyMembership', {
       get: () => (this.isInMemory ? memoryCompanyMembership : realCompanyMembership),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'companyInvitation', {
+      get: () => (this.isInMemory ? memoryCompanyInvitation : realCompanyInvitation),
       configurable: true,
     });
   }

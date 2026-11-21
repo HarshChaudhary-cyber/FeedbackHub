@@ -70,13 +70,13 @@ export class CompaniesService {
       throw new UnauthorizedException('Authentication required. Cannot establish company without verified user context.');
     }
 
-    // 1. Verify user exists and is active
+    // 1. Verify user exists and is active (strictly ACTIVE status, fail-closed)
     const user = await this.prisma.platformUser.findUnique({
       where: { id: userId },
     });
 
-    if (!user || user.status === 'SUSPENDED') {
-      throw new UnauthorizedException('User account not found or is currently suspended.');
+    if (!user || user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('User account not found or is not active.');
     }
 
     // 2. Validate input schema
@@ -171,7 +171,13 @@ export class CompaniesService {
     });
 
     return memberships
-      .filter((m) => m.company && (m.company.status === 'ACTIVE' || m.company.isActive !== false))
+      .filter(
+        (m) =>
+          m.status === 'ACTIVE' &&
+          m.company &&
+          m.company.status === 'ACTIVE' &&
+          m.company.isActive === true
+      )
       .map((m) => ({
         id: m.company.id,
         name: m.company.name,

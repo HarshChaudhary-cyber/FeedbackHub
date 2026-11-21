@@ -41,10 +41,12 @@ FeedbackHub implements a **Shared Database with Discriminator Column (`companyId
 ```mermaid
 erDiagram
     PlatformUser ||--o{ CompanyMembership : "holds"
+    PlatformUser ||--o{ CompanyInvitation : "invites"
     PlatformUser ||--o{ AuditLog : "initiates"
     PlatformUser ||--o{ FeedbackResponse : "submits (identified only)"
 
     Company ||--o{ CompanyMembership : "employs"
+    Company ||--o{ CompanyInvitation : "issues"
     Company ||--o| Subscription : "subscribes"
     Company ||--o{ Role : "defines"
     Company ||--o{ FeedbackForm : "owns"
@@ -98,6 +100,19 @@ erDiagram
         string department
         string status
         timestamp joinedAt
+        timestamp createdAt
+        timestamp updatedAt
+    }
+
+    CompanyInvitation {
+        uuid id PK
+        uuid companyId FK
+        uuid invitedByUserId FK
+        string email
+        string role "OWNER | ADMIN | MANAGER"
+        string tokenHash UK
+        string status "PENDING | ACCEPTED | REVOKED | EXPIRED"
+        timestamp expiresAt
         timestamp createdAt
         timestamp updatedAt
     }
@@ -256,6 +271,12 @@ CREATE INDEX idx_company_membership_user ON "CompanyMembership" (userId);
 CREATE INDEX idx_company_membership_company ON "CompanyMembership" (companyId);
 CREATE UNIQUE INDEX idx_company_membership_unique ON "CompanyMembership" (companyId, userId);
 
+-- Company invitation lookups and token validation
+CREATE UNIQUE INDEX idx_company_invitation_token_hash ON "CompanyInvitation" (tokenHash);
+CREATE INDEX idx_company_invitation_company ON "CompanyInvitation" (companyId);
+CREATE INDEX idx_company_invitation_email ON "CompanyInvitation" (email);
+CREATE INDEX idx_company_invitation_status ON "CompanyInvitation" (status);
+
 -- Form lookups by company and slug
 CREATE INDEX idx_feedback_form_company_slug ON "FeedbackForm" (companyId, slug);
 CREATE INDEX idx_feedback_form_status ON "FeedbackForm" (companyId, status);
@@ -283,14 +304,46 @@ CREATE INDEX idx_audit_log_company_created ON "AuditLog" (companyId, createdAt D
 
 As a secondary layer of defense behind application-level scoping, PostgreSQL RLS is enabled on tenant tables:
 
+### 5.1 Enforcing RLS with Table Owner Protection
+By default, PostgreSQL bypasses RLS for the table owner role. To prevent accidental bypass by database administrators or service connections owning the schema:
 ```sql
--- Enable RLS on tenant tables
-ALTER TABLE "FeedbackForm" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "FeedbackResponse" ENABLE ROW LEVEL SECURITY;
+-- Enable and FORCE Row-Level Security
+ALTER TABLE "CompanyMembership" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "CompanyMembership" FORCE ROW LEVEL SECURITY;
 
--- Tenant Isolation Policy
-CREATE POLICY tenant_isolation_policy ON "FeedbackForm"
-    FOR ALL
-    USING (companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid);
+ALTER TABLE "CompanyInvitation" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "CompanyInvitation" FORCE ROW LEVEL SECURITY;
 ```
-During request execution, the NestJS database client sets `app.current_tenant_id` at the start of a transaction, ensuring that queries cannot cross tenant boundaries even in the event of an application logic bug.
+
+### 5.2 Transaction-Local Setting for Connection Poolers
+When using connection pooling (PgBouncer, AWS RDS Proxy), database sessions are reused across requests. Standard `SET` statements leak state to subsequent connection checkouts.
+
+FeedbackHub sets the session variable with transaction scope:
+```sql
+SELECT set_config('app.current_tenant_id', '<company-uuid>', true);
+```
+Passing `true` as the third parameter (`is_local`) guarantees the setting is automatically cleared upon transaction `COMMIT` or `ROLLBACK`.
+
+### 5.3 Tenant Isolation Policies
+```sql
+CREATE POLICY tenant_isolation_membership ON "CompanyMembership"
+    FOR ALL
+    USING (
+        companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    );
+
+CREATE POLICY tenant_isolation_invitation ON "CompanyInvitation"
+    FOR ALL
+    USING (
+        companyId = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid
+    );
+```
+
+### 5.4 Application-Level Integration (`PrismaService`)
+`PrismaService` provides the `withTenantContext<T>()` helper method to wrap tenant operations inside an isolated transaction:
+```typescript
+await prisma.withTenantContext(companyId, async (tx) => {
+  return tx.companyMembership.findMany();
+});
+```
+This guarantees that queries cannot cross tenant boundaries even in the unlikely event of an application logic bug.

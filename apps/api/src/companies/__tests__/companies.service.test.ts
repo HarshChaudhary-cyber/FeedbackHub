@@ -265,20 +265,34 @@ describe('CompaniesService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('rejects company creation if user is suspended', async () => {
-      const suspendedUser = await prisma.platformUser.create({
-        data: {
-          email: 'suspended@example.com',
-          fullName: 'Suspended User',
-          passwordHash: 'hash',
-          isEmailVerified: true,
-          status: 'SUSPENDED',
-        },
-      });
+    it('rejects company creation for all non-ACTIVE user statuses and ensures no records are created', async () => {
+      const nonActiveStatuses = ['PENDING', 'SUSPENDED', 'DEACTIVATED', 'DELETED', 'ARCHIVED', 'UNKNOWN_STATUS'];
 
-      await expect(
-        service.createCompany(suspendedUser.id, { name: 'Suspended Corp' })
-      ).rejects.toThrow(UnauthorizedException);
+      for (const status of nonActiveStatuses) {
+        const testUser = await prisma.platformUser.create({
+          data: {
+            email: `user-${status.toLowerCase()}@example.com`,
+            fullName: `${status} User`,
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status,
+          },
+        });
+
+        const slug = `slug-for-${status.toLowerCase()}`;
+        await expect(
+          service.createCompany(testUser.id, { name: `Company ${status}`, slug })
+        ).rejects.toThrow(UnauthorizedException);
+
+        // Fail-closed verification: ensure neither company nor membership was created
+        const company = await prisma.company.findUnique({ where: { slug } });
+        expect(company).toBeNull();
+
+        const membership = await prisma.companyMembership.findFirst({
+          where: { userId: testUser.id },
+        });
+        expect(membership).toBeNull();
+      }
     });
 
     it('ignores client-supplied ownerId and strictly enforces authenticated user as OWNER', async () => {
@@ -396,25 +410,86 @@ describe('CompaniesService', () => {
       expect(roles).toContainEqual({ slug: 'comp-gamma', role: 'ADMIN' });
     });
 
-    it('excludes suspended or inactive memberships', async () => {
-      const comp = await service.createCompany(ownerUser.id, {
-        name: 'Active Corp',
-        slug: 'active-corp',
+    it('excludes suspended or inactive memberships and handles company lifecycle fail-closed', async () => {
+      // 1. Suspended membership
+      const comp1 = await service.createCompany(ownerUser.id, {
+        name: 'Comp Suspended Member',
+        slug: 'comp-susp-member',
       });
-
-      // Suspend owner's membership
-      const membership = await prisma.companyMembership.findUnique({
-        where: {
-          companyId_userId: {
-            companyId: comp.id,
-            userId: ownerUser.id,
-          },
-        },
+      const membership1 = await prisma.companyMembership.findUnique({
+        where: { companyId_userId: { companyId: comp1.id, userId: ownerUser.id } },
       });
-
       await prisma.companyMembership.update({
-        where: { id: membership!.id },
+        where: { id: membership1!.id },
         data: { status: 'SUSPENDED' },
+      });
+
+      // 2. Invited membership
+      const comp2 = await service.createCompany(ownerUser.id, {
+        name: 'Comp Invited Member',
+        slug: 'comp-inv-member',
+      });
+      const membership2 = await prisma.companyMembership.findUnique({
+        where: { companyId_userId: { companyId: comp2.id, userId: ownerUser.id } },
+      });
+      await prisma.companyMembership.update({
+        where: { id: membership2!.id },
+        data: { status: 'INVITED' },
+      });
+
+      // 3. Company with status SUSPENDED
+      const comp3 = await service.createCompany(ownerUser.id, {
+        name: 'Comp Status Suspended',
+        slug: 'comp-status-susp',
+      });
+      await prisma.company.update({
+        where: { id: comp3.id },
+        data: { status: 'SUSPENDED' },
+      });
+
+      // 4. Company with isActive = false
+      const comp4 = await service.createCompany(ownerUser.id, {
+        name: 'Comp Inactive Flag',
+        slug: 'comp-inactive-flag',
+      });
+      await prisma.company.update({
+        where: { id: comp4.id },
+        data: { isActive: false },
+      });
+
+      // 5. Company with unexpected status
+      const comp5 = await service.createCompany(ownerUser.id, {
+        name: 'Comp Unexpected Status',
+        slug: 'comp-unexp-status',
+      });
+      await prisma.company.update({
+        where: { id: comp5.id },
+        data: { status: 'DECOMMISSIONED' },
+      });
+
+      // 6. Valid ACTIVE company with ACTIVE membership
+      const comp6 = await service.createCompany(ownerUser.id, {
+        name: 'Comp Fully Active',
+        slug: 'comp-fully-active',
+      });
+
+      // Query listings: ONLY comp6 should be returned
+      const companies = await service.getUserCompanies(ownerUser.id);
+      expect(companies).toHaveLength(1);
+      expect(companies[0].id).toBe(comp6.id);
+      expect(companies[0].slug).toBe('comp-fully-active');
+      expect(companies[0].status).toBe('ACTIVE');
+    });
+
+    it('excludes membership when associated company relation is missing', async () => {
+      // Create valid membership pointing to non-existent company
+      await prisma.companyMembership.create({
+        data: {
+          companyId: 'non-existent-comp-id-1234',
+          userId: ownerUser.id,
+          role: 'OWNER',
+          status: 'ACTIVE',
+        },
       });
 
       const companies = await service.getUserCompanies(ownerUser.id);

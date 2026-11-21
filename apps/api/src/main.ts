@@ -23,6 +23,8 @@ export async function bootstrap() {
     .setVersion('0.1.0')
     .addTag('Health', 'System health and status verification')
     .addTag('Authentication', 'User registration, login, session, and account management')
+    .addTag('Companies', 'Company organization creation and membership listing')
+    .addTag('Tenant', 'Tenant organization context, members, and membership lifecycle')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

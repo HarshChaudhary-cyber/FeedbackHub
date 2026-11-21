@@ -174,12 +174,20 @@ apps/api/src/
 └── main.ts                 # Bootstrap with helmet, CORS, cookies, validation pipes
 ```
 
-### 5.1 Defense-in-Depth Tenant Isolation
-Every database query in a tenant context is bound by:
-1. **Tenant Middleware**: Resolves tenant from hostname and sets `req.tenant`.
-2. **Tenant Guard**: Validates that the active session or requested public resource belongs strictly to `req.tenant.id`.
-3. **Prisma Scoping**: All service-layer repositories explicitly inject `companyId: req.tenant.id` into `where` clauses.
-4. **PostgreSQL RLS (Row-Level Security)**: Database-level session variables (`SET LOCAL app.current_tenant_id = '...'`) enforce row-level constraints as a fail-safe backstop.
+### 5.1 Defense-in-Depth Tenant Isolation & Context Lifecycle
+Every HTTP request to a tenant-scoped route undergoes multi-tier isolation and authorization checks:
+
+1. **Tenant Resolution**: `TenantResolutionService` parses the hostname (supporting production subdomains, custom domains via CNAME, and RFC 6761 `.localhost` subdomains). When running behind a reverse proxy, it validates `X-Forwarded-Host` only when `TRUSTED_PROXY` is enabled, sanitizing host input and stripping ports.
+2. **Context Management (`AsyncLocalStorage`)**: `TenantContextManager` initializes an immutable, concurrency-safe context using Node.js `AsyncLocalStorage`. The context (`TenantContext`) is frozen via `Object.freeze()` and propagated cleanly across asynchronous call trees, accessible anywhere via `@CurrentTenant()`.
+3. **Authorization Pipeline**:
+   - `SessionAuthGuard`: Authenticates the user session.
+   - `TenantResolutionGuard`: Verifies that the host resolved to an active, non-suspended company (`404 Not Found` if missing).
+   - `TenantMembershipGuard`: Confirms the user holds an active membership record in the target company (`403 Forbidden` if missing or non-active).
+   - `TenantRoleGuard`: Evaluates the user's role against `@RequireRoles(...)` using a strict three-tier hierarchy (`OWNER` [3] > `ADMIN` [2] > `MANAGER` [1]).
+4. **Prisma Scoping**: All service-layer repositories explicitly inject `companyId` from the verified tenant context into query `where` clauses.
+5. **PostgreSQL Row-Level Security (RLS)**: Transaction-scoped configuration (`SELECT set_config('app.current_tenant_id', ..., true)`) combined with `FORCE ROW LEVEL SECURITY` guarantees row-level database partitioning even across pooled database connections.
+
+For detailed specifications, see [TENANT_SYSTEM.md](./TENANT_SYSTEM.md).
 
 ---
 

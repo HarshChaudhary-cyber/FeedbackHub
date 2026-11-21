@@ -85,3 +85,45 @@ export const createCompanySchema = z.object({
 });
 
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
+
+export const createInvitationSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Invalid email address format'),
+  role: z.enum(['ADMIN', 'MANAGER'], {
+    errorMap: () => ({ message: 'Invited role must be either ADMIN or MANAGER' }),
+  }),
+});
+
+export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;
+
+export const acceptInvitationSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .min(32, 'Invitation token must be at least 32 characters')
+    .max(128, 'Invitation token exceeds maximum length'),
+});
+
+export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
+
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(['ADMIN', 'MANAGER'], {
+    errorMap: () => ({ message: 'Target role must be either ADMIN or MANAGER' }),
+  }),
+});
+
+export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
+
+export const updateMemberStatusSchema = z.object({
+  status: z.enum(['ACTIVE', 'SUSPENDED'], {
+    errorMap: () => ({ message: 'Status must be either ACTIVE or SUSPENDED' }),
+  }),
+});
+
+export type UpdateMemberStatusInput = z.infer<typeof updateMemberStatusSchema>;
+
+export const transferOwnershipSchema = z.object({
+  targetUserId: z.string().trim().min(1, 'Target user ID is required'),
+  retainedRole: z.enum(['ADMIN', 'MANAGER']).default('ADMIN'),
+});
+
+export type TransferOwnershipInput = z.infer<typeof transferOwnershipSchema>;
