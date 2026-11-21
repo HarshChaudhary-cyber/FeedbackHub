@@ -95,13 +95,118 @@ describe('RateLimiterService (Shared & Fail-Closed Strategy)', () => {
       expect(keyB.startsWith('fh:rl:login_email:')).toBe(true);
     });
 
-    it('is idempotent when normalizing already-normalized keys', () => {
-      const original = 'login_email:test@example.com';
-      const normalized = service.normalizeKey(original);
-      const doubleNormalized = service.normalizeKey(normalized);
+  describe('Anti-Bypass & Hash Integrity', () => {
+    it('does not trust an arbitrary string matching the former normalized-key regex', () => {
+      const forged64Hex = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+      const arbitraryString = `fh:rl:login_email:${forged64Hex}`;
 
-      expect(doubleNormalized).toBe(normalized);
+      const derivedKey = service.normalizeKey(arbitraryString);
+
+      // Must NOT return the arbitrary input string as if it were a pre-normalized key
+      expect(derivedKey).not.toBe(arbitraryString);
+      // The forged 64-hex component must NOT appear directly in the output
+      expect(derivedKey).not.toBe(`fh:rl:login_email:${forged64Hex}`);
+      // The identifier must be cryptographically hashed using HMAC-SHA256
+      const expectedHmac = service.hashIdentifier(forged64Hex);
+      expect(derivedKey).toBe(`fh:rl:login_email:${expectedHmac}`);
     });
+
+    it('correctly protects a raw identifier containing 64 hexadecimal characters', () => {
+      const hex64 = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
+      const key = service.normalizeKey(`reset_token:${hex64}`);
+
+      expect(key).not.toContain(hex64);
+      expect(key).toBe(`fh:rl:reset_token:${service.hashIdentifier(hex64)}`);
+      expect(key).toMatch(/^fh:rl:reset_token:[0-9a-f]{64}$/);
+    });
+
+    it('ensures no raw identifier can bypass HMAC hashing by prefixing it with fh:rl:', () => {
+      const rawEmail = 'infiltrator@example.com';
+      const prefixedKey = `fh:rl:login_email:${rawEmail}`;
+      const standardKey = `login_email:${rawEmail}`;
+
+      const derivedPrefixed = service.normalizeKey(prefixedKey);
+      const derivedStandard = service.normalizeKey(standardKey);
+
+      // Both produce the same secure key with hashed identifier
+      expect(derivedPrefixed).toBe(derivedStandard);
+      expect(derivedPrefixed).not.toContain(rawEmail);
+      expect(derivedPrefixed).toBe(`fh:rl:login_email:${service.hashIdentifier(rawEmail)}`);
+    });
+
+    it('guarantees the resulting Redis key does not contain the original sensitive value', () => {
+      const sensitiveValues = [
+        'ceo.executive@feedbackhub.com',
+        '192.168.100.254',
+        '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
+        'raw-reset-token-secret-64-character-string-1234567890abcdef1234567890',
+      ];
+
+      for (const val of sensitiveValues) {
+        const key = service.normalizeKey(`auth_action:${val}`);
+        expect(key).not.toContain(val);
+        expect(key).toMatch(/^fh:rl:auth_action:[0-9a-f]{64}$/);
+      }
+    });
+  });
+
+  describe('Internal Consistency & Single-Normalization Execution', () => {
+    it('ensures check() and assert() use identical keys for the same raw input', async () => {
+      const mockEval = vi.fn().mockResolvedValue([1, 60000]);
+      const mockRedis = { eval: mockEval } as unknown as Redis;
+      service.setMockRedisClient(mockRedis, true);
+
+      const rawKey = 'login_email:consistent.test@example.com';
+      const expectedKey = service.normalizeKey(rawKey);
+
+      await service.check(rawKey, 5, 60000);
+      expect(mockEval).toHaveBeenLastCalledWith(expect.anything(), 1, expectedKey, '5', '60000');
+
+      await service.assert(rawKey, 5, 60000);
+      expect(mockEval).toHaveBeenLastCalledWith(expect.anything(), 1, expectedKey, '5', '60000');
+    });
+
+    it('ensures reset() deletes the exact generated Redis key that check/assert incremented', async () => {
+      const mockDel = vi.fn().mockResolvedValue(1);
+      const mockRedis = { del: mockDel } as unknown as Redis;
+      service.setMockRedisClient(mockRedis, true);
+
+      const rawKey = 'login_email:reset.test@example.com';
+      const expectedKey = service.normalizeKey(rawKey);
+
+      await service.reset(rawKey);
+      expect(mockDel).toHaveBeenCalledWith(expectedKey);
+    });
+
+    it('ensures repeated normalization does not cause accidental double-hashing in internal operations', async () => {
+      // In-memory driver verification:
+      // When assert() and reset() run, they must operate on the exact same bucket.
+      // If internal operations double-hashed, reset would delete hash(hash(k)) while
+      // assert used hash(k) (or vice versa), leading to state desynchronization.
+      const rawKey = 'login_email:single.hash.test@example.com';
+
+      // 1st assert: count = 1
+      await service.assert(rawKey, 2, 60000);
+      // 2nd assert: count = 2
+      await service.assert(rawKey, 2, 60000);
+      // 3rd assert: rejected (exceeds limit 2)
+      await expect(service.assert(rawKey, 2, 60000)).rejects.toThrow();
+
+      // Reset bucket
+      await service.reset(rawKey);
+
+      // Immediately after reset, assert must succeed again (counter was reset in the matching bucket)
+      await expect(service.assert(rawKey, 2, 60000)).resolves.not.toThrow();
+    });
+
+    it('generates the same key across distinct instances sharing configuration', () => {
+      const instance1 = new RateLimiterService();
+      const instance2 = new RateLimiterService();
+
+      const rawKey = 'login_email:shared.cluster@example.com';
+      expect(instance1.normalizeKey(rawKey)).toBe(instance2.normalizeKey(rawKey));
+    });
+  });
   });
 
   describe('In-Memory Driver (Dev/Test Fallback)', () => {
