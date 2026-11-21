@@ -95,5 +95,35 @@ describe('EmailService Security & Production Hardening', () => {
       emailService.clearSentEmails();
       expect(emailService.getSentEmails()).toHaveLength(0);
     });
+
+    it('sanitizes logs in development mock mode by never logging raw tokens or URLs', async () => {
+      process.env.NODE_ENV = 'development';
+      process.env.EMAIL_MOCK_MODE = 'true';
+      emailService = new EmailService();
+
+      const logSpy = vi.spyOn((emailService as unknown as { logger: { log: (msg: string) => void } }).logger, 'log');
+
+      const rawToken = 'super-secret-verification-token-98765';
+      await emailService.sendVerificationEmail('dev@example.com', rawToken);
+
+      expect(logSpy).toHaveBeenCalledWith('Mock verification email generated for local development.');
+      for (const call of logSpy.mock.calls) {
+        expect(call[0]).not.toContain(rawToken);
+        expect(call[0]).not.toContain('http://');
+        expect(call[0]).not.toContain('https://');
+        expect(call[0]).not.toContain('token=');
+      }
+
+      const rawResetToken = 'super-secret-reset-token-43210';
+      await emailService.sendPasswordResetEmail('dev@example.com', rawResetToken);
+
+      expect(logSpy).toHaveBeenCalledWith('Mock password reset email generated for local development.');
+      for (const call of logSpy.mock.calls) {
+        expect(call[0]).not.toContain(rawResetToken);
+        expect(call[0]).not.toContain('http://');
+        expect(call[0]).not.toContain('https://');
+        expect(call[0]).not.toContain('token=');
+      }
+    });
   });
 });

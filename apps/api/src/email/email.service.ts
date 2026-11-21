@@ -68,7 +68,7 @@ export class EmailService {
 
     if (this.isMockMode()) {
       if (!this.isTest()) {
-        this.logger.log(`[DEV MOCK EMAIL] Verification link generated for ${to}: ${verificationUrl}`);
+        this.logger.log('Mock verification email generated for local development.');
       }
       return;
     }
@@ -109,7 +109,7 @@ export class EmailService {
 
     if (this.isMockMode()) {
       if (!this.isTest()) {
-        this.logger.log(`[DEV MOCK EMAIL] Password reset link generated for ${to}: ${resetUrl}`);
+        this.logger.log('Mock password reset email generated for local development.');
       }
       return;
     }
@@ -142,9 +142,8 @@ export class EmailService {
           html,
         }),
       });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Network error';
-      this.logger.error(`Resend API network failure: ${msg}`);
+    } catch (_err: unknown) {
+      this.logger.error('Resend API network failure during transactional email delivery.');
       throw new InternalServerErrorException('Failed to deliver email. Please try again later.');
     }
 

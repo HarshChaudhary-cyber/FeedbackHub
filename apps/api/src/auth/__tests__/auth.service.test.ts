@@ -215,6 +215,51 @@ describe('AuthService', () => {
     it('rejects tampered or non-existent token', async () => {
       await expect(authService.verifyEmail('invalid-fake-token')).rejects.toThrow(BadRequestException);
     });
+
+    it('rejects expired verification token', async () => {
+      await authService.register({
+        fullName: 'Expired Verify User',
+        email: 'expired-verify@example.com',
+        password: 'ValidP@ssw0rd123!',
+        confirmPassword: 'ValidP@ssw0rd123!',
+      });
+
+      const sentEmail = emailService.getLastEmailFor('expired-verify@example.com');
+      const token = sentEmail?.token as string;
+      const tokenHash = authService.hashToken(token);
+
+      // Expire token manually
+      const tokenRecord = await prisma.emailVerificationToken.findFirst({ where: { tokenHash } });
+      await prisma.emailVerificationToken.update({
+        where: { id: tokenRecord!.id },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+
+      await expect(authService.verifyEmail(token)).rejects.toThrow(/expired/i);
+    });
+
+    it('rolls back verification state if database transaction fails midway', async () => {
+      await authService.register({
+        fullName: 'Tx Fail Verify User',
+        email: 'tx-fail-verify@example.com',
+        password: 'ValidP@ssw0rd123!',
+        confirmPassword: 'ValidP@ssw0rd123!',
+      });
+
+      const sentEmail = emailService.getLastEmailFor('tx-fail-verify@example.com');
+      const token = sentEmail?.token as string;
+
+      // Mock user update to fail inside transaction
+      const updateSpy = vi.spyOn(prisma.platformUser, 'update').mockRejectedValueOnce(new Error('DB failure during verification'));
+
+      await expect(authService.verifyEmail(token)).rejects.toThrow('DB failure during verification');
+
+      // Verify user remains unverified due to transaction rollback
+      const user = await prisma.platformUser.findUnique({ where: { email: 'tx-fail-verify@example.com' } });
+      expect(user?.isEmailVerified).toBe(false);
+
+      updateSpy.mockRestore();
+    });
   });
 
   describe('Authentication & Session Flow', () => {
@@ -431,6 +476,66 @@ describe('AuthService', () => {
         })
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('rejects expired password reset token', async () => {
+      await authService.forgotPassword({ email: 'recovery@example.com' });
+      const sentEmail = emailService.getLastEmailFor('recovery@example.com');
+      const resetToken = sentEmail?.token as string;
+      const tokenHash = authService.hashToken(resetToken);
+
+      // Expire token manually
+      const tokenRecord = await prisma.passwordResetToken.findFirst({ where: { tokenHash } });
+      await prisma.passwordResetToken.update({
+        where: { id: tokenRecord!.id },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+
+      await expect(
+        authService.resetPassword({
+          token: resetToken,
+          password: 'NewValidP@ssword123!',
+          confirmPassword: 'NewValidP@ssword123!',
+        })
+      ).rejects.toThrow(/expired/i);
+    });
+
+    it('rolls back password reset and preserves previous sessions if transaction fails midway', async () => {
+      // Create session first
+      const { rawToken } = await authService.login({
+        email: 'recovery@example.com',
+        password: 'OriginalP@ssword123!',
+      });
+      expect(await authService.validateSession(rawToken)).not.toBeNull();
+
+      await authService.forgotPassword({ email: 'recovery@example.com' });
+      const sentEmail = emailService.getLastEmailFor('recovery@example.com');
+      const resetToken = sentEmail?.token as string;
+
+      // Mock session deletion to fail inside transaction
+      const sessionSpy = vi.spyOn(prisma.authSession, 'deleteMany').mockRejectedValueOnce(
+        new Error('Simulated database deadlock during session revocation')
+      );
+
+      await expect(
+        authService.resetPassword({
+          token: resetToken,
+          password: 'BrandNewP@ssword123!',
+          confirmPassword: 'BrandNewP@ssword123!',
+        })
+      ).rejects.toThrow('Simulated database deadlock during session revocation');
+
+      // Due to atomic transaction rollback, old session remains intact!
+      expect(await authService.validateSession(rawToken)).not.toBeNull();
+
+      // Old password still works!
+      const loginCheck = await authService.login({
+        email: 'recovery@example.com',
+        password: 'OriginalP@ssword123!',
+      });
+      expect(loginCheck.user.email).toBe('recovery@example.com');
+
+      sessionSpy.mockRestore();
+    });
   });
 
   describe('Account Management (Profile & Change Password)', () => {
@@ -544,23 +649,23 @@ describe('AuthService', () => {
   });
 
   describe('Rate Limiting Service', () => {
-    it('enforces request limits within the configured time window', () => {
+    it('enforces request limits within the configured time window', async () => {
       const key = 'test-key-limit';
-      expect(rateLimiter.check(key, 3, 1000).allowed).toBe(true);
-      expect(rateLimiter.check(key, 3, 1000).allowed).toBe(true);
-      expect(rateLimiter.check(key, 3, 1000).allowed).toBe(true);
-      expect(rateLimiter.check(key, 3, 1000).allowed).toBe(false);
+      expect((await rateLimiter.check(key, 3, 1000)).allowed).toBe(true);
+      expect((await rateLimiter.check(key, 3, 1000)).allowed).toBe(true);
+      expect((await rateLimiter.check(key, 3, 1000)).allowed).toBe(true);
+      expect((await rateLimiter.check(key, 3, 1000)).allowed).toBe(false);
 
-      expect(() => rateLimiter.assert(key, 3, 1000)).toThrow();
+      await expect(rateLimiter.assert(key, 3, 1000)).rejects.toThrow();
     });
 
-    it('tracks active keys and prunes expired buckets to prevent memory leaks', () => {
+    it('tracks active keys and prunes expired buckets to prevent memory leaks', async () => {
       const shortLimiter = new RateLimiterService();
-      shortLimiter.check('active-test-key-1', 5, 60000);
-      shortLimiter.check('active-test-key-2', 5, 60000);
+      await shortLimiter.check('active-test-key-1', 5, 60000);
+      await shortLimiter.check('active-test-key-2', 5, 60000);
 
       expect(shortLimiter.getActiveKeyCount()).toBeGreaterThanOrEqual(2);
-      shortLimiter.onModuleDestroy();
+      await shortLimiter.onModuleDestroy();
     });
   });
 });

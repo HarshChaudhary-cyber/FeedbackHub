@@ -114,7 +114,7 @@ export class AuthService implements OnModuleInit {
 
     // Rate limiting: 10 registrations per hour per IP
     if (ip) {
-      this.rateLimiter.assert(`reg_ip:${ip}`, 10, 60 * 60 * 1000, 'Too many registration attempts.');
+      await this.rateLimiter.assert(`reg_ip:${ip}`, 10, 60 * 60 * 1000, 'Too many registration attempts.');
     }
 
     const existingUser = await this.prisma.platformUser.findUnique({
@@ -177,9 +177,9 @@ export class AuthService implements OnModuleInit {
 
     // Rate limiting
     if (ip) {
-      this.rateLimiter.assert(`login_ip:${ip}`, 15, 15 * 60 * 1000, 'Too many login attempts from this network.');
+      await this.rateLimiter.assert(`login_ip:${ip}`, 15, 15 * 60 * 1000, 'Too many login attempts from this network.');
     }
-    this.rateLimiter.assert(
+    await this.rateLimiter.assert(
       `login_email:${normalizedEmail}`,
       5,
       15 * 60 * 1000,
@@ -205,7 +205,7 @@ export class AuthService implements OnModuleInit {
     }
 
     // Reset email rate limit on successful credentials
-    this.rateLimiter.reset(`login_email:${normalizedEmail}`);
+    await this.rateLimiter.reset(`login_email:${normalizedEmail}`);
 
     // Enforce email verification: Credentials are valid, but email must be verified
     if (!user.isEmailVerified) {
@@ -287,7 +287,7 @@ export class AuthService implements OnModuleInit {
 
     // Rate limit verification attempts by IP
     if (ip) {
-      this.rateLimiter.assert(
+      await this.rateLimiter.assert(
         `verify_ip:${ip}`,
         30,
         15 * 60 * 1000,
@@ -297,35 +297,38 @@ export class AuthService implements OnModuleInit {
 
     const tokenHash = this.hashToken(validated.token);
 
-    const record = await this.prisma.emailVerificationToken.findFirst({
-      where: { tokenHash },
-    });
+    // Atomic transaction: validate, consume token, and update user verification status
+    await this.prisma.$transaction(async (tx) => {
+      const record = await tx.emailVerificationToken.findFirst({
+        where: { tokenHash },
+      });
 
-    if (!record) {
-      throw new BadRequestException('Invalid or expired verification token.');
-    }
+      if (!record) {
+        throw new BadRequestException('Invalid or expired verification token.');
+      }
 
-    const expiresAt = record.expiresAt instanceof Date ? record.expiresAt : new Date(record.expiresAt);
-    if (expiresAt.getTime() <= Date.now()) {
-      await this.prisma.emailVerificationToken.deleteMany({ where: { id: record.id } }).catch(() => {});
-      throw new BadRequestException('Verification token has expired. Please request a new one.');
-    }
+      const expiresAt = record.expiresAt instanceof Date ? record.expiresAt : new Date(record.expiresAt);
+      if (expiresAt.getTime() <= Date.now()) {
+        await tx.emailVerificationToken.deleteMany({ where: { id: record.id } }).catch(() => {});
+        throw new BadRequestException('Verification token has expired. Please request a new one.');
+      }
 
-    // Atomically consume token to prevent race conditions & replay attacks
-    const deleted = await this.prisma.emailVerificationToken.deleteMany({
-      where: { id: record.id, tokenHash },
-    });
+      // Atomically consume token to prevent race conditions & replay attacks
+      const deleted = await tx.emailVerificationToken.deleteMany({
+        where: { id: record.id, tokenHash },
+      });
 
-    if (deleted.count === 0) {
-      throw new BadRequestException('Verification token has already been used or has expired.');
-    }
+      if (deleted.count === 0) {
+        throw new BadRequestException('Verification token has already been used or has expired.');
+      }
 
-    await this.prisma.platformUser.update({
-      where: { id: record.userId },
-      data: {
-        isEmailVerified: true,
-        emailVerifiedAt: new Date(),
-      },
+      await tx.platformUser.update({
+        where: { id: record.userId },
+        data: {
+          isEmailVerified: true,
+          emailVerifiedAt: new Date(),
+        },
+      });
     });
 
     return { message: 'Email address verified successfully. You can now use all platform features.' };
@@ -334,7 +337,7 @@ export class AuthService implements OnModuleInit {
   async resendVerification(email?: string, userId?: string, ip?: string): Promise<{ message: string }> {
     // Rate limit resend attempts per IP
     if (ip) {
-      this.rateLimiter.assert(
+      await this.rateLimiter.assert(
         `resend_ip:${ip}`,
         5,
         15 * 60 * 1000,
@@ -363,7 +366,7 @@ export class AuthService implements OnModuleInit {
     }
 
     // Rate limit resend attempts per user
-    this.rateLimiter.assert(
+    await this.rateLimiter.assert(
       `resend_user:${targetUser.id}`,
       3,
       15 * 60 * 1000,
@@ -401,9 +404,9 @@ export class AuthService implements OnModuleInit {
 
     // Rate limit forgot password
     if (ip) {
-      this.rateLimiter.assert(`forgot_ip:${ip}`, 10, 15 * 60 * 1000);
+      await this.rateLimiter.assert(`forgot_ip:${ip}`, 10, 15 * 60 * 1000);
     }
-    this.rateLimiter.assert(`forgot_email:${normalizedEmail}`, 3, 15 * 60 * 1000);
+    await this.rateLimiter.assert(`forgot_email:${normalizedEmail}`, 3, 15 * 60 * 1000);
 
     const user = await this.prisma.platformUser.findUnique({
       where: { email: normalizedEmail },
@@ -443,43 +446,46 @@ export class AuthService implements OnModuleInit {
     const validated = resetPasswordSchema.parse(input);
 
     if (ip) {
-      this.rateLimiter.assert(`reset_ip:${ip}`, 10, 15 * 60 * 1000);
+      await this.rateLimiter.assert(`reset_ip:${ip}`, 10, 15 * 60 * 1000);
     }
 
     const tokenHash = this.hashToken(validated.token);
-    const record = await this.prisma.passwordResetToken.findFirst({
-      where: { tokenHash },
-    });
-
-    if (!record) {
-      throw new BadRequestException('Invalid or expired password reset link.');
-    }
-
-    const expiresAt = record.expiresAt instanceof Date ? record.expiresAt : new Date(record.expiresAt);
-    if (expiresAt.getTime() <= Date.now()) {
-      await this.prisma.passwordResetToken.deleteMany({ where: { id: record.id } }).catch(() => {});
-      throw new BadRequestException('Password reset link has expired. Please request a new one.');
-    }
-
-    // Atomically consume token
-    const deleted = await this.prisma.passwordResetToken.deleteMany({
-      where: { id: record.id, tokenHash },
-    });
-
-    if (deleted.count === 0) {
-      throw new BadRequestException('Password reset link has already been used or has expired.');
-    }
-
     const newHash = await this.hashPassword(validated.password);
 
-    await this.prisma.platformUser.update({
-      where: { id: record.userId },
-      data: { passwordHash: newHash },
-    });
+    // Atomic transaction: validate & consume token, update password hash, and invalidate all sessions
+    await this.prisma.$transaction(async (tx) => {
+      const record = await tx.passwordResetToken.findFirst({
+        where: { tokenHash },
+      });
 
-    // Invalidate all active sessions for security
-    await this.prisma.authSession.deleteMany({
-      where: { userId: record.userId },
+      if (!record) {
+        throw new BadRequestException('Invalid or expired password reset link.');
+      }
+
+      const expiresAt = record.expiresAt instanceof Date ? record.expiresAt : new Date(record.expiresAt);
+      if (expiresAt.getTime() <= Date.now()) {
+        await tx.passwordResetToken.deleteMany({ where: { id: record.id } }).catch(() => {});
+        throw new BadRequestException('Password reset link has expired. Please request a new one.');
+      }
+
+      // Atomically consume token
+      const deleted = await tx.passwordResetToken.deleteMany({
+        where: { id: record.id, tokenHash },
+      });
+
+      if (deleted.count === 0) {
+        throw new BadRequestException('Password reset link has already been used or has expired.');
+      }
+
+      await tx.platformUser.update({
+        where: { id: record.userId },
+        data: { passwordHash: newHash },
+      });
+
+      // Invalidate all active sessions for security
+      await tx.authSession.deleteMany({
+        where: { userId: record.userId },
+      });
     });
 
     return { message: 'Password reset successfully. Please log in with your new password.' };

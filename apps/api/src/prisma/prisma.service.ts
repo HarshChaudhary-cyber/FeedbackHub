@@ -26,19 +26,41 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
+    if (process.env.NODE_ENV === 'test' && !process.env.DATABASE_URL_REAL) {
+      this.isInMemory = true;
+      this.logger.log('PrismaService initialized in in-memory test mode');
+      return;
+    }
+
     try {
-      if (process.env.NODE_ENV === 'test' && !process.env.DATABASE_URL_REAL) {
-        this.isInMemory = true;
-        this.logger.log('PrismaService initialized in in-memory test mode');
-        return;
-      }
       await this.$connect();
       this.logger.log('Prisma connected to database');
-    } catch (error: any) {
-      this.logger.warn(
-        `Could not connect to PostgreSQL database (${error.message}). Falling back to resilient in-memory mode for development/testing.`
+    } catch (_error: unknown) {
+      // Production must NEVER fall back to in-memory mode under any circumstances
+      if (process.env.NODE_ENV === 'production') {
+        this.isInMemory = false;
+        this.logger.error('Failed to connect to production PostgreSQL database. Service startup aborted.');
+        throw new Error(
+          'Database connection failed. Service cannot start without a persistent PostgreSQL connection in production.'
+        );
+      }
+
+      // Development fallback is disabled by default and requires explicit opt-in
+      if (process.env.ALLOW_DEV_IN_MEMORY_DB === 'true') {
+        this.isInMemory = true;
+        this.logger.warn(
+          'WARNING: PostgreSQL connection failed. Running in explicitly permitted in-memory fallback mode for development. DATA WILL NOT PERSIST.'
+        );
+        return;
+      }
+
+      this.isInMemory = false;
+      this.logger.error(
+        'Failed to connect to PostgreSQL database. Development in-memory fallback is disabled by default.'
       );
-      this.isInMemory = true;
+      throw new Error(
+        'Database connection failed. Ensure PostgreSQL is running, or set ALLOW_DEV_IN_MEMORY_DB="true" for ephemeral local development.'
+      );
     }
   }
 
@@ -46,6 +68,40 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     if (!this.isInMemory) {
       await this.$disconnect();
     }
+  }
+
+  override async $transaction<T>(
+    fnOrArray: ((tx: PrismaService) => Promise<T>) | Promise<unknown>[],
+    options?: unknown
+  ): Promise<T> {
+    if (!this.isInMemory) {
+      return (await super.$transaction(fnOrArray as any, options as any)) as T;
+    }
+
+    if (typeof fnOrArray === 'function') {
+      // Snapshot state for atomic transaction rollback in memory mode
+      const snapshot: InMemoryStore = {
+        users: new Map(Array.from(this.memoryStore.users.entries()).map(([k, v]) => [k, { ...v }])),
+        verificationTokens: new Map(
+          Array.from(this.memoryStore.verificationTokens.entries()).map(([k, v]) => [k, { ...v }])
+        ),
+        resetTokens: new Map(
+          Array.from(this.memoryStore.resetTokens.entries()).map(([k, v]) => [k, { ...v }])
+        ),
+        sessions: new Map(
+          Array.from(this.memoryStore.sessions.entries()).map(([k, v]) => [k, { ...v }])
+        ),
+      };
+
+      try {
+        return await fnOrArray(this);
+      } catch (err) {
+        this.memoryStore = snapshot;
+        throw err;
+      }
+    }
+
+    return (await Promise.all(fnOrArray)) as unknown as T;
   }
 
   public resetMemoryStore() {
@@ -174,6 +230,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.memoryStore.verificationTokens.delete(args.where.id);
         return existing || null;
       },
+      update: async (args: { where: { id: string }; data: any }) => {
+        if (!this.isInMemory) return realEmailVerificationToken.update(args as any);
+        const existing = this.memoryStore.verificationTokens.get(args.where.id);
+        if (!existing) throw new Error('Token not found');
+        const updated = { ...existing, ...args.data };
+        this.memoryStore.verificationTokens.set(args.where.id, updated);
+        return { ...updated };
+      },
       deleteMany: async (args: { where: { userId?: string; tokenHash?: string } }) => {
         if (!this.isInMemory) return realEmailVerificationToken.deleteMany(args as any);
         let count = 0;
@@ -220,6 +284,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         const existing = this.memoryStore.resetTokens.get(args.where.id);
         this.memoryStore.resetTokens.delete(args.where.id);
         return existing || null;
+      },
+      update: async (args: { where: { id: string }; data: any }) => {
+        if (!this.isInMemory) return realPasswordResetToken.update(args as any);
+        const existing = this.memoryStore.resetTokens.get(args.where.id);
+        if (!existing) throw new Error('Token not found');
+        const updated = { ...existing, ...args.data };
+        this.memoryStore.resetTokens.set(args.where.id, updated);
+        return { ...updated };
       },
       deleteMany: async (args: { where: { userId?: string; tokenHash?: string } }) => {
         if (!this.isInMemory) return realPasswordResetToken.deleteMany(args as any);
