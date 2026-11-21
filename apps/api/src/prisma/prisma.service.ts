@@ -7,6 +7,8 @@ interface InMemoryStore {
   verificationTokens: Map<string, any>;
   resetTokens: Map<string, any>;
   sessions: Map<string, any>;
+  companies: Map<string, any>;
+  companyMemberships: Map<string, any>;
 }
 
 @Injectable()
@@ -18,6 +20,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     verificationTokens: new Map(),
     resetTokens: new Map(),
     sessions: new Map(),
+    companies: new Map(),
+    companyMemberships: new Map(),
   };
 
   constructor() {
@@ -91,6 +95,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         sessions: new Map(
           Array.from(this.memoryStore.sessions.entries()).map(([k, v]) => [k, { ...v }])
         ),
+        companies: new Map(
+          Array.from(this.memoryStore.companies.entries()).map(([k, v]) => [k, { ...v }])
+        ),
+        companyMemberships: new Map(
+          Array.from(this.memoryStore.companyMemberships.entries()).map(([k, v]) => [k, { ...v }])
+        ),
       };
 
       try {
@@ -109,6 +119,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     this.memoryStore.verificationTokens.clear();
     this.memoryStore.resetTokens.clear();
     this.memoryStore.sessions.clear();
+    this.memoryStore.companies.clear();
+    this.memoryStore.companyMemberships.clear();
   }
 
   private setupMemoryDelegates() {
@@ -116,6 +128,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const realEmailVerificationToken = this.emailVerificationToken;
     const realPasswordResetToken = this.passwordResetToken;
     const realAuthSession = this.authSession;
+    const realCompany = this.company;
+    const realCompanyMembership = this.companyMembership;
 
     // PlatformUser memory delegate
     const memoryPlatformUser = {
@@ -387,6 +401,255 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       },
     };
 
+    // Company memory delegate
+    const memoryCompany = {
+      findUnique: async (args: { where: { id?: string; slug?: string } }) => {
+        if (!this.isInMemory) return realCompany.findUnique(args as any);
+        if (args.where.id) return this.memoryStore.companies.get(args.where.id) || null;
+        if (args.where.slug) {
+          const lower = args.where.slug.toLowerCase();
+          for (const c of this.memoryStore.companies.values()) {
+            if (c.slug.toLowerCase() === lower) return { ...c };
+          }
+        }
+        return null;
+      },
+      findFirst: async (args: { where: any }) => {
+        if (!this.isInMemory) return realCompany.findFirst(args as any);
+        for (const c of this.memoryStore.companies.values()) {
+          let match = true;
+          if (args.where?.id && c.id !== args.where.id) match = false;
+          if (args.where?.slug && c.slug.toLowerCase() !== args.where.slug.toLowerCase()) match = false;
+          if (args.where?.status && c.status !== args.where.status) match = false;
+          if (match) return { ...c };
+        }
+        return null;
+      },
+      findMany: async (args?: { where?: any; orderBy?: any }) => {
+        if (!this.isInMemory) return realCompany.findMany(args as any);
+        const result: any[] = [];
+        for (const c of this.memoryStore.companies.values()) {
+          let match = true;
+          if (args?.where?.status && c.status !== args.where.status) match = false;
+          if (match) result.push({ ...c });
+        }
+        return result;
+      },
+      create: async (args: { data: any }) => {
+        if (!this.isInMemory) return realCompany.create(args as any);
+        const lowerSlug = args.data.slug.toLowerCase();
+        for (const existing of this.memoryStore.companies.values()) {
+          if (existing.slug.toLowerCase() === lowerSlug) {
+            const error: any = new Error('Unique constraint failed on the fields: (`slug`)');
+            error.code = 'P2002';
+            error.meta = { target: ['slug'] };
+            throw error;
+          }
+        }
+        const id = args.data.id || `comp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const company = {
+          id,
+          name: args.data.name,
+          slug: lowerSlug,
+          customDomain: args.data.customDomain || null,
+          logoUrl: args.data.logoUrl || null,
+          brandColorHex: args.data.brandColorHex || '#8B5CF6',
+          accentColorHex: args.data.accentColorHex || '#EC4899',
+          settings: args.data.settings || {
+            allowPublicCustomerFeedback: true,
+            allowAnonymousEmployeeFeedback: true,
+            minimumEmployeePrivacyThreshold: 5,
+          },
+          status: args.data.status || 'ACTIVE',
+          isActive: args.data.isActive !== undefined ? args.data.isActive : true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        this.memoryStore.companies.set(id, company);
+        return { ...company };
+      },
+      update: async (args: { where: { id?: string; slug?: string }; data: any }) => {
+        if (!this.isInMemory) return realCompany.update(args as any);
+        let targetId = args.where.id;
+        if (!targetId && args.where.slug) {
+          for (const c of this.memoryStore.companies.values()) {
+            if (c.slug.toLowerCase() === args.where.slug.toLowerCase()) {
+              targetId = c.id;
+              break;
+            }
+          }
+        }
+        if (!targetId) throw new Error('Company not found');
+        const existing = this.memoryStore.companies.get(targetId);
+        if (!existing) throw new Error('Company not found');
+        const updated = {
+          ...existing,
+          ...args.data,
+          updatedAt: new Date(),
+        };
+        this.memoryStore.companies.set(targetId, updated);
+        return { ...updated };
+      },
+      delete: async (args: { where: { id?: string; slug?: string } }) => {
+        if (!this.isInMemory) return realCompany.delete(args as any);
+        let targetId = args.where.id;
+        if (!targetId && args.where.slug) {
+          for (const c of this.memoryStore.companies.values()) {
+            if (c.slug.toLowerCase() === args.where.slug.toLowerCase()) {
+              targetId = c.id;
+              break;
+            }
+          }
+        }
+        if (!targetId) return null;
+        const existing = this.memoryStore.companies.get(targetId);
+        this.memoryStore.companies.delete(targetId);
+        return existing || null;
+      },
+      deleteMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realCompany.deleteMany(args as any);
+        let count = 0;
+        if (!args?.where) {
+          count = this.memoryStore.companies.size;
+          this.memoryStore.companies.clear();
+          return { count };
+        }
+        for (const [key, c] of this.memoryStore.companies.entries()) {
+          let match = true;
+          if (args.where.slug && c.slug !== args.where.slug) match = false;
+          if (match) {
+            this.memoryStore.companies.delete(key);
+            count++;
+          }
+        }
+        return { count };
+      },
+    };
+
+    // CompanyMembership memory delegate
+    const memoryCompanyMembership = {
+      findUnique: async (args: {
+        where: { id?: string; companyId_userId?: { companyId: string; userId: string } };
+      }) => {
+        if (!this.isInMemory) return realCompanyMembership.findUnique(args as any);
+        if (args.where.id) return this.memoryStore.companyMemberships.get(args.where.id) || null;
+        if (args.where.companyId_userId) {
+          const { companyId, userId } = args.where.companyId_userId;
+          for (const m of this.memoryStore.companyMemberships.values()) {
+            if (m.companyId === companyId && m.userId === userId) {
+              return { ...m };
+            }
+          }
+        }
+        return null;
+      },
+      findFirst: async (args: { where: any }) => {
+        if (!this.isInMemory) return realCompanyMembership.findFirst(args as any);
+        for (const m of this.memoryStore.companyMemberships.values()) {
+          let match = true;
+          if (args.where?.id && m.id !== args.where.id) match = false;
+          if (args.where?.companyId && m.companyId !== args.where.companyId) match = false;
+          if (args.where?.userId && m.userId !== args.where.userId) match = false;
+          if (args.where?.role && m.role !== args.where.role) match = false;
+          if (args.where?.status && m.status !== args.where.status) match = false;
+          if (match) return { ...m };
+        }
+        return null;
+      },
+      findMany: async (args?: { where?: any; include?: any; orderBy?: any }) => {
+        if (!this.isInMemory) return realCompanyMembership.findMany(args as any);
+        const results: any[] = [];
+        for (const m of this.memoryStore.companyMemberships.values()) {
+          let match = true;
+          if (args?.where?.companyId && m.companyId !== args.where.companyId) match = false;
+          if (args?.where?.userId && m.userId !== args.where.userId) match = false;
+          if (args?.where?.role && m.role !== args.where.role) match = false;
+          if (args?.where?.status && m.status !== args.where.status) match = false;
+          if (
+            args?.where?.company?.status &&
+            this.memoryStore.companies.get(m.companyId)?.status !== args.where.company.status
+          ) {
+            match = false;
+          }
+          if (match) {
+            const item: any = { ...m };
+            if (args?.include?.company) {
+              item.company = this.memoryStore.companies.get(m.companyId) || null;
+            }
+            if (args?.include?.user) {
+              item.user = this.memoryStore.users.get(m.userId) || null;
+            }
+            results.push(item);
+          }
+        }
+        return results;
+      },
+      create: async (args: { data: any }) => {
+        if (!this.isInMemory) return realCompanyMembership.create(args as any);
+        for (const existing of this.memoryStore.companyMemberships.values()) {
+          if (existing.companyId === args.data.companyId && existing.userId === args.data.userId) {
+            const error: any = new Error('Unique constraint failed on the fields: (`companyId`,`userId`)');
+            error.code = 'P2002';
+            error.meta = { target: ['companyId', 'userId'] };
+            throw error;
+          }
+        }
+        const id = args.data.id || `cm_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const membership = {
+          id,
+          companyId: args.data.companyId,
+          userId: args.data.userId,
+          role: args.data.role || 'OWNER',
+          roleId: args.data.roleId || null,
+          jobTitle: args.data.jobTitle || null,
+          department: args.data.department || null,
+          status: args.data.status || 'ACTIVE',
+          joinedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        this.memoryStore.companyMemberships.set(id, membership);
+        return { ...membership };
+      },
+      update: async (args: { where: { id: string }; data: any }) => {
+        if (!this.isInMemory) return realCompanyMembership.update(args as any);
+        const existing = this.memoryStore.companyMemberships.get(args.where.id);
+        if (!existing) throw new Error('Company membership not found');
+        const updated = {
+          ...existing,
+          ...args.data,
+          updatedAt: new Date(),
+        };
+        this.memoryStore.companyMemberships.set(args.where.id, updated);
+        return { ...updated };
+      },
+      delete: async (args: { where: { id: string } }) => {
+        if (!this.isInMemory) return realCompanyMembership.delete(args as any);
+        const existing = this.memoryStore.companyMemberships.get(args.where.id);
+        this.memoryStore.companyMemberships.delete(args.where.id);
+        return existing || null;
+      },
+      deleteMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realCompanyMembership.deleteMany(args as any);
+        let count = 0;
+        if (!args?.where) {
+          count = this.memoryStore.companyMemberships.size;
+          this.memoryStore.companyMemberships.clear();
+          return { count };
+        }
+        for (const [key, m] of this.memoryStore.companyMemberships.entries()) {
+          let match = true;
+          if (args.where.companyId && m.companyId !== args.where.companyId) match = false;
+          if (args.where.userId && m.userId !== args.where.userId) match = false;
+          if (match) {
+            this.memoryStore.companyMemberships.delete(key);
+            count++;
+          }
+        }
+        return { count };
+      },
+    };
+
     // Override the getters on this instance
     Object.defineProperty(this, 'platformUser', {
       get: () => (this.isInMemory ? memoryPlatformUser : realPlatformUser),
@@ -402,6 +665,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
     Object.defineProperty(this, 'authSession', {
       get: () => (this.isInMemory ? memoryAuthSession : realAuthSession),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'company', {
+      get: () => (this.isInMemory ? memoryCompany : realCompany),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'companyMembership', {
+      get: () => (this.isInMemory ? memoryCompanyMembership : realCompanyMembership),
       configurable: true,
     });
   }
