@@ -309,6 +309,51 @@ describe.skipIf(!hasRealPostgres)('PostgreSQL Row-Level Security (RLS) Integrati
         expect(invitations).toEqual([]);
       });
     });
+
+    it('persists EXPIRED status under app.invitation_token_hash when an expired invitation is processed and commits without rollback', async () => {
+      const expiredRawToken = crypto.randomBytes(32).toString('hex');
+      const expiredTokenHash = crypto.createHash('sha256').update(expiredRawToken).digest('hex');
+
+      const expiredInv = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantA.id}, true)`;
+        return tx.companyInvitation.create({
+          data: {
+            companyId: tenantA.id,
+            invitedByUserId: userA.id,
+            email: 'expired-pg-test@example.com',
+            role: 'MANAGER',
+            tokenHash: expiredTokenHash,
+            status: 'PENDING',
+            expiresAt: new Date(Date.now() - 10_000),
+          },
+        });
+      });
+
+      // Execute atomic conditional expiration update under token hash context
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.invitation_token_hash', ${expiredTokenHash}, true)`;
+        const now = new Date();
+        const updateRes = await tx.companyInvitation.updateMany({
+          where: {
+            id: expiredInv.id,
+            tokenHash: expiredTokenHash,
+            status: 'PENDING',
+            expiresAt: { lte: now },
+          },
+          data: { status: 'EXPIRED' },
+        });
+        expect(updateRes.count).toBe(1);
+      });
+
+      // Confirm committed status is EXPIRED under Tenant A context
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantA.id}, true)`;
+        const persisted = await tx.companyInvitation.findUnique({
+          where: { id: expiredInv.id },
+        });
+        expect(persisted?.status).toBe('EXPIRED');
+      });
+    });
   });
 
   describe('Tenant Context Transaction Isolation & Connection Pooling', () => {

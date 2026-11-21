@@ -625,104 +625,177 @@ export class TenantMembershipService {
     const tokenHash = this.hashToken(parseResult.data.token);
 
     // 3. Execute inside dedicated invitation token context
-    return this.prisma.withInvitationTokenContext(tokenHash, userId, async (tx) => {
-      const invitation = await tx.companyInvitation.findUnique({
-        where: { tokenHash },
-      });
+    type AcceptOutcome =
+      | { outcome: 'NOT_FOUND' }
+      | { outcome: 'EXPIRED' }
+      | { outcome: 'ALREADY_PROCESSED' }
+      | { outcome: 'EMAIL_MISMATCH' }
+      | { outcome: 'INVALID_ROLE' }
+      | { outcome: 'COMPANY_INACTIVE' }
+      | { outcome: 'CONCURRENT_ACCEPT' }
+      | {
+          outcome: 'SUCCESS';
+          data: { message: string; companyId: string; role: CompanyRole };
+        };
 
-      if (!invitation) {
-        throw new BadRequestException('Invalid or expired invitation token.');
-      }
-
-      if (invitation.status !== 'PENDING') {
-        throw new BadRequestException('This invitation has already been processed or revoked.');
-      }
-
-      if (invitation.expiresAt < new Date()) {
-        await tx.companyInvitation.update({
-          where: { id: invitation.id },
-          data: { status: 'EXPIRED' },
+    const result = await this.prisma.withInvitationTokenContext(
+      tokenHash,
+      userId,
+      async (tx): Promise<AcceptOutcome> => {
+        const invitation = await tx.companyInvitation.findUnique({
+          where: { tokenHash },
         });
-        throw new BadRequestException('This invitation has expired.');
-      }
 
-      // Email identity verification: prevent accepting another user's invitation
-      if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
-        throw new ForbiddenException(
-          'This invitation was issued to a different email address. Please sign in with the invited account.'
-        );
-      }
+        if (!invitation) {
+          return { outcome: 'NOT_FOUND' };
+        }
 
-      // Invariant: invitation cannot grant OWNER
-      if (invitation.role === 'OWNER') {
-        throw new ForbiddenException('An invitation cannot grant the OWNER role.');
-      }
+        if (invitation.status === 'EXPIRED') {
+          return { outcome: 'EXPIRED' };
+        }
 
-      // Validate company exists and is active
-      const company = await tx.company.findUnique({
-        where: { id: invitation.companyId },
-      });
-      if (!company || company.status !== 'ACTIVE' || company.isActive !== true) {
-        throw new ForbiddenException('The target organization is suspended or inactive.');
-      }
+        if (invitation.status !== 'PENDING') {
+          return { outcome: 'ALREADY_PROCESSED' };
+        }
 
-      // Transition transaction into tenant context for membership creation
-      await this.prisma.setTransactionTenantContext(tx, invitation.companyId, userId);
+        const now = new Date();
+        const expTime =
+          invitation.expiresAt instanceof Date
+            ? invitation.expiresAt.getTime()
+            : new Date(invitation.expiresAt).getTime();
 
-      // Concurrency-safe conditional update: marks ACCEPTED only if still PENDING and unexpired
-      const updateResult = await tx.companyInvitation.updateMany({
-        where: {
-          id: invitation.id,
-          status: 'PENDING',
-          expiresAt: { gt: new Date() },
-        },
-        data: { status: 'ACCEPTED' },
-      });
+        if (expTime <= now.getTime()) {
+          // Concurrency-safe atomic conditional transition:
+          // Mark EXPIRED only if still PENDING and expired
+          const expireResult = await tx.companyInvitation.updateMany({
+            where: {
+              id: invitation.id,
+              tokenHash,
+              status: 'PENDING',
+              expiresAt: { lte: now },
+            },
+            data: { status: 'EXPIRED' },
+          });
 
-      if (updateResult.count !== 1) {
-        throw new BadRequestException(
-          'This invitation has already been accepted or is no longer pending.'
-        );
-      }
+          if (expireResult.count === 0) {
+            // Concurrent modification: inspect current state
+            const recheck = await tx.companyInvitation.findUnique({
+              where: { tokenHash },
+            });
+            if (recheck?.status === 'EXPIRED') {
+              return { outcome: 'EXPIRED' };
+            }
+            return { outcome: 'ALREADY_PROCESSED' };
+          }
 
-      // Create or reactivate membership record
-      const existingMembership = await tx.companyMembership.findUnique({
-        where: {
-          companyId_userId: {
-            companyId: invitation.companyId,
-            userId,
+          return { outcome: 'EXPIRED' };
+        }
+
+        // Email identity verification: prevent accepting another user's invitation
+        if (invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
+          return { outcome: 'EMAIL_MISMATCH' };
+        }
+
+        // Invariant: invitation cannot grant OWNER
+        if (invitation.role === 'OWNER') {
+          return { outcome: 'INVALID_ROLE' };
+        }
+
+        // Validate company exists and is active
+        const company = await tx.company.findUnique({
+          where: { id: invitation.companyId },
+        });
+        if (!company || company.status !== 'ACTIVE' || company.isActive !== true) {
+          return { outcome: 'COMPANY_INACTIVE' };
+        }
+
+        // Transition transaction into tenant context for membership creation
+        await this.prisma.setTransactionTenantContext(tx, invitation.companyId, userId);
+
+        // Concurrency-safe conditional update: marks ACCEPTED only if still PENDING and unexpired
+        const updateResult = await tx.companyInvitation.updateMany({
+          where: {
+            id: invitation.id,
+            status: 'PENDING',
+            expiresAt: { gt: now },
           },
-        },
-      });
+          data: { status: 'ACCEPTED' },
+        });
 
-      if (existingMembership) {
-        await tx.companyMembership.update({
-          where: { id: existingMembership.id },
+        if (updateResult.count !== 1) {
+          return { outcome: 'CONCURRENT_ACCEPT' };
+        }
+
+        // Create or reactivate membership record
+        const existingMembership = await tx.companyMembership.findUnique({
+          where: {
+            companyId_userId: {
+              companyId: invitation.companyId,
+              userId,
+            },
+          },
+        });
+
+        if (existingMembership) {
+          await tx.companyMembership.update({
+            where: { id: existingMembership.id },
+            data: {
+              role: invitation.role,
+              status: 'ACTIVE',
+            },
+          });
+        } else {
+          await tx.companyMembership.create({
+            data: {
+              companyId: invitation.companyId,
+              userId,
+              role: invitation.role,
+              status: 'ACTIVE',
+            },
+          });
+        }
+
+        return {
+          outcome: 'SUCCESS',
           data: {
-            role: invitation.role,
-            status: 'ACTIVE',
-          },
-        });
-      } else {
-        await tx.companyMembership.create({
-          data: {
+            message: 'Invitation accepted successfully.',
             companyId: invitation.companyId,
-            userId,
-            role: invitation.role,
-            status: 'ACTIVE',
+            role: invitation.role as CompanyRole,
           },
-        });
+        };
       }
+    );
 
-      this.logger.log(
-        `User "${userId}" (${userEmail}) accepted invitation to join company "${invitation.companyId}" as "${invitation.role}"`
+    if (result.outcome === 'NOT_FOUND') {
+      throw new BadRequestException('Invalid or expired invitation token.');
+    }
+    if (result.outcome === 'EXPIRED') {
+      throw new BadRequestException('This invitation has expired.');
+    }
+    if (result.outcome === 'ALREADY_PROCESSED') {
+      throw new BadRequestException('This invitation has already been processed or revoked.');
+    }
+    if (result.outcome === 'EMAIL_MISMATCH') {
+      throw new ForbiddenException(
+        'This invitation was issued to a different email address. Please sign in with the invited account.'
       );
+    }
+    if (result.outcome === 'INVALID_ROLE') {
+      throw new ForbiddenException('An invitation cannot grant the OWNER role.');
+    }
+    if (result.outcome === 'COMPANY_INACTIVE') {
+      throw new ForbiddenException('The target organization is suspended or inactive.');
+    }
+    if (result.outcome === 'CONCURRENT_ACCEPT') {
+      throw new BadRequestException(
+        'This invitation has already been accepted or is no longer pending.'
+      );
+    }
 
-      return {
-        message: 'Invitation accepted successfully.',
-        companyId: invitation.companyId,
-        role: invitation.role as CompanyRole,
-      };
-    });
+    this.logger.log(
+      `User "${userId}" (${userEmail}) accepted invitation to join company "${result.data.companyId}" as "${result.data.role}"`
+    );
+
+    return result.data;
   }
 }

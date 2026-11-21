@@ -181,8 +181,10 @@ Acceptance is a pre-membership operation where the invitee is not yet a company 
    SELECT set_config('app.current_user_id', ${userId}, true);
    ```
 5. Looks up the invitation by `tokenHash`:
-   - If not found or expired: `400 Bad Request`.
-   - If status $\ne$ `'PENDING'`: `400 Bad Request`.
+   - If not found: `400 Bad Request` ('Invalid or expired invitation token.').
+   - If status is already `'EXPIRED'`: `400 Bad Request` ('This invitation has expired.').
+   - If status $\ne$ `'PENDING'`: `400 Bad Request` ('This invitation has already been processed or revoked.').
+   - If `expiresAt <= now`: atomically marks `status = 'EXPIRED'` in the database via conditional `updateMany({ where: { id, tokenHash, status: 'PENDING', expiresAt: { lte: now } }, data: { status: 'EXPIRED' } })`. The transaction **commits** this status update before returning, ensuring `EXPIRED` is reliably persisted in PostgreSQL without being rolled back by the API error (`400 Bad Request: 'This invitation has expired.'`).
 6. Enforces **email identity match**: authenticated user's email must match `invitation.email` (`403 Forbidden` on mismatch).
 7. Verifies target company exists and is active (`status === 'ACTIVE'` and `isActive === true`).
 8. Transitions transaction into tenant context:

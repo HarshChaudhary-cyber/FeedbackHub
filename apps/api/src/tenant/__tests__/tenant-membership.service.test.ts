@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import * as crypto from 'crypto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TenantMembershipService } from '../tenant-membership.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -493,38 +494,323 @@ describe('TenantMembershipService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('rejects expired invitation token', async () => {
-      const inviteResult = await service.createInvitation(
-        company.id,
-        ownerUser.id,
-        'OWNER',
-        {
-          email: 'expired.candidate@nexus.com',
-          role: 'MANAGER',
-        }
-      );
+    describe('Invitation Expiration & Concurrency Hardening (Phase 5 Final Correction)', () => {
+      it('Scenario 1, 2, 3: rejects expired pending invitation, transitions DB status to EXPIRED, and status remains EXPIRED after API error', async () => {
+        const inviteResult = await service.createInvitation(
+          company.id,
+          ownerUser.id,
+          'OWNER',
+          {
+            email: 'expire-test-1@nexus.com',
+            role: 'MANAGER',
+          }
+        );
 
-      // Artificially expire the token in database
-      await prisma.companyInvitation.update({
-        where: { id: inviteResult.id },
-        data: { expiresAt: new Date(Date.now() - 1000) },
+        // Artificially expire the token in database
+        await prisma.companyInvitation.update({
+          where: { id: inviteResult.id },
+          data: { expiresAt: new Date(Date.now() - 10_000) },
+        });
+
+        const user = await prisma.platformUser.create({
+          data: {
+            email: 'expire-test-1@nexus.com',
+            fullName: 'Expired Candidate 1',
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status: 'ACTIVE',
+          },
+        });
+
+        // 1. Calling acceptInvitation throws BadRequestException('This invitation has expired.')
+        await expect(
+          service.acceptInvitation(user.id, user.email, {
+            token: inviteResult.invitationToken!,
+          })
+        ).rejects.toThrow(BadRequestException);
+
+        // 2 & 3. Verify that database status actually transitioned to EXPIRED and remained EXPIRED
+        const persisted = await prisma.companyInvitation.findUnique({
+          where: { id: inviteResult.id },
+        });
+        expect(persisted).toBeDefined();
+        expect(persisted?.status).toBe('EXPIRED');
+
+        // Confirm no membership was created for the user
+        const membership = await prisma.companyMembership.findUnique({
+          where: {
+            companyId_userId: {
+              companyId: company.id,
+              userId: user.id,
+            },
+          },
+        });
+        expect(membership).toBeNull();
       });
 
-      const user = await prisma.platformUser.create({
-        data: {
-          email: 'expired.candidate@nexus.com',
-          fullName: 'Expired Candidate',
-          passwordHash: 'hash',
-          isEmailVerified: true,
-          status: 'ACTIVE',
-        },
+      it('Scenario 4: rejects acceptance of an already EXPIRED invitation and retains EXPIRED status', async () => {
+        const inviteResult = await service.createInvitation(
+          company.id,
+          ownerUser.id,
+          'OWNER',
+          {
+            email: 'already-expired@nexus.com',
+            role: 'ADMIN',
+          }
+        );
+
+        // Mark as EXPIRED directly in database
+        await prisma.companyInvitation.update({
+          where: { id: inviteResult.id },
+          data: {
+            status: 'EXPIRED',
+            expiresAt: new Date(Date.now() - 60_000),
+          },
+        });
+
+        const user = await prisma.platformUser.create({
+          data: {
+            email: 'already-expired@nexus.com',
+            fullName: 'Already Expired User',
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status: 'ACTIVE',
+          },
+        });
+
+        await expect(
+          service.acceptInvitation(user.id, user.email, {
+            token: inviteResult.invitationToken!,
+          })
+        ).rejects.toThrow(BadRequestException);
+
+        const persisted = await prisma.companyInvitation.findUnique({
+          where: { id: inviteResult.id },
+        });
+        expect(persisted?.status).toBe('EXPIRED');
       });
 
-      await expect(
-        service.acceptInvitation(user.id, user.email, {
+      it('Scenario 5: does not overwrite an already ACCEPTED invitation as EXPIRED even if past expiration date', async () => {
+        const inviteResult = await service.createInvitation(
+          company.id,
+          ownerUser.id,
+          'OWNER',
+          {
+            email: 'already-accepted@nexus.com',
+            role: 'MANAGER',
+          }
+        );
+
+        const user = await prisma.platformUser.create({
+          data: {
+            email: 'already-accepted@nexus.com',
+            fullName: 'Already Accepted User',
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status: 'ACTIVE',
+          },
+        });
+
+        // First accept cleanly
+        await service.acceptInvitation(user.id, user.email, {
           token: inviteResult.invitationToken!,
-        })
-      ).rejects.toThrow(BadRequestException);
+        });
+
+        // Set expiresAt to the past on the already accepted invitation
+        await prisma.companyInvitation.update({
+          where: { id: inviteResult.id },
+          data: { expiresAt: new Date(Date.now() - 5000) },
+        });
+
+        // Attempting to accept again must be rejected as already processed
+        await expect(
+          service.acceptInvitation(user.id, user.email, {
+            token: inviteResult.invitationToken!,
+          })
+        ).rejects.toThrow(BadRequestException);
+
+        // Verify status remains ACCEPTED, NOT overwritten to EXPIRED
+        const persisted = await prisma.companyInvitation.findUnique({
+          where: { id: inviteResult.id },
+        });
+        expect(persisted?.status).toBe('ACCEPTED');
+      });
+
+      it('Scenario 6: does not overwrite a REVOKED invitation as EXPIRED even if past expiration date', async () => {
+        const inviteResult = await service.createInvitation(
+          company.id,
+          ownerUser.id,
+          'OWNER',
+          {
+            email: 'revoked-then-expired@nexus.com',
+            role: 'MANAGER',
+          }
+        );
+
+        // Revoke the invitation
+        await service.revokeInvitation(company.id, 'OWNER', inviteResult.id);
+
+        // Set expiresAt to the past on the revoked invitation
+        await prisma.companyInvitation.update({
+          where: { id: inviteResult.id },
+          data: { expiresAt: new Date(Date.now() - 5000) },
+        });
+
+        const user = await prisma.platformUser.create({
+          data: {
+            email: 'revoked-then-expired@nexus.com',
+            fullName: 'Revoked User',
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status: 'ACTIVE',
+          },
+        });
+
+        await expect(
+          service.acceptInvitation(user.id, user.email, {
+            token: inviteResult.invitationToken!,
+          })
+        ).rejects.toThrow(BadRequestException);
+
+        // Verify status remains REVOKED, NOT overwritten to EXPIRED
+        const persisted = await prisma.companyInvitation.findUnique({
+          where: { id: inviteResult.id },
+        });
+        expect(persisted?.status).toBe('REVOKED');
+      });
+
+      it('Scenario 7: a concurrently accepted invitation is not incorrectly marked expired', async () => {
+        const inviteResult = await service.createInvitation(
+          company.id,
+          ownerUser.id,
+          'OWNER',
+          {
+            email: 'concurrent-race@nexus.com',
+            role: 'ADMIN',
+          }
+        );
+
+        const user = await prisma.platformUser.create({
+          data: {
+            email: 'concurrent-race@nexus.com',
+            fullName: 'Concurrent Race User',
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status: 'ACTIVE',
+          },
+        });
+
+        // Simulate concurrent acceptance winning the race right as expiration was being evaluated
+        await prisma.companyInvitation.update({
+          where: { id: inviteResult.id },
+          data: {
+            status: 'ACCEPTED',
+            expiresAt: new Date(Date.now() - 1000), // even if expiresAt is now in the past
+          },
+        });
+
+        // The second worker attempting to process it sees it's already accepted and fails
+        await expect(
+          service.acceptInvitation(user.id, user.email, {
+            token: inviteResult.invitationToken!,
+          })
+        ).rejects.toThrow(BadRequestException);
+
+        // Verify database row remained ACCEPTED
+        const persisted = await prisma.companyInvitation.findUnique({
+          where: { id: inviteResult.id },
+        });
+        expect(persisted?.status).toBe('ACCEPTED');
+      });
+
+      it('Scenario 8: a valid, unexpired invitation continues to work normally', async () => {
+        const inviteResult = await service.createInvitation(
+          company.id,
+          ownerUser.id,
+          'OWNER',
+          {
+            email: 'valid-unexpired@nexus.com',
+            role: 'ADMIN',
+          }
+        );
+
+        const user = await prisma.platformUser.create({
+          data: {
+            email: 'valid-unexpired@nexus.com',
+            fullName: 'Valid User',
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status: 'ACTIVE',
+          },
+        });
+
+        const acceptRes = await service.acceptInvitation(user.id, user.email, {
+          token: inviteResult.invitationToken!,
+        });
+
+        expect(acceptRes.companyId).toBe(company.id);
+        expect(acceptRes.role).toBe('ADMIN');
+
+        const dbInv = await prisma.companyInvitation.findUnique({
+          where: { id: inviteResult.id },
+        });
+        expect(dbInv?.status).toBe('ACCEPTED');
+
+        const membership = await prisma.companyMembership.findUnique({
+          where: {
+            companyId_userId: {
+              companyId: company.id,
+              userId: user.id,
+            },
+          },
+        });
+        expect(membership?.status).toBe('ACTIVE');
+        expect(membership?.role).toBe('ADMIN');
+      });
+
+      it('Scenario 9: expiration transition respects transaction boundaries and RLS context', async () => {
+        const inviteResult = await service.createInvitation(
+          company.id,
+          ownerUser.id,
+          'OWNER',
+          {
+            email: 'rls-boundary@nexus.com',
+            role: 'MANAGER',
+          }
+        );
+
+        await prisma.companyInvitation.update({
+          where: { id: inviteResult.id },
+          data: { expiresAt: new Date(Date.now() - 2000) },
+        });
+
+        const user = await prisma.platformUser.create({
+          data: {
+            email: 'rls-boundary@nexus.com',
+            fullName: 'RLS Boundary User',
+            passwordHash: 'hash',
+            isEmailVerified: true,
+            status: 'ACTIVE',
+          },
+        });
+
+        // The transaction commits the EXPIRED status even though an exception is returned
+        await expect(
+          service.acceptInvitation(user.id, user.email, {
+            token: inviteResult.invitationToken!,
+          })
+        ).rejects.toThrow(BadRequestException);
+
+        // Verification query executed within invitation token context
+        const tokenHash = crypto.createHash('sha256').update(inviteResult.invitationToken!).digest('hex');
+        const tokenInv = await prisma.withInvitationTokenContext(tokenHash, user.id, async (tx) => {
+          return tx.companyInvitation.findUnique({
+            where: { tokenHash },
+          });
+        });
+        expect(tokenInv).toBeDefined();
+        expect(tokenInv?.status).toBe('EXPIRED');
+      });
     });
 
     it('rejects invitation creation when attempting to grant OWNER role', async () => {

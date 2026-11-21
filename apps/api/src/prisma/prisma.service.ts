@@ -882,10 +882,21 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           if (args.where?.id && inv.id !== args.where.id) match = false;
           if (args.where?.companyId && inv.companyId !== args.where.companyId) match = false;
           if (args.where?.status && inv.status !== args.where.status) match = false;
+          if (args.where?.tokenHash && inv.tokenHash !== args.where.tokenHash) match = false;
           if (args.where?.expiresAt?.gt) {
             const expTime = inv.expiresAt instanceof Date ? inv.expiresAt.getTime() : new Date(inv.expiresAt).getTime();
             const gtTime = args.where.expiresAt.gt instanceof Date ? args.where.expiresAt.gt.getTime() : new Date(args.where.expiresAt.gt).getTime();
             if (!(expTime > gtTime)) match = false;
+          }
+          if (args.where?.expiresAt?.lte) {
+            const expTime = inv.expiresAt instanceof Date ? inv.expiresAt.getTime() : new Date(inv.expiresAt).getTime();
+            const lteTime = args.where.expiresAt.lte instanceof Date ? args.where.expiresAt.lte.getTime() : new Date(args.where.expiresAt.lte).getTime();
+            if (!(expTime <= lteTime)) match = false;
+          }
+          if (args.where?.expiresAt?.lt) {
+            const expTime = inv.expiresAt instanceof Date ? inv.expiresAt.getTime() : new Date(inv.expiresAt).getTime();
+            const ltTime = args.where.expiresAt.lt instanceof Date ? args.where.expiresAt.lt.getTime() : new Date(args.where.expiresAt.lt).getTime();
+            if (!(expTime < ltTime)) match = false;
           }
           if (match) {
             const updated = { ...inv, ...args.data, updatedAt: new Date() };
