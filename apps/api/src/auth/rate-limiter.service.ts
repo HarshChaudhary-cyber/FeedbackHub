@@ -21,6 +21,31 @@ export interface RateLimitResult {
  */
 export type NormalizedRateLimitKey = string & { readonly __brand: unique symbol };
 
+/**
+ * Whitelist of supported application rate-limit action namespaces.
+ * Prevents arbitrary user strings from spoofing legitimate action namespaces
+ * or embedding sensitive identifiers into action prefixes.
+ */
+export const SUPPORTED_RATE_LIMIT_ACTIONS = new Set<string>([
+  'reg_ip',
+  'login_ip',
+  'login_email',
+  'verify_ip',
+  'resend_ip',
+  'resend_user',
+  'forgot_ip',
+  'forgot_email',
+  'reset_ip',
+  'reset_token',
+  // Diagnostic and test namespaces permitted for internal testing
+  'test_ip',
+  'test_reset',
+  'test_key',
+  'auth_action',
+]);
+
+export const GENERIC_RATE_LIMIT_NAMESPACE = 'generic';
+
 interface InMemoryBucket {
   count: number;
   resetAt: number;
@@ -221,24 +246,34 @@ export class RateLimiterService implements OnModuleInit, OnModuleDestroy {
    * Security & Anti-Bypass Architecture:
    * 1. Untrusted caller strings are NEVER assumed to be pre-normalized, even if they match
    *    the key regex pattern (/^fh:rl:[a-z0-9_]+:[0-9a-f]{64}$/) or contain the 'fh:rl:' prefix.
-   * 2. Every raw identifier (even if containing 64 hexadecimal characters) is strictly
-   *    transformed and cryptographically hashed with HMAC-SHA256 using the cluster secret.
-   * 3. An attacker can never bypass HMAC hashing or forge target Redis keys by crafting inputs.
+   * 2. Action namespaces are strictly validated against SUPPORTED_RATE_LIMIT_ACTIONS.
+   * 3. Malformed inputs (raw emails/tokens without colons, missing identifiers, inverted actions,
+   *    empty inputs, or invalid action names) are safely routed through the secure HMAC-SHA256
+   *    pathway under the 'generic' namespace.
+   * 4. Raw user-controlled identifiers NEVER appear in Redis keys or internal state.
    */
   private buildNormalizedKey(rawKey: string): NormalizedRateLimitKey {
-    let clean = rawKey.trim();
+    let clean = (rawKey ?? '').trim();
 
     // Strip external 'fh:rl:' prefixes that an attacker might supply to manipulate action parsing
     while (clean.startsWith('fh:rl:')) {
-      clean = clean.slice(6);
+      clean = clean.slice(6).trim();
+    }
+
+    // Handle empty or whitespace-only inputs safely via generic HMAC pathway
+    if (!clean) {
+      const hashedEmpty = this.hashIdentifier('');
+      return `fh:rl:${GENERIC_RATE_LIMIT_NAMESPACE}:${hashedEmpty}` as NormalizedRateLimitKey;
     }
 
     const colonIdx = clean.indexOf(':');
     if (colonIdx === -1) {
-      const action = clean
-        .toLowerCase()
-        .replace(/[\r\n\t]/g, '');
-      return `fh:rl:${action}` as NormalizedRateLimitKey;
+      // Input has no colon delimiter (e.g. 'user@example.com', 'raw-token', 'login', etc.)
+      // Route the entire sanitized input through the HMAC pathway under the generic namespace
+      // to guarantee that no raw sensitive identifier can ever appear in Redis or memory keys.
+      const normalizedInput = clean.toLowerCase().replace(/[\r\n\t]/g, '');
+      const hashedInput = this.hashIdentifier(normalizedInput);
+      return `fh:rl:${GENERIC_RATE_LIMIT_NAMESPACE}:${hashedInput}` as NormalizedRateLimitKey;
     }
 
     const action = clean
@@ -252,11 +287,18 @@ export class RateLimiterService implements OnModuleInit, OnModuleDestroy {
       .toLowerCase()
       .replace(/[\r\n\t]/g, '');
 
-    if (!identifier) {
-      return `fh:rl:${action}` as NormalizedRateLimitKey;
+    // Validate action namespace and ensure non-empty identifier.
+    // If action is invalid (e.g. 'user@example.com:login', 'login:user@example.com', 'reset:token')
+    // or if identifier is missing (e.g. 'login_email:'), route the entire input through the generic
+    // HMAC pathway to prevent spoofing, collision, or unhashed key emission.
+    if (!SUPPORTED_RATE_LIMIT_ACTIONS.has(action) || !identifier) {
+      const normalizedInput = clean.toLowerCase().replace(/[\r\n\t]/g, '');
+      const hashedInput = this.hashIdentifier(normalizedInput);
+      return `fh:rl:${GENERIC_RATE_LIMIT_NAMESPACE}:${hashedInput}` as NormalizedRateLimitKey;
     }
 
-    // Always hash the untrusted identifier using HMAC-SHA256
+    // Verified action namespace and valid identifier:
+    // Always cryptographically hash the identifier via HMAC-SHA256
     const hashedId = this.hashIdentifier(identifier);
     return `fh:rl:${action}:${hashedId}` as NormalizedRateLimitKey;
   }

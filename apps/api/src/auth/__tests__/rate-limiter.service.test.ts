@@ -150,6 +150,133 @@ describe('RateLimiterService (Shared & Fail-Closed Strategy)', () => {
     });
   });
 
+  describe('Malformed Input Privacy & Anti-Spoofing Hardening (Phase 4.2.3)', () => {
+    it('safely hashes a raw email provided without a colon into the generic namespace', () => {
+      const rawEmail = 'victim@example.com';
+      const key = service.normalizeKey(rawEmail);
+
+      // Must NEVER embed raw email in Redis key
+      expect(key).not.toContain(rawEmail);
+      expect(key).not.toContain('victim');
+      expect(key).not.toContain('example.com');
+      // Must be safely routed to generic HMAC pathway
+      expect(key).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(key).toBe(`fh:rl:generic:${service.hashIdentifier(rawEmail)}`);
+    });
+
+    it('safely hashes a raw token provided without a colon into the generic namespace', () => {
+      const rawToken = 'super-secret-password-reset-token-12345';
+      const key = service.normalizeKey(rawToken);
+
+      expect(key).not.toContain(rawToken);
+      expect(key).not.toContain('token');
+      expect(key).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(key).toBe(`fh:rl:generic:${service.hashIdentifier(rawToken)}`);
+    });
+
+    it('prevents email addresses from being embedded as action names (user@example.com:login)', () => {
+      const malformedInput = 'user@example.com:login';
+      const key = service.normalizeKey(malformedInput);
+
+      expect(key).not.toContain('user@example.com');
+      expect(key).not.toContain('user');
+      expect(key).not.toContain('example.com');
+      expect(key).not.toContain('login');
+      // Action is invalid -> routed to generic HMAC pathway
+      expect(key).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(key.startsWith('fh:rl:user@example.com')).toBe(false);
+    });
+
+    it('prevents spoofing of legitimate action namespaces with invalid action names', () => {
+      const input1 = 'login:user@example.com'; // 'login' is not a supported namespace
+      const key1 = service.normalizeKey(input1);
+
+      expect(key1).not.toContain('user@example.com');
+      expect(key1).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(key1.startsWith('fh:rl:login_email:')).toBe(false);
+
+      const input2 = 'reset:raw-token-value'; // 'reset' is not supported (reset_token is)
+      const key2 = service.normalizeKey(input2);
+
+      expect(key2).not.toContain('raw-token-value');
+      expect(key2).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(key2.startsWith('fh:rl:reset_token:')).toBe(false);
+    });
+
+    it('handles empty strings and whitespace without creating unhashed keys', () => {
+      const emptyKeys = ['', '   ', 'fh:rl:', 'fh:rl:   '];
+
+      for (const raw of emptyKeys) {
+        const key = service.normalizeKey(raw);
+        expect(key).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+        expect(key).toBe(`fh:rl:generic:${service.hashIdentifier('')}`);
+      }
+    });
+
+    it('routes inputs with missing identifiers to the generic namespace', () => {
+      const key = service.normalizeKey('login_email:');
+
+      // Cannot pollute or collide with valid accounts under login_email
+      expect(key).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(key.startsWith('fh:rl:login_email:')).toBe(false);
+    });
+
+    it('hashes arbitrary data following fh:rl: prefixes without leaking data', () => {
+      const raw = 'fh:rl:login:arbitrary-sensitive-data-value';
+      const key = service.normalizeKey(raw);
+
+      expect(key).not.toContain('arbitrary-sensitive-data-value');
+      expect(key).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+    });
+
+    it('handles extremely long inputs safely without memory or length explosion', () => {
+      const hugeEmail = 'a'.repeat(10000) + '@example.com';
+      const keyValid = service.normalizeKey(`login_email:${hugeEmail}`);
+
+      expect(keyValid.length).toBeLessThan(100);
+      expect(keyValid).toMatch(/^fh:rl:login_email:[0-9a-f]{64}$/);
+      expect(keyValid).not.toContain('aaaaa');
+
+      const hugeRaw = 'z'.repeat(15000);
+      const keyRaw = service.normalizeKey(hugeRaw);
+
+      expect(keyRaw.length).toBeLessThan(100);
+      expect(keyRaw).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(keyRaw).not.toContain('zzzzz');
+    });
+
+    it('handles inputs with multiple delimiters correctly and securely', () => {
+      const keyWithColons = service.normalizeKey('login_email:user:with:internal:colons@example.com');
+      expect(keyWithColons).toMatch(/^fh:rl:login_email:[0-9a-f]{64}$/);
+      expect(keyWithColons).not.toContain('user:with:internal:colons@example.com');
+
+      const keyLeadingColons = service.normalizeKey(':::malformed-input-data');
+      expect(keyLeadingColons).toMatch(/^fh:rl:generic:[0-9a-f]{64}$/);
+      expect(keyLeadingColons).not.toContain('malformed-input-data');
+    });
+
+    it('enforces rate limits and resets consistently on malformed inputs in memory driver', async () => {
+      const malformed = 'unstructured-client-identifier';
+
+      // 1st attempt: allowed
+      const res1 = await service.check(malformed, 2, 60000);
+      expect(res1.allowed).toBe(true);
+
+      // 2nd attempt: allowed
+      const res2 = await service.check(malformed, 2, 60000);
+      expect(res2.allowed).toBe(true);
+
+      // 3rd attempt: blocked
+      const res3 = await service.check(malformed, 2, 60000);
+      expect(res3.allowed).toBe(false);
+
+      // Reset works on malformed key
+      await service.reset(malformed);
+      const resAfterReset = await service.check(malformed, 2, 60000);
+      expect(resAfterReset.allowed).toBe(true);
+    });
+  });
+
   describe('Internal Consistency & Single-Normalization Execution', () => {
     it('ensures check() and assert() use identical keys for the same raw input', async () => {
       const mockEval = vi.fn().mockResolvedValue([1, 60000]);
