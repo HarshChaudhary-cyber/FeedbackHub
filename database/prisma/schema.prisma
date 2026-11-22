@@ -228,9 +228,12 @@ enum FormStatus {
 model FeedbackForm {
   id                         String           @id @default(uuid()) @db.Uuid
   companyId                  String           @db.Uuid
+  internalName               String?          @db.VarChar(200)
   title                      String           @db.VarChar(200)
-  slug                       String           @db.VarChar(100) // unique within company
+  slug                       String           @unique @db.VarChar(100)
   description                String?          @db.Text
+  welcomeMessage             String?          @db.Text
+  thankYouMessage            String?          @db.Text
   audienceType               FeedbackAudience @default(CUSTOMER)
   anonymityMode              AnonymityMode    @default(ANONYMOUS_ONLY)
   status                     FormStatus       @default(DRAFT)
@@ -247,14 +250,16 @@ model FeedbackForm {
 
   @@unique([companyId, slug])
   @@index([companyId, status])
+  @@index([slug])
 }
 
 model FormQuestion {
   id              String   @id @default(uuid()) @db.Uuid
   formId          String   @db.Uuid
-  questionType    String   @db.VarChar(30) // NPS, CSAT, SHORT_TEXT, LONG_TEXT, SINGLE_CHOICE, MULTIPLE_CHOICE, LIKERT_SCALE
+  questionType    String   @db.VarChar(30) // SHORT_TEXT, LONG_TEXT, RATING, SINGLE_CHOICE, MULTIPLE_CHOICE, YES_NO, NPS, CSAT, LIKERT_SCALE
   title           String   @db.VarChar(500)
   helpText        String?  @db.VarChar(500)
+  placeholder     String?  @db.VarChar(255)
   isRequired      Boolean  @default(true)
   orderIndex      Int      @default(0)
   validationRules Json?    // Min/max rating, character limits

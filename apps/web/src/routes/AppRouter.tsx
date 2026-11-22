@@ -19,6 +19,10 @@ import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { AccountProfilePage } from '../pages/AccountProfilePage';
+import { FormsListPage } from '../pages/FormsListPage';
+import { FormBuilderPage } from '../pages/FormBuilderPage';
+import { FormPreviewPage } from '../pages/FormPreviewPage';
+import { PublicFormPage } from '../pages/PublicFormPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
 export const AppRouter: React.FC = () => {
@@ -26,6 +30,51 @@ export const AppRouter: React.FC = () => {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          {/* Public Respondent Form Submission Page (Clean standalone shell) */}
+          <Route path="/f/:slug" element={<PublicFormPage />} />
+
+          {/* Protected Feedback Form Builder & Dashboard */}
+          <Route
+            path="/dashboard/forms"
+            element={
+              <ProtectedRoute>
+                <FormsListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/forms"
+            element={
+              <ProtectedRoute>
+                <FormsListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/forms/new"
+            element={
+              <ProtectedRoute>
+                <FormBuilderPage isNew />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/forms/:id/edit"
+            element={
+              <ProtectedRoute>
+                <FormBuilderPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/forms/:id/preview"
+            element={
+              <ProtectedRoute>
+                <FormPreviewPage />
+              </ProtectedRoute>
+            }
+          />
+
           <Route element={<MarketingLayout />}>
             {/* Public Marketing Pages */}
             <Route path="/" element={<HomePage />} />

@@ -130,3 +130,21 @@ All security-sensitive operations generate immutable audit log records:
 - **No Committed Secrets**: `.env` and `.env.local` are enforced in `.gitignore`. CI/CD pipelines run automated secret scanning (e.g., Gitleaks / TruffleHog).
 - **Object Storage Access**: Tenant assets stored in private S3-compatible buckets. Public assets (logos) are served via CDN; private response attachments require short-lived (15-minute) pre-signed URLs generated following tenant authorization verification.
 - **Database Backup & Recovery**: Automated daily snapshots with 30-day point-in-time recovery (PITR) and cross-region encrypted backup storage.
+
+---
+
+## 9. Form Builder & Public Submission Security (Phase 6)
+
+### 9.1 Tenant Authorization & Role Enforcement
+All form management endpoints (`/api/v1/tenant/forms/*`) enforce four layers of defense:
+1. `AuthGuard`: Validates session cookie authenticity.
+2. `TenantResolutionGuard`: Verifies tenant hostname or developer header.
+3. `TenantMembershipGuard`: Validates active membership within the company.
+4. `TenantRoleGuard`: Restricts create/update/publish/archive to `OWNER`, `ADMIN`, `MANAGER`, and delete to `OWNER`, `ADMIN`.
+
+### 9.2 Public Endpoint Hardening
+1. **No Sensitive Leaks**: `GET /api/v1/public/forms/:slug` returns only the public presentation schema (prompt, choices, welcome/thank you text, public company branding). Internal user IDs, company IDs, creation metadata, and response records are omitted.
+2. **Abuse & DoS Throttling**: `POST /api/v1/public/forms/:slug/submit` enforces sliding-window rate limiting (20 requests per 5 minutes per IP) via HMAC-normalized keys in `RateLimiterService`.
+3. **Server-Side Answer Validation**: All submitted answers are verified against the form's question types, rating bounds, choice option values, and character limits (maximum 2,000 characters for text answers). Unknown question IDs are rejected.
+4. **Decoupled Anonymity**: For anonymous forms, `respondentName` and `respondentEmail` are set to `null` before persistence. Zero IP addresses or browser fingerprints are stored in `FeedbackResponse` or `FeedbackAnswer`.
+

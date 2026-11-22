@@ -5,8 +5,9 @@ import { EmailModule } from './email/email.module';
 import { AuthModule } from './auth/auth.module';
 import { CompaniesModule } from './companies/companies.module';
 import { TenantModule } from './tenant/tenant.module';
+import { FormsModule } from './forms/forms.module';
 
 @Module({
-  imports: [PrismaModule, EmailModule, AuthModule, CompaniesModule, TenantModule, HealthModule],
+  imports: [PrismaModule, EmailModule, AuthModule, CompaniesModule, TenantModule, FormsModule, HealthModule],
 })
 export class AppModule {}

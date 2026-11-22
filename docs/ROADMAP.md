@@ -86,14 +86,17 @@ flowchart TD
 
 ---
 
-### Phase 6 — Company Dashboard
-- **Primary Goal**: Build the authenticated management workspace for company staff.
+### Phase 6 — Feedback Form Builder & Collection Engine
+- **Primary Goal**: Implement core full-stack feedback creation, visual form builder, publishing lifecycle, public submission, and response persistence.
 - **Key Deliverables**:
-  - Company dashboard layout (navigation sidebar, header, tenant switcher, user profile).
-  - Overview metrics cards (total responses, active forms, customer vs employee response split).
-  - Quick action shortcuts and recent activity feed.
-  - Team member invitation and role assignment interface (Owner, Admin, Manager).
-- **Verification Criteria**: Dashboard loads cleanly with loading skeletons, handles zero-data empty states gracefully, and enforces RBAC permissions.
+  - Full-featured 3-panel responsive form builder supporting 6 question types (Short Text, Long Text, Rating, Single Choice, Multiple Choice, Yes/No).
+  - Form lifecycle transitions: Draft, Published, and Archived with state validation.
+  - Live interactive question preview and dedicated respondent preview mode (`/dashboard/forms/:id/preview`).
+  - Shareable public respondent portal (`/f/:slug`) with company branding, client-side validation, and decoupled anonymous response storage.
+  - Public submission API (`POST /api/v1/public/forms/:slug/submit`) with rate limiting and server-side type and bounds validation.
+  - Tenant forms dashboard (`/dashboard/forms`) with status filters, search, duplication, link copying, and destructive action safeguards.
+  - PostgreSQL Row-Level Security (RLS) policies for `FeedbackForm`, `FormQuestion`, `FormQuestionOption`, `FeedbackResponse`, and `FeedbackAnswer`.
+- **Verification Criteria**: Authenticated members can build, preview, and publish forms; unauthenticated visitors can submit responses; cross-tenant access is strictly blocked; automated tests pass.
 
 ---
 

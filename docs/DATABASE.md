@@ -379,7 +379,23 @@ await prisma.withTenantContext(companyId, userId, async (tx) => {
   return tx.companyMembership.findMany();
 });
 ```
-  return tx.companyMembership.findMany();
-});
-```
 This guarantees that queries cannot cross tenant boundaries even in the unlikely event of an application logic bug.
+
+---
+
+## 6. Feedback Forms & Responses RLS Policies (Phase 6)
+
+In Phase 6, PostgreSQL Row-Level Security is enabled and enforced across all form builder and response collection tables:
+
+### 6.1 `FeedbackForm`
+- **SELECT**: Accessible if `companyId = current_setting('app.current_tenant_id')::uuid` OR if `status = 'PUBLISHED'` (enabling public retrieval of active forms).
+- **INSERT, UPDATE, DELETE**: Strictly scoped to the authenticated tenant context (`companyId = current_setting('app.current_tenant_id')::uuid`).
+
+### 6.2 `FormQuestion` & `FormQuestionOption`
+- **SELECT**: Accessible if parent form belongs to tenant context OR parent form is `PUBLISHED`.
+- **INSERT, UPDATE, DELETE**: Strictly scoped to tenant context via parent form join.
+
+### 6.3 `FeedbackResponse` & `FeedbackAnswer`
+- **SELECT, UPDATE, DELETE**: Strictly scoped to tenant context (`companyId = current_setting('app.current_tenant_id')::uuid`). Unauthenticated visitors can never read historical responses.
+- **INSERT**: Permitted with validation check for anonymous public submissions and authenticated member responses.
+

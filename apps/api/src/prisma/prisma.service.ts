@@ -10,6 +10,11 @@ interface InMemoryStore {
   companies: Map<string, any>;
   companyMemberships: Map<string, any>;
   invitations: Map<string, any>;
+  forms: Map<string, any>;
+  questions: Map<string, any>;
+  options: Map<string, any>;
+  responses: Map<string, any>;
+  answers: Map<string, any>;
 }
 
 @Injectable()
@@ -24,6 +29,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     companies: new Map(),
     companyMemberships: new Map(),
     invitations: new Map(),
+    forms: new Map(),
+    questions: new Map(),
+    options: new Map(),
+    responses: new Map(),
+    answers: new Map(),
   };
 
   constructor() {
@@ -106,6 +116,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         invitations: new Map(
           Array.from(this.memoryStore.invitations.entries()).map(([k, v]) => [k, { ...v }])
         ),
+        forms: new Map(Array.from(this.memoryStore.forms.entries()).map(([k, v]) => [k, { ...v }])),
+        questions: new Map(Array.from(this.memoryStore.questions.entries()).map(([k, v]) => [k, { ...v }])),
+        options: new Map(Array.from(this.memoryStore.options.entries()).map(([k, v]) => [k, { ...v }])),
+        responses: new Map(Array.from(this.memoryStore.responses.entries()).map(([k, v]) => [k, { ...v }])),
+        answers: new Map(Array.from(this.memoryStore.answers.entries()).map(([k, v]) => [k, { ...v }])),
       };
 
       try {
@@ -224,6 +239,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     this.memoryStore.companies.clear();
     this.memoryStore.companyMemberships.clear();
     this.memoryStore.invitations.clear();
+    this.memoryStore.forms.clear();
+    this.memoryStore.questions.clear();
+    this.memoryStore.options.clear();
+    this.memoryStore.responses.clear();
+    this.memoryStore.answers.clear();
   }
 
   private setupMemoryDelegates() {
@@ -234,6 +254,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const realCompany = this.company;
     const realCompanyMembership = this.companyMembership;
     const realCompanyInvitation = this.companyInvitation;
+    const realFeedbackForm = this.feedbackForm;
+    const realFormQuestion = this.formQuestion;
+    const realFormQuestionOption = this.formQuestionOption;
+    const realFeedbackResponse = this.feedbackResponse;
+    const realFeedbackAnswer = this.feedbackAnswer;
 
     // PlatformUser memory delegate
     const memoryPlatformUser = {
@@ -933,6 +958,492 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       },
     };
 
+    // FeedbackForm memory delegates
+    const enrichForm = (form: any, include?: any) => {
+      if (!form) return null;
+      const copy = { ...form };
+      if (include?.questions) {
+        const formQuestions = Array.from(this.memoryStore.questions.values())
+          .filter((q) => q.formId === form.id)
+          .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
+          .map((q) => {
+            const qCopy = { ...q };
+            if (include.questions === true || include.questions?.include?.options) {
+              qCopy.options = Array.from(this.memoryStore.options.values())
+                .filter((o) => o.questionId === q.id)
+                .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+            }
+            return qCopy;
+          });
+        copy.questions = formQuestions;
+      }
+      if (include?.company) {
+        copy.company = this.memoryStore.companies.get(form.companyId) || null;
+      }
+      if (include?.responses) {
+        copy.responses = Array.from(this.memoryStore.responses.values()).filter((r) => r.formId === form.id);
+      }
+      if (include?._count) {
+        const qCount = Array.from(this.memoryStore.questions.values()).filter((q) => q.formId === form.id).length;
+        const rCount = Array.from(this.memoryStore.responses.values()).filter((r) => r.formId === form.id).length;
+        copy._count = { questions: qCount, responses: rCount };
+      }
+      return copy;
+    };
+
+    const memoryFeedbackForm = {
+      findUnique: async (args: { where: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackForm.findUnique(args as any);
+        let form: any = null;
+        if (args.where.id) {
+          form = this.memoryStore.forms.get(args.where.id) || null;
+        } else if (args.where.slug) {
+          for (const f of this.memoryStore.forms.values()) {
+            if (f.slug === args.where.slug) {
+              form = f;
+              break;
+            }
+          }
+        } else if (args.where.companyId_slug) {
+          for (const f of this.memoryStore.forms.values()) {
+            if (f.companyId === args.where.companyId_slug.companyId && f.slug === args.where.companyId_slug.slug) {
+              form = f;
+              break;
+            }
+          }
+        }
+        return enrichForm(form, args.include);
+      },
+      findFirst: async (args: { where: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackForm.findFirst(args as any);
+        for (const f of this.memoryStore.forms.values()) {
+          let match = true;
+          if (args.where?.id && f.id !== args.where.id) match = false;
+          if (args.where?.slug && f.slug !== args.where.slug) match = false;
+          if (args.where?.companyId && f.companyId !== args.where.companyId) match = false;
+          if (args.where?.status && f.status !== args.where.status) match = false;
+          if (match) return enrichForm(f, args.include);
+        }
+        return null;
+      },
+      findMany: async (args?: { where?: any; include?: any; orderBy?: any }) => {
+        if (!this.isInMemory) return realFeedbackForm.findMany(args as any);
+        let list = Array.from(this.memoryStore.forms.values());
+        if (args?.where) {
+          list = list.filter((f) => {
+            if (args.where.companyId && f.companyId !== args.where.companyId) return false;
+            if (args.where.status && f.status !== args.where.status) return false;
+            if (args.where.OR) {
+              const matchesOr = args.where.OR.some((clause: any) => {
+                if (clause.title?.contains) {
+                  return f.title.toLowerCase().includes(clause.title.contains.toLowerCase());
+                }
+                if (clause.internalName?.contains) {
+                  return (f.internalName || '').toLowerCase().includes(clause.internalName.contains.toLowerCase());
+                }
+                return false;
+              });
+              if (!matchesOr) return false;
+            }
+            return true;
+          });
+        }
+        return list
+          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+          .map((f) => enrichForm(f, args?.include));
+      },
+      create: async (args: { data: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackForm.create(args as any);
+        const id = args.data.id || `form_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const form = {
+          id,
+          companyId: args.data.companyId,
+          internalName: args.data.internalName || null,
+          title: args.data.title,
+          slug: args.data.slug,
+          description: args.data.description || null,
+          welcomeMessage: args.data.welcomeMessage || null,
+          thankYouMessage: args.data.thankYouMessage || null,
+          audienceType: args.data.audienceType || 'CUSTOMER',
+          anonymityMode: args.data.anonymityMode || 'ANONYMOUS_ONLY',
+          status: args.data.status || 'DRAFT',
+          allowMultipleSubmissions: args.data.allowMultipleSubmissions || false,
+          themeSettings: args.data.themeSettings || null,
+          publishedAt: args.data.publishedAt || null,
+          closedAt: args.data.closedAt || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        this.memoryStore.forms.set(id, form);
+
+        if (args.data.questions?.create && Array.isArray(args.data.questions.create)) {
+          for (let i = 0; i < args.data.questions.create.length; i++) {
+            const qData = args.data.questions.create[i];
+            const qId = qData.id || `q_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 9)}`;
+            const question = {
+              id: qId,
+              formId: id,
+              questionType: qData.questionType,
+              title: qData.title,
+              helpText: qData.helpText || null,
+              placeholder: qData.placeholder || null,
+              isRequired: qData.isRequired ?? true,
+              orderIndex: qData.orderIndex ?? i,
+              validationRules: qData.validationRules || null,
+              branchingLogic: qData.branchingLogic || null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            this.memoryStore.questions.set(qId, question);
+
+            if (qData.options?.create && Array.isArray(qData.options.create)) {
+              for (let j = 0; j < qData.options.create.length; j++) {
+                const optData = qData.options.create[j];
+                const optId = optData.id || `opt_${Date.now()}_${j}_${Math.random().toString(36).slice(2, 9)}`;
+                this.memoryStore.options.set(optId, {
+                  id: optId,
+                  questionId: qId,
+                  label: optData.label,
+                  value: optData.value,
+                  orderIndex: optData.orderIndex ?? j,
+                });
+              }
+            }
+          }
+        }
+
+        return enrichForm(form, args.include);
+      },
+      update: async (args: { where: any; data: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackForm.update(args as any);
+        let targetId = args.where.id;
+        if (!targetId && args.where.slug) {
+          for (const f of this.memoryStore.forms.values()) {
+            if (f.slug === args.where.slug) {
+              targetId = f.id;
+              break;
+            }
+          }
+        }
+        if (!targetId) throw new Error('Form not found');
+        const existing = this.memoryStore.forms.get(targetId);
+        if (!existing) throw new Error('Form not found');
+
+        const { questions: _q, ...restData } = args.data;
+        const updated = {
+          ...existing,
+          ...restData,
+          updatedAt: new Date(),
+        };
+        this.memoryStore.forms.set(targetId, updated);
+        return enrichForm(updated, args.include);
+      },
+      delete: async (args: { where: { id: string } }) => {
+        if (!this.isInMemory) return realFeedbackForm.delete(args as any);
+        const existing = this.memoryStore.forms.get(args.where.id);
+        if (existing) {
+          this.memoryStore.forms.delete(args.where.id);
+          for (const [qId, q] of Array.from(this.memoryStore.questions.entries())) {
+            if (q.formId === args.where.id) {
+              this.memoryStore.questions.delete(qId);
+              for (const [optId, opt] of Array.from(this.memoryStore.options.entries())) {
+                if (opt.questionId === qId) this.memoryStore.options.delete(optId);
+              }
+            }
+          }
+          for (const [rId, r] of Array.from(this.memoryStore.responses.entries())) {
+            if (r.formId === args.where.id) {
+              this.memoryStore.responses.delete(rId);
+              for (const [aId, a] of Array.from(this.memoryStore.answers.entries())) {
+                if (a.responseId === rId) this.memoryStore.answers.delete(aId);
+              }
+            }
+          }
+        }
+        return existing || null;
+      },
+      count: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFeedbackForm.count(args as any);
+        if (!args?.where) return this.memoryStore.forms.size;
+        let count = 0;
+        for (const f of this.memoryStore.forms.values()) {
+          let match = true;
+          if (args.where.companyId && f.companyId !== args.where.companyId) match = false;
+          if (args.where.status && f.status !== args.where.status) match = false;
+          if (match) count++;
+        }
+        return count;
+      },
+    };
+
+    const memoryFormQuestion = {
+      findMany: async (args?: { where?: any; include?: any; orderBy?: any }) => {
+        if (!this.isInMemory) return realFormQuestion.findMany(args as any);
+        let list = Array.from(this.memoryStore.questions.values());
+        if (args?.where?.formId) {
+          list = list.filter((q) => q.formId === args.where.formId);
+        }
+        list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+        if (args?.include?.options) {
+          return list.map((q) => ({
+            ...q,
+            options: Array.from(this.memoryStore.options.values())
+              .filter((o) => o.questionId === q.id)
+              .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
+          }));
+        }
+        return list;
+      },
+      findUnique: async (args: { where: { id: string }; include?: any }) => {
+        if (!this.isInMemory) return realFormQuestion.findUnique(args as any);
+        const q = this.memoryStore.questions.get(args.where.id);
+        if (!q) return null;
+        if (args.include?.options) {
+          return {
+            ...q,
+            options: Array.from(this.memoryStore.options.values())
+              .filter((o) => o.questionId === q.id)
+              .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
+          };
+        }
+        return { ...q };
+      },
+      create: async (args: { data: any; include?: any }) => {
+        if (!this.isInMemory) return realFormQuestion.create(args as any);
+        const id = args.data.id || `q_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const q = {
+          id,
+          formId: args.data.formId,
+          questionType: args.data.questionType,
+          title: args.data.title,
+          helpText: args.data.helpText || null,
+          placeholder: args.data.placeholder || null,
+          isRequired: args.data.isRequired ?? true,
+          orderIndex: args.data.orderIndex ?? 0,
+          validationRules: args.data.validationRules || null,
+          branchingLogic: args.data.branchingLogic || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        this.memoryStore.questions.set(id, q);
+
+        if (args.data.options?.create && Array.isArray(args.data.options.create)) {
+          for (let j = 0; j < args.data.options.create.length; j++) {
+            const optData = args.data.options.create[j];
+            const optId = optData.id || `opt_${Date.now()}_${j}_${Math.random().toString(36).slice(2, 9)}`;
+            this.memoryStore.options.set(optId, {
+              id: optId,
+              questionId: id,
+              label: optData.label,
+              value: optData.value,
+              orderIndex: optData.orderIndex ?? j,
+            });
+          }
+        }
+
+        if (args.include?.options) {
+          return {
+            ...q,
+            options: Array.from(this.memoryStore.options.values())
+              .filter((o) => o.questionId === id)
+              .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
+          };
+        }
+        return { ...q };
+      },
+      update: async (args: { where: { id: string }; data: any; include?: any }) => {
+        if (!this.isInMemory) return realFormQuestion.update(args as any);
+        const existing = this.memoryStore.questions.get(args.where.id);
+        if (!existing) throw new Error('Question not found');
+        const updated = {
+          ...existing,
+          ...args.data,
+          updatedAt: new Date(),
+        };
+        this.memoryStore.questions.set(args.where.id, updated);
+        return { ...updated };
+      },
+      delete: async (args: { where: { id: string } }) => {
+        if (!this.isInMemory) return realFormQuestion.delete(args as any);
+        const existing = this.memoryStore.questions.get(args.where.id);
+        if (existing) {
+          this.memoryStore.questions.delete(args.where.id);
+          for (const [optId, opt] of Array.from(this.memoryStore.options.entries())) {
+            if (opt.questionId === args.where.id) this.memoryStore.options.delete(optId);
+          }
+        }
+        return existing || null;
+      },
+      deleteMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFormQuestion.deleteMany(args as any);
+        let count = 0;
+        if (!args?.where) {
+          count = this.memoryStore.questions.size;
+          this.memoryStore.questions.clear();
+          return { count };
+        }
+        for (const [id, q] of Array.from(this.memoryStore.questions.entries())) {
+          if (args.where.formId && q.formId !== args.where.formId) continue;
+          this.memoryStore.questions.delete(id);
+          for (const [optId, opt] of Array.from(this.memoryStore.options.entries())) {
+            if (opt.questionId === id) this.memoryStore.options.delete(optId);
+          }
+          count++;
+        }
+        return { count };
+      },
+    };
+
+    const memoryFormQuestionOption = {
+      create: async (args: { data: any }) => {
+        if (!this.isInMemory) return realFormQuestionOption.create(args as any);
+        const id = args.data.id || `opt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const opt = {
+          id,
+          questionId: args.data.questionId,
+          label: args.data.label,
+          value: args.data.value,
+          orderIndex: args.data.orderIndex ?? 0,
+        };
+        this.memoryStore.options.set(id, opt);
+        return { ...opt };
+      },
+      deleteMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFormQuestionOption.deleteMany(args as any);
+        let count = 0;
+        for (const [id, opt] of Array.from(this.memoryStore.options.entries())) {
+          if (args?.where?.questionId && opt.questionId !== args.where.questionId) continue;
+          this.memoryStore.options.delete(id);
+          count++;
+        }
+        return { count };
+      },
+    };
+
+    const memoryFeedbackResponse = {
+      create: async (args: { data: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackResponse.create(args as any);
+        const id = args.data.id || `resp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const resp = {
+          id,
+          companyId: args.data.companyId,
+          formId: args.data.formId,
+          submissionToken: args.data.submissionToken,
+          isAnonymous: args.data.isAnonymous ?? true,
+          respondentUserId: args.data.respondentUserId || null,
+          respondentEmail: args.data.respondentEmail || null,
+          respondentName: args.data.respondentName || null,
+          status: args.data.status || 'NEW',
+          sentimentScore: args.data.sentimentScore || null,
+          tags: args.data.tags || null,
+          submittedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        this.memoryStore.responses.set(id, resp);
+
+        if (args.data.answers?.create && Array.isArray(args.data.answers.create)) {
+          for (let i = 0; i < args.data.answers.create.length; i++) {
+            const ansData = args.data.answers.create[i];
+            const aId = ansData.id || `ans_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 9)}`;
+            this.memoryStore.answers.set(aId, {
+              id: aId,
+              responseId: id,
+              questionId: ansData.questionId,
+              textValue: ansData.textValue || null,
+              numberValue: ansData.numberValue ?? null,
+              booleanValue: ansData.booleanValue ?? null,
+              jsonValue: ansData.jsonValue || null,
+              createdAt: new Date(),
+            });
+          }
+        }
+
+        if (args.include?.answers) {
+          return {
+            ...resp,
+            answers: Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === id),
+          };
+        }
+        return { ...resp };
+      },
+      findMany: async (args?: { where?: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackResponse.findMany(args as any);
+        let list = Array.from(this.memoryStore.responses.values());
+        if (args?.where) {
+          if (args.where.companyId) list = list.filter((r) => r.companyId === args.where.companyId);
+          if (args.where.formId) list = list.filter((r) => r.formId === args.where.formId);
+        }
+        if (args?.include?.answers) {
+          return list.map((r) => ({
+            ...r,
+            answers: Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id),
+          }));
+        }
+        return list;
+      },
+      findUnique: async (args: { where: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackResponse.findUnique(args as any);
+        let r: any = null;
+        if (args.where.id) r = this.memoryStore.responses.get(args.where.id);
+        if (!r && args.where.submissionToken) {
+          for (const item of this.memoryStore.responses.values()) {
+            if (item.submissionToken === args.where.submissionToken) {
+              r = item;
+              break;
+            }
+          }
+        }
+        if (!r) return null;
+        if (args.include?.answers) {
+          return {
+            ...r,
+            answers: Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id),
+          };
+        }
+        return { ...r };
+      },
+      count: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFeedbackResponse.count(args as any);
+        if (!args?.where) return this.memoryStore.responses.size;
+        let count = 0;
+        for (const r of this.memoryStore.responses.values()) {
+          let match = true;
+          if (args.where.companyId && r.companyId !== args.where.companyId) match = false;
+          if (args.where.formId && r.formId !== args.where.formId) match = false;
+          if (match) count++;
+        }
+        return count;
+      },
+    };
+
+    const memoryFeedbackAnswer = {
+      create: async (args: { data: any }) => {
+        if (!this.isInMemory) return realFeedbackAnswer.create(args as any);
+        const id = args.data.id || `ans_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const ans = {
+          id,
+          responseId: args.data.responseId,
+          questionId: args.data.questionId,
+          textValue: args.data.textValue || null,
+          numberValue: args.data.numberValue ?? null,
+          booleanValue: args.data.booleanValue ?? null,
+          jsonValue: args.data.jsonValue || null,
+          createdAt: new Date(),
+        };
+        this.memoryStore.answers.set(id, ans);
+        return { ...ans };
+      },
+      findMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFeedbackAnswer.findMany(args as any);
+        let list = Array.from(this.memoryStore.answers.values());
+        if (args?.where?.responseId) {
+          list = list.filter((a) => a.responseId === args.where.responseId);
+        }
+        return list;
+      },
+    };
+
     // Override the getters on this instance
     Object.defineProperty(this, 'platformUser', {
       get: () => (this.isInMemory ? memoryPlatformUser : realPlatformUser),
@@ -960,6 +1471,26 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
     Object.defineProperty(this, 'companyInvitation', {
       get: () => (this.isInMemory ? memoryCompanyInvitation : realCompanyInvitation),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'feedbackForm', {
+      get: () => (this.isInMemory ? memoryFeedbackForm : realFeedbackForm),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'formQuestion', {
+      get: () => (this.isInMemory ? memoryFormQuestion : realFormQuestion),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'formQuestionOption', {
+      get: () => (this.isInMemory ? memoryFormQuestionOption : realFormQuestionOption),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'feedbackResponse', {
+      get: () => (this.isInMemory ? memoryFeedbackResponse : realFeedbackResponse),
+      configurable: true,
+    });
+    Object.defineProperty(this, 'feedbackAnswer', {
+      get: () => (this.isInMemory ? memoryFeedbackAnswer : realFeedbackAnswer),
       configurable: true,
     });
   }
