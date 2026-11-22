@@ -31,10 +31,20 @@ import type {
   UpdateProfileInput,
 } from '@feedbackhub/validation';
 
+import { EmailService } from '../email/email.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RateLimiterService } from './rate-limiter.service';
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private readonly authService: AuthService;
+
+  constructor(authService?: AuthService) {
+    this.authService =
+      authService ||
+      new AuthService(new PrismaService(), new EmailService(), new RateLimiterService());
+  }
 
   private isProduction(): boolean {
     return process.env.NODE_ENV === 'production';

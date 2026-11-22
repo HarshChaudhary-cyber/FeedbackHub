@@ -15,7 +15,11 @@ import type { CompanyRole } from '@feedbackhub/types';
  */
 @Injectable()
 export class TenantMembershipGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly prisma: PrismaService;
+
+  constructor(prisma?: PrismaService) {
+    this.prisma = prisma || new PrismaService();
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();

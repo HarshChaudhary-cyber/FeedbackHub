@@ -20,13 +20,18 @@ import { TenantRoleGuard } from './guards/tenant-role.guard';
 import { CurrentTenant } from './decorators/current-tenant.decorator';
 import { RequireRoles } from './decorators/roles.decorator';
 import { TenantMembershipService } from './tenant-membership.service';
+import { PrismaService } from '../prisma/prisma.service';
 import type { TenantContext, TenantMemberResponse, CompanyInvitation, CompanyRole } from '@feedbackhub/types';
 
 @ApiTags('Tenant')
 @ApiCookieAuth()
 @Controller('tenant')
 export class TenantController {
-  constructor(private readonly membershipService: TenantMembershipService) {}
+  private readonly membershipService: TenantMembershipService;
+
+  constructor(membershipService?: TenantMembershipService) {
+    this.membershipService = membershipService || new TenantMembershipService(new PrismaService());
+  }
 
   @Get('context')
   @UseGuards(AuthGuard, TenantResolutionGuard, TenantMembershipGuard)

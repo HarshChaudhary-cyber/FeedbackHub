@@ -40,12 +40,19 @@ import type { SessionUser } from '@feedbackhub/types';
 export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
   private dummyHash: string = '';
+  private readonly prisma: PrismaService;
+  private readonly emailService: EmailService;
+  private readonly rateLimiter: RateLimiterService;
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly emailService: EmailService,
-    private readonly rateLimiter: RateLimiterService
-  ) {}
+    prisma?: PrismaService,
+    emailService?: EmailService,
+    rateLimiter?: RateLimiterService
+  ) {
+    this.prisma = prisma || new PrismaService();
+    this.emailService = emailService || new EmailService();
+    this.rateLimiter = rateLimiter || new RateLimiterService();
+  }
 
   async onModuleInit() {
     // Generate pre-computed dummy hash for constant-time comparison on user-not-found

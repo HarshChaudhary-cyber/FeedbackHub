@@ -7,9 +7,19 @@ import {
 import { AuthService } from './auth.service';
 import { SESSION_COOKIE_NAME } from './auth.constants';
 
+import { EmailService } from '../email/email.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RateLimiterService } from './rate-limiter.service';
+
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly authService: AuthService) {}
+  private readonly authService: AuthService;
+
+  constructor(authService?: AuthService) {
+    this.authService =
+      authService ||
+      new AuthService(new PrismaService(), new EmailService(), new RateLimiterService());
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();

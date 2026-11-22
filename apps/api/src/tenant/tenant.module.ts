@@ -18,6 +18,7 @@ import { TenantRoleGuard } from './guards/tenant-role.guard';
     TenantResolutionGuard,
     TenantMembershipGuard,
     TenantRoleGuard,
+    TenantMiddleware,
   ],
   exports: [
     TenantResolutionService,
@@ -25,10 +26,11 @@ import { TenantRoleGuard } from './guards/tenant-role.guard';
     TenantResolutionGuard,
     TenantMembershipGuard,
     TenantRoleGuard,
+    TenantMiddleware,
   ],
 })
 export class TenantModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).forRoutes('*');
+    consumer.apply(TenantMiddleware).forRoutes('{*path}');
   }
 }

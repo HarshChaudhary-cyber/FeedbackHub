@@ -21,8 +21,11 @@ import type {
 @Injectable()
 export class CompaniesService {
   private readonly logger = new Logger(CompaniesService.name);
+  private readonly prisma: PrismaService;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(prisma?: PrismaService) {
+    this.prisma = prisma || new PrismaService();
+  }
 
   /**
    * Generates and validates a tenant slug from user input or company name.

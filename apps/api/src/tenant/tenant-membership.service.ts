@@ -27,11 +27,14 @@ import type {
 @Injectable()
 export class TenantMembershipService {
   private readonly logger = new Logger(TenantMembershipService.name);
+  private readonly prisma: PrismaService;
 
   constructor(
-    private readonly prisma: PrismaService,
+    @Optional() prisma?: PrismaService,
     @Optional() private readonly rateLimiter?: RateLimiterService
-  ) {}
+  ) {
+    this.prisma = prisma || new PrismaService();
+  }
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');

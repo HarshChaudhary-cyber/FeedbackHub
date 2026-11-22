@@ -19,8 +19,11 @@ export interface HostResolutionResult {
 @Injectable()
 export class TenantResolutionService {
   private readonly logger = new Logger(TenantResolutionService.name);
+  private readonly prisma: PrismaService;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(prisma?: PrismaService) {
+    this.prisma = prisma || new PrismaService();
+  }
 
   /**
    * Returns the configured base platform domain.

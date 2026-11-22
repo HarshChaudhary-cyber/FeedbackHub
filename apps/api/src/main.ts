@@ -1,8 +1,24 @@
 import 'reflect-metadata';
+import fs from 'node:fs';
+import path from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+
+// Automatically load local .env if available in Node 20+
+if (typeof process.loadEnvFile === 'function') {
+  for (const relativePath of ['.env', '../../.env', '../.env']) {
+    const fullPath = path.resolve(process.cwd(), relativePath);
+    if (fs.existsSync(fullPath)) {
+      try {
+        process.loadEnvFile(fullPath);
+      } catch {
+        // Continue if file can't be parsed
+      }
+    }
+  }
+}
 
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule);

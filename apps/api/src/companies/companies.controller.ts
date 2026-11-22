@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { CompaniesService } from './companies.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { CreateCompanyResponse, UserCompanyItem } from '@feedbackhub/types';
@@ -19,7 +20,11 @@ import type { CreateCompanyResponse, UserCompanyItem } from '@feedbackhub/types'
 @UseGuards(AuthGuard)
 @Controller('companies')
 export class CompaniesController {
-  constructor(private readonly companiesService: CompaniesService) {}
+  private readonly companiesService: CompaniesService;
+
+  constructor(companiesService?: CompaniesService) {
+    this.companiesService = companiesService || new CompaniesService(new PrismaService());
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)

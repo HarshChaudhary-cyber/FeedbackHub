@@ -1,7 +1,8 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware, Optional, Inject } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { TenantResolutionService } from './tenant-resolution.service';
 import { TenantContextManager } from './tenant.context';
+import { PrismaService } from '../prisma/prisma.service';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -14,7 +15,19 @@ declare global {
 
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
-  constructor(private readonly tenantResolutionService: TenantResolutionService) {}
+  private readonly tenantResolutionService: TenantResolutionService;
+
+  constructor(
+    @Optional()
+    @Inject(TenantResolutionService)
+    tenantResolutionService?: TenantResolutionService,
+    @Optional()
+    @Inject(PrismaService)
+    prismaService?: PrismaService
+  ) {
+    this.tenantResolutionService =
+      tenantResolutionService || new TenantResolutionService(prismaService || new PrismaService());
+  }
 
   async use(req: Request, _res: Response, next: NextFunction): Promise<void> {
     try {
