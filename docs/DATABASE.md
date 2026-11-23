@@ -395,7 +395,59 @@ In Phase 6, PostgreSQL Row-Level Security is enabled and enforced across all for
 - **SELECT**: Accessible if parent form belongs to tenant context OR parent form is `PUBLISHED`.
 - **INSERT, UPDATE, DELETE**: Strictly scoped to tenant context via parent form join.
 
-### 6.3 `FeedbackResponse` & `FeedbackAnswer`
-- **SELECT, UPDATE, DELETE**: Strictly scoped to tenant context (`companyId = current_setting('app.current_tenant_id')::uuid`). Unauthenticated visitors can never read historical responses.
-- **INSERT**: Permitted with validation check for anonymous public submissions and authenticated member responses.
+### 6.3 `FeedbackResponse` & `FeedbackAnswer` (Hardened RLS)
+- **SELECT, UPDATE, DELETE**: Strictly scoped to authenticated tenant context (`companyId = current_setting('app.current_tenant_id', true)::uuid`). Unauthenticated visitors and respondents can never read, update, or delete feedback responses.
+- **INSERT**: Enforces transaction-scoped public submission context rather than unconditional permissive checks:
+  ```sql
+  -- Hardened Public Submission Context RLS
+  CREATE POLICY feedback_response_insert_policy ON "FeedbackResponse"
+      FOR INSERT WITH CHECK (
+          -- Authenticated tenant member in active tenant session
+          (current_setting('app.current_tenant_id', true) IS NOT NULL 
+           AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+          -- OR Transaction-scoped verified public submission
+          OR (
+              current_setting('app.is_public_submission', true) = 'true'
+              AND "companyId" = current_setting('app.public_submission_company_id', true)::uuid
+              AND "formId" = current_setting('app.public_submission_form_id', true)::uuid
+              AND EXISTS (
+                  SELECT 1 FROM "FeedbackForm" f
+                  JOIN "Company" c ON c.id = f."companyId"
+                  WHERE f.id = "FeedbackResponse"."formId"
+                    AND f."companyId" = "FeedbackResponse"."companyId"
+                    AND f.status = 'PUBLISHED'
+                    AND c."isActive" = true
+                    AND c.status = 'ACTIVE'
+              )
+          )
+      );
+
+  CREATE POLICY feedback_answer_insert_policy ON "FeedbackAnswer"
+      FOR INSERT WITH CHECK (
+          -- Authenticated tenant member in active tenant session
+          (current_setting('app.current_tenant_id', true) IS NOT NULL 
+           AND "companyId" = current_setting('app.current_tenant_id', true)::uuid)
+          -- OR Transaction-scoped verified public submission matching parent response
+          OR (
+              current_setting('app.is_public_submission', true) = 'true'
+              AND "companyId" = current_setting('app.public_submission_company_id', true)::uuid
+              AND EXISTS (
+                  SELECT 1 FROM "FeedbackResponse" r
+                  JOIN "FormQuestion" q ON q.id = "FeedbackAnswer"."questionId"
+                  WHERE r.id = "FeedbackAnswer"."responseId"
+                    AND r."companyId" = "FeedbackAnswer"."companyId"
+                    AND r."formId" = current_setting('app.public_submission_form_id', true)::uuid
+                    AND q."formId" = r."formId"
+                    AND q."isActive" = true
+              )
+          )
+      );
+  ```
+
+### 6.4 Response History Preservation & Non-Destructive Question Sync
+- **Non-Destructive Question Synchronization**: When forms are edited, existing questions are never deleted. Removed questions are soft-deleted with `isActive: false`, preserving their IDs and historical answers.
+- **Referential Integrity Protection**: The `FeedbackAnswer.questionId` foreign key specifies `ON DELETE RESTRICT`. Questions with historical answers cannot be deleted at the database engine level.
+- **Answer Snapshotting**: `FeedbackAnswer` stores `questionTitle` and `questionType` snapshots at the time of submission, guaranteeing that historical responses remain perfectly interpretable even if the question text or options are modified in subsequent form versions.
+- **Duplicate Prevention & Anonymous Cooldown**: `FeedbackResponse` records `ipHash` (SHA-256 with server-side salt). When `allowMultipleSubmissions: false`, duplicate identified submissions are rejected by email, and anonymous submissions are restricted by `(formId, ipHash)` within a 24-hour cooldown window. Indexed by `(formId, ipHash)` and `(formId, respondentEmail)`.
+- **Application Integration**: `PrismaService.withPublicSubmissionContext(companyId, formId, fn)` sets transaction-local configuration (`is_local = true`) so pooled database connections automatically reset context when the transaction terminates.
 

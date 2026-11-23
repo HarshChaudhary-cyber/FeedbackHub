@@ -231,6 +231,36 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
   }
 
+  /**
+   * Executes public feedback submission operations within a dedicated, transaction-scoped public submission context.
+   * In PostgreSQL mode, sets `app.is_public_submission = 'true'`, `app.public_submission_company_id`,
+   * and `app.public_submission_form_id` strictly via transaction-local `set_config` (is_local = true)
+   * so connection pooling never leaks submission state.
+   */
+  async withPublicSubmissionContext<T>(
+    companyId: string,
+    formId: string,
+    fn: (tx: PrismaService) => Promise<T>
+  ): Promise<T> {
+    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
+      throw new Error('Public submission context required: companyId is missing or empty.');
+    }
+    if (!formId || typeof formId !== 'string' || formId.trim() === '') {
+      throw new Error('Public submission context required: formId is missing or empty.');
+    }
+    const cleanCompanyId = companyId.trim();
+    const cleanFormId = formId.trim();
+
+    return this.$transaction(async (tx) => {
+      if (!this.isInMemory) {
+        await (tx as any).$executeRaw`SELECT set_config('app.is_public_submission', 'true', true)`;
+        await (tx as any).$executeRaw`SELECT set_config('app.public_submission_company_id', ${cleanCompanyId}, true)`;
+        await (tx as any).$executeRaw`SELECT set_config('app.public_submission_form_id', ${cleanFormId}, true)`;
+      }
+      return fn(tx as PrismaService);
+    });
+  }
+
   public resetMemoryStore() {
     this.memoryStore.users.clear();
     this.memoryStore.verificationTokens.clear();
@@ -964,14 +994,29 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       const copy = { ...form };
       if (include?.questions) {
         const formQuestions = Array.from(this.memoryStore.questions.values())
-          .filter((q) => q.formId === form.id)
+          .filter((q) => {
+            if (q.formId !== form.id) return false;
+            const qActive = q.isActive ?? true;
+            if (include?.questions?.where?.isActive !== undefined) {
+              return qActive === include.questions.where.isActive;
+            }
+            return qActive !== false;
+          })
           .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
           .map((q) => {
-            const qCopy = { ...q };
+            const qCopy = { ...q, isActive: q.isActive ?? true, version: q.version ?? 1 };
             if (include.questions === true || include.questions?.include?.options) {
               qCopy.options = Array.from(this.memoryStore.options.values())
-                .filter((o) => o.questionId === q.id)
-                .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+                .filter((o) => {
+                  if (o.questionId !== q.id) return false;
+                  const oActive = o.isActive ?? true;
+                  if (include?.questions?.include?.options?.where?.isActive !== undefined) {
+                    return oActive === include.questions.include.options.where.isActive;
+                  }
+                  return oActive !== false;
+                })
+                .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
+                .map((o) => ({ ...o, isActive: o.isActive ?? true }));
             }
             return qCopy;
           });
@@ -984,7 +1029,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         copy.responses = Array.from(this.memoryStore.responses.values()).filter((r) => r.formId === form.id);
       }
       if (include?._count) {
-        const qCount = Array.from(this.memoryStore.questions.values()).filter((q) => q.formId === form.id).length;
+        const qCount = Array.from(this.memoryStore.questions.values()).filter((q) => q.formId === form.id && (q.isActive ?? true)).length;
         const rCount = Array.from(this.memoryStore.responses.values()).filter((r) => r.formId === form.id).length;
         copy._count = { questions: qCount, responses: rCount };
       }
@@ -1091,6 +1136,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
               orderIndex: qData.orderIndex ?? i,
               validationRules: qData.validationRules || null,
               branchingLogic: qData.branchingLogic || null,
+              isActive: qData.isActive ?? true,
+              version: qData.version ?? 1,
               createdAt: new Date(),
               updatedAt: new Date(),
             };
@@ -1106,6 +1153,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
                   label: optData.label,
                   value: optData.value,
                   orderIndex: optData.orderIndex ?? j,
+                  isActive: optData.isActive ?? true,
                 });
               }
             }
@@ -1183,30 +1231,37 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         if (args?.where?.formId) {
           list = list.filter((q) => q.formId === args.where.formId);
         }
-        list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
-        if (args?.include?.options) {
-          return list.map((q) => ({
-            ...q,
-            options: Array.from(this.memoryStore.options.values())
-              .filter((o) => o.questionId === q.id)
-              .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
-          }));
+        if (args?.where?.isActive !== undefined) {
+          list = list.filter((q) => q.isActive === args.where.isActive);
         }
-        return list;
+        list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+        return list.map((q) => {
+          const item: any = { ...q };
+          if (args?.include?.options) {
+            item.options = Array.from(this.memoryStore.options.values())
+              .filter((o) => o.questionId === q.id && (args.include.options.where?.isActive !== undefined ? o.isActive === args.include.options.where.isActive : o.isActive !== false))
+              .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+          }
+          if (args?.include?.answers) {
+            item.answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.questionId === q.id);
+          }
+          return item;
+        });
       },
       findUnique: async (args: { where: { id: string }; include?: any }) => {
         if (!this.isInMemory) return realFormQuestion.findUnique(args as any);
         const q = this.memoryStore.questions.get(args.where.id);
         if (!q) return null;
+        const item: any = { ...q };
         if (args.include?.options) {
-          return {
-            ...q,
-            options: Array.from(this.memoryStore.options.values())
-              .filter((o) => o.questionId === q.id)
-              .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
-          };
+          item.options = Array.from(this.memoryStore.options.values())
+            .filter((o) => o.questionId === q.id && (args.include.options.where?.isActive !== undefined ? o.isActive === args.include.options.where.isActive : o.isActive !== false))
+            .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
         }
-        return { ...q };
+        if (args.include?.answers) {
+          item.answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.questionId === q.id);
+        }
+        return item;
       },
       create: async (args: { data: any; include?: any }) => {
         if (!this.isInMemory) return realFormQuestion.create(args as any);
@@ -1222,6 +1277,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           orderIndex: args.data.orderIndex ?? 0,
           validationRules: args.data.validationRules || null,
           branchingLogic: args.data.branchingLogic || null,
+          isActive: args.data.isActive ?? true,
+          version: args.data.version ?? 1,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1237,6 +1294,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
               label: optData.label,
               value: optData.value,
               orderIndex: optData.orderIndex ?? j,
+              isActive: optData.isActive ?? true,
             });
           }
         }
@@ -1245,7 +1303,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           return {
             ...q,
             options: Array.from(this.memoryStore.options.values())
-              .filter((o) => o.questionId === id)
+              .filter((o) => o.questionId === id && o.isActive !== false)
               .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)),
           };
         }
@@ -1263,10 +1321,32 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.memoryStore.questions.set(args.where.id, updated);
         return { ...updated };
       },
+      updateMany: async (args: { where: any; data: any }) => {
+        if (!this.isInMemory) return realFormQuestion.updateMany(args as any);
+        let count = 0;
+        for (const [id, q] of Array.from(this.memoryStore.questions.entries())) {
+          let match = true;
+          if (args.where?.formId && q.formId !== args.where.formId) match = false;
+          if (args.where?.id && q.id !== args.where.id) match = false;
+          if (match) {
+            const updated = { ...q, ...args.data, updatedAt: new Date() };
+            this.memoryStore.questions.set(id, updated);
+            count++;
+          }
+        }
+        return { count };
+      },
       delete: async (args: { where: { id: string } }) => {
         if (!this.isInMemory) return realFormQuestion.delete(args as any);
         const existing = this.memoryStore.questions.get(args.where.id);
         if (existing) {
+          // Emulate ON DELETE RESTRICT
+          const answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.questionId === args.where.id);
+          if (answers.length > 0) {
+            const error: any = new Error('Foreign key constraint violated: FeedbackAnswer restricts FormQuestion deletion');
+            error.code = 'P2003';
+            throw error;
+          }
           this.memoryStore.questions.delete(args.where.id);
           for (const [optId, opt] of Array.from(this.memoryStore.options.entries())) {
             if (opt.questionId === args.where.id) this.memoryStore.options.delete(optId);
@@ -1284,6 +1364,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
         for (const [id, q] of Array.from(this.memoryStore.questions.entries())) {
           if (args.where.formId && q.formId !== args.where.formId) continue;
+          // Emulate ON DELETE RESTRICT
+          const answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.questionId === id);
+          if (answers.length > 0) {
+            const error: any = new Error('Foreign key constraint violated: FeedbackAnswer restricts FormQuestion deletion');
+            error.code = 'P2003';
+            throw error;
+          }
           this.memoryStore.questions.delete(id);
           for (const [optId, opt] of Array.from(this.memoryStore.options.entries())) {
             if (opt.questionId === id) this.memoryStore.options.delete(optId);
@@ -1304,9 +1391,33 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           label: args.data.label,
           value: args.data.value,
           orderIndex: args.data.orderIndex ?? 0,
+          isActive: args.data.isActive ?? true,
         };
         this.memoryStore.options.set(id, opt);
         return { ...opt };
+      },
+      update: async (args: { where: { id: string }; data: any }) => {
+        if (!this.isInMemory) return realFormQuestionOption.update(args as any);
+        const existing = this.memoryStore.options.get(args.where.id);
+        if (!existing) throw new Error('Option not found');
+        const updated = { ...existing, ...args.data };
+        this.memoryStore.options.set(args.where.id, updated);
+        return { ...updated };
+      },
+      updateMany: async (args: { where: any; data: any }) => {
+        if (!this.isInMemory) return realFormQuestionOption.updateMany(args as any);
+        let count = 0;
+        for (const [id, opt] of Array.from(this.memoryStore.options.entries())) {
+          let match = true;
+          if (args.where?.questionId && opt.questionId !== args.where.questionId) match = false;
+          if (args.where?.id && opt.id !== args.where.id) match = false;
+          if (match) {
+            const updated = { ...opt, ...args.data };
+            this.memoryStore.options.set(id, updated);
+            count++;
+          }
+        }
+        return { count };
       },
       deleteMany: async (args?: { where?: any }) => {
         if (!this.isInMemory) return realFormQuestionOption.deleteMany(args as any);
@@ -1333,10 +1444,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           respondentUserId: args.data.respondentUserId || null,
           respondentEmail: args.data.respondentEmail || null,
           respondentName: args.data.respondentName || null,
+          ipHash: args.data.ipHash || null,
           status: args.data.status || 'NEW',
           sentimentScore: args.data.sentimentScore || null,
           tags: args.data.tags || null,
-          submittedAt: new Date(),
+          submittedAt: args.data.submittedAt || new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -1350,6 +1462,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
               id: aId,
               responseId: id,
               questionId: ansData.questionId,
+              questionTitle: ansData.questionTitle || null,
+              questionType: ansData.questionType || null,
               textValue: ansData.textValue || null,
               numberValue: ansData.numberValue ?? null,
               booleanValue: ansData.booleanValue ?? null,
@@ -1366,6 +1480,32 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           };
         }
         return { ...resp };
+      },
+      findFirst: async (args: { where: any; include?: any }) => {
+        if (!this.isInMemory) return realFeedbackResponse.findFirst(args as any);
+        for (const r of this.memoryStore.responses.values()) {
+          let match = true;
+          if (args.where?.id && r.id !== args.where.id) match = false;
+          if (args.where?.formId && r.formId !== args.where.formId) match = false;
+          if (args.where?.companyId && r.companyId !== args.where.companyId) match = false;
+          if (args.where?.respondentEmail && r.respondentEmail?.toLowerCase() !== args.where.respondentEmail.toLowerCase()) match = false;
+          if (args.where?.ipHash && r.ipHash !== args.where.ipHash) match = false;
+          if (args.where?.submittedAt?.gte) {
+            const gteTime = args.where.submittedAt.gte instanceof Date ? args.where.submittedAt.gte.getTime() : new Date(args.where.submittedAt.gte).getTime();
+            const subTime = r.submittedAt instanceof Date ? r.submittedAt.getTime() : new Date(r.submittedAt).getTime();
+            if (!(subTime >= gteTime)) match = false;
+          }
+          if (match) {
+            if (args.include?.answers) {
+              return {
+                ...r,
+                answers: Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id),
+              };
+            }
+            return { ...r };
+          }
+        }
+        return null;
       },
       findMany: async (args?: { where?: any; include?: any }) => {
         if (!this.isInMemory) return realFeedbackResponse.findMany(args as any);
@@ -1415,6 +1555,25 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
         return count;
       },
+      deleteMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFeedbackResponse.deleteMany(args as any);
+        let count = 0;
+        for (const [id, resp] of Array.from(this.memoryStore.responses.entries())) {
+          let match = true;
+          if (args?.where?.formId && resp.formId !== args.where.formId) match = false;
+          if (args?.where?.companyId && resp.companyId !== args.where.companyId) match = false;
+          if (match) {
+            for (const [aId, ans] of Array.from(this.memoryStore.answers.entries())) {
+              if (ans.responseId === id) {
+                this.memoryStore.answers.delete(aId);
+              }
+            }
+            this.memoryStore.responses.delete(id);
+            count++;
+          }
+        }
+        return { count };
+      },
     };
 
     const memoryFeedbackAnswer = {
@@ -1425,6 +1584,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           id,
           responseId: args.data.responseId,
           questionId: args.data.questionId,
+          questionTitle: args.data.questionTitle || null,
+          questionType: args.data.questionType || null,
           textValue: args.data.textValue || null,
           numberValue: args.data.numberValue ?? null,
           booleanValue: args.data.booleanValue ?? null,
@@ -1437,10 +1598,29 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       findMany: async (args?: { where?: any }) => {
         if (!this.isInMemory) return realFeedbackAnswer.findMany(args as any);
         let list = Array.from(this.memoryStore.answers.values());
-        if (args?.where?.responseId) {
-          list = list.filter((a) => a.responseId === args.where.responseId);
+        if (args?.where) {
+          if (args.where.responseId) {
+            list = list.filter((a) => a.responseId === args.where.responseId);
+          }
+          if (args.where.questionId) {
+            list = list.filter((a) => a.questionId === args.where.questionId);
+          }
         }
         return list;
+      },
+      deleteMany: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFeedbackAnswer.deleteMany(args as any);
+        let count = 0;
+        for (const [id, ans] of Array.from(this.memoryStore.answers.entries())) {
+          let match = true;
+          if (args?.where?.responseId && ans.responseId !== args.where.responseId) match = false;
+          if (args?.where?.questionId && ans.questionId !== args.where.questionId) match = false;
+          if (match) {
+            this.memoryStore.answers.delete(id);
+            count++;
+          }
+        }
+        return { count };
       },
     };
 

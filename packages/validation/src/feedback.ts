@@ -47,6 +47,7 @@ export const createQuestionSchema = z.object({
   orderIndex: z.number().int().min(0).default(0),
   validationRules: questionValidationRulesSchema.nullish(),
   options: z.array(questionOptionSchema).max(MAX_OPTIONS_PER_QUESTION).optional(),
+  isActive: z.boolean().optional(),
 });
 
 export const createFeedbackFormSchema = z.object({

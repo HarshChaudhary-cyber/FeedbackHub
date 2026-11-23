@@ -44,6 +44,7 @@ export const PublicFormPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<PublicSubmissionResult | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -55,6 +56,14 @@ export const PublicFormPage: React.FC = () => {
         setForm(data);
         if (data.anonymityMode === 'IDENTIFIED_ONLY') {
           setIsAnonymous(false);
+        } else if (data.anonymityMode === 'ANONYMOUS_ONLY') {
+          setIsAnonymous(true);
+        }
+        if (data.allowMultipleSubmissions === false) {
+          const prev = localStorage.getItem(`feedbackhub_submitted_${slug}`);
+          if (prev) {
+            setAlreadySubmitted(true);
+          }
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'This feedback form is not available.');
@@ -70,9 +79,26 @@ export const PublicFormPage: React.FC = () => {
     if (!form || !slug) return;
     setValidationError(null);
 
+    // Validate identity if identified
+    const effectiveAnonymous = form.anonymityMode === 'ANONYMOUS_ONLY' ? true : (form.anonymityMode === 'IDENTIFIED_ONLY' ? false : isAnonymous);
+    if (!effectiveAnonymous) {
+      if (!respondentName.trim()) {
+        setValidationError('Please provide your full name.');
+        return;
+      }
+      if (!respondentEmail.trim()) {
+        setValidationError('Please provide your email address.');
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(respondentEmail.trim())) {
+        setValidationError('Please enter a valid email address.');
+        return;
+      }
+    }
+
     // Validate required questions
     for (const q of form.questions) {
-      if (q.isRequired) {
+      if (q.isRequired && q.isActive !== false) {
         const ans = answers[q.id];
         if (
           ans === undefined ||
@@ -110,12 +136,16 @@ export const PublicFormPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       const result = await FormsApiClient.submitPublicFeedback(slug, {
-        isAnonymous,
-        respondentName: isAnonymous ? undefined : respondentName.trim() || undefined,
-        respondentEmail: isAnonymous ? undefined : respondentEmail.trim() || undefined,
+        isAnonymous: effectiveAnonymous,
+        respondentName: effectiveAnonymous ? undefined : respondentName.trim() || undefined,
+        respondentEmail: effectiveAnonymous ? undefined : respondentEmail.trim() || undefined,
         answers: formattedAnswers,
       });
       setSubmissionResult(result);
+      if (form.allowMultipleSubmissions === false) {
+        localStorage.setItem(`feedbackhub_submitted_${slug}`, 'true');
+        setAlreadySubmitted(true);
+      }
     } catch (err: unknown) {
       setValidationError(err instanceof Error ? err.message : 'Failed to submit feedback. Please try again.');
     } finally {
@@ -174,7 +204,7 @@ export const PublicFormPage: React.FC = () => {
               {form.audienceType === 'EMPLOYEE' && (
                 <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-700 font-semibold pt-2">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Your privacy and anonymity are cryptographically guaranteed.</span>
+                  <span>Your privacy is protected. Responses are stored decoupled from your personal identity and IP address.</span>
                 </div>
               )}
             </CardContent>
@@ -214,6 +244,15 @@ export const PublicFormPage: React.FC = () => {
 
             {/* Questions Form */}
             <form onSubmit={handleSubmit} noValidate className="p-8 space-y-8">
+              {alreadySubmitted && (
+                <Alert variant="error">
+                  <AlertCircle className="w-4 h-4" />
+                  <AlertDescription>
+                    You have already submitted feedback for this form. Multiple submissions are disabled.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {validationError && (
                 <Alert variant="error">
                   <AlertCircle className="w-4 h-4" />
@@ -226,7 +265,7 @@ export const PublicFormPage: React.FC = () => {
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      Respondent Identity
+                      {form.anonymityMode === 'IDENTIFIED_ONLY' ? 'Respondent Identity (Required)' : 'Respondent Identity'}
                     </span>
                     {form.anonymityMode === 'RESPONDENT_CHOICE' && (
                       <label className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 cursor-pointer">
@@ -241,11 +280,11 @@ export const PublicFormPage: React.FC = () => {
                     )}
                   </div>
 
-                  {!isAnonymous && (
+                  {(form.anonymityMode === 'IDENTIFIED_ONLY' || !isAnonymous) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Full Name
+                          Full Name <span className="text-rose-500 font-bold">*</span>
                         </label>
                         <Input
                           type="text"
@@ -256,7 +295,7 @@ export const PublicFormPage: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Email Address
+                          Email Address <span className="text-rose-500 font-bold">*</span>
                         </label>
                         <Input
                           type="email"
@@ -271,7 +310,7 @@ export const PublicFormPage: React.FC = () => {
               )}
 
               {/* Form Questions */}
-              {form.questions.map((q, idx) => (
+              {form.questions.filter((q) => q.isActive !== false).map((q, idx) => (
                 <div key={q.id} className="space-y-3">
                   <label className="block">
                     <span className="font-bold text-slate-900 text-sm sm:text-base flex items-center gap-1">
@@ -406,7 +445,7 @@ export const PublicFormPage: React.FC = () => {
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || alreadySubmitted}
                   className="w-full gap-2 font-bold shadow-md hover:shadow-lg transition-all"
                 >
                   {isSubmitting ? (
@@ -414,6 +453,8 @@ export const PublicFormPage: React.FC = () => {
                       <Spinner size="sm" />
                       <span>Submitting Feedback...</span>
                     </>
+                  ) : alreadySubmitted ? (
+                    <span>Feedback Already Submitted</span>
                   ) : (
                     <>
                       <Send className="w-4 h-4" />

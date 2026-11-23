@@ -85,7 +85,9 @@ export class FormsService {
       const forms = await tx.feedbackForm.findMany({
         where,
         include: {
-          questions: true,
+          questions: {
+            where: { isActive: true },
+          },
           responses: true,
         },
         orderBy: { updatedAt: 'desc' },
@@ -137,7 +139,14 @@ export class FormsService {
         where: { id: formId },
         include: {
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
           },
           responses: true,
         },
@@ -175,12 +184,15 @@ export class FormsService {
           isRequired: q.isRequired,
           orderIndex: q.orderIndex,
           validationRules: q.validationRules,
+          isActive: q.isActive ?? true,
+          version: q.version ?? 1,
           options: (q.options || []).map((o: any) => ({
             id: o.id,
             questionId: o.questionId,
             label: o.label,
             value: o.value,
             orderIndex: o.orderIndex,
+            isActive: o.isActive ?? true,
           })),
         })),
         responseCount: form.responses?.length || 0,
@@ -334,42 +346,133 @@ export class FormsService {
         }
       }
 
-      // If questions are provided, synchronize them safely
+      // If questions are provided, synchronize them safely (non-destructive)
       if (data.questions !== undefined) {
         if (data.questions.length > MAX_QUESTIONS_PER_FORM) {
           throw new BadRequestException(`A form cannot have more than ${MAX_QUESTIONS_PER_FORM} questions.`);
         }
 
-        // Delete existing questions & options for this form
-        await tx.formQuestion.deleteMany({
+        // Fetch existing questions with their options and answers
+        const existingQuestions = await tx.formQuestion.findMany({
           where: { formId },
+          include: { options: true, answers: true },
         });
+        const existingMap = new Map<string, any>(existingQuestions.map((q: any) => [q.id, q]));
+        const incomingQuestionIds = new Set<string>();
 
-        // Create new questions with options
+        // Process incoming questions
         for (let idx = 0; idx < data.questions.length; idx++) {
           const q = data.questions[idx];
-          const qId = q.id || crypto.randomUUID();
-          await tx.formQuestion.create({
-            data: {
-              id: qId,
-              formId,
-              questionType: q.questionType,
-              title: q.title,
-              helpText: q.helpText || null,
-              placeholder: q.placeholder || null,
-              isRequired: q.isRequired ?? true,
-              orderIndex: q.orderIndex ?? idx,
-              validationRules: (q.validationRules as any) || undefined,
-              options: {
-                create: (q.options || []).map((opt, optIdx) => ({
-                  id: opt.id || crypto.randomUUID(),
-                  label: opt.label,
-                  value: opt.value,
-                  orderIndex: opt.orderIndex ?? optIdx,
-                })),
-              },
-            } as any,
-          });
+          if (q.id && existingMap.has(q.id)) {
+            // Existing question: update in-place, preserving historical FeedbackAnswer integrity
+            incomingQuestionIds.add(q.id);
+            const existing = existingMap.get(q.id)!;
+            const updatedVersion = (existing.version || 1) + 1;
+
+            await tx.formQuestion.update({
+              where: { id: q.id },
+              data: {
+                questionType: q.questionType,
+                title: q.title,
+                helpText: q.helpText || null,
+                placeholder: q.placeholder || null,
+                isRequired: q.isRequired ?? true,
+                orderIndex: q.orderIndex ?? idx,
+                validationRules: (q.validationRules as any) || undefined,
+                isActive: true,
+                version: updatedVersion,
+              } as any,
+            });
+
+            // Synchronize options for this question
+            if (q.options !== undefined) {
+              const existingOptions = existing.options || [];
+              const existingOptMap = new Map<string, any>(existingOptions.map((o: any) => [o.id, o]));
+              const incomingOptIds = new Set<string>();
+
+              for (let optIdx = 0; optIdx < q.options.length; optIdx++) {
+                const opt = q.options[optIdx];
+                if (opt.id && existingOptMap.has(opt.id)) {
+                  incomingOptIds.add(opt.id);
+                  await tx.formQuestionOption.update({
+                    where: { id: opt.id },
+                    data: {
+                      label: opt.label,
+                      value: opt.value,
+                      orderIndex: opt.orderIndex ?? optIdx,
+                      isActive: true,
+                    } as any,
+                  });
+                } else {
+                  const newOptId = opt.id || crypto.randomUUID();
+                  incomingOptIds.add(newOptId);
+                  await tx.formQuestionOption.create({
+                    data: {
+                      id: newOptId,
+                      questionId: q.id,
+                      label: opt.label,
+                      value: opt.value,
+                      orderIndex: opt.orderIndex ?? optIdx,
+                      isActive: true,
+                    } as any,
+                  });
+                }
+              }
+
+              // Soft-delete removed options to preserve referential consistency
+              for (const opt of existingOptions) {
+                if (!incomingOptIds.has(opt.id)) {
+                  await tx.formQuestionOption.update({
+                    where: { id: opt.id },
+                    data: { isActive: false } as any,
+                  });
+                }
+              }
+            }
+          } else {
+            // New question: create with active status and version 1
+            const qId = q.id || crypto.randomUUID();
+            incomingQuestionIds.add(qId);
+            await tx.formQuestion.create({
+              data: {
+                id: qId,
+                formId,
+                questionType: q.questionType,
+                title: q.title,
+                helpText: q.helpText || null,
+                placeholder: q.placeholder || null,
+                isRequired: q.isRequired ?? true,
+                orderIndex: q.orderIndex ?? idx,
+                validationRules: (q.validationRules as any) || undefined,
+                isActive: true,
+                version: 1,
+                options: {
+                  create: (q.options || []).map((opt, optIdx) => ({
+                    id: opt.id || crypto.randomUUID(),
+                    label: opt.label,
+                    value: opt.value,
+                    orderIndex: opt.orderIndex ?? optIdx,
+                    isActive: true,
+                  })),
+                },
+              } as any,
+            });
+          }
+        }
+
+        // Soft-delete questions that were removed in this update.
+        // NEVER DELETE previously answered questions — this preserves historical FeedbackAnswer records!
+        for (const existing of existingQuestions) {
+          if (!incomingQuestionIds.has(existing.id)) {
+            await tx.formQuestion.update({
+              where: { id: existing.id },
+              data: { isActive: false } as any,
+            });
+            await tx.formQuestionOption.updateMany({
+              where: { questionId: existing.id },
+              data: { isActive: false } as any,
+            });
+          }
         }
       }
 
@@ -390,7 +493,14 @@ export class FormsService {
         data: updateData,
         include: {
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
           },
           responses: true,
         },
@@ -424,12 +534,15 @@ export class FormsService {
           isRequired: q.isRequired,
           orderIndex: q.orderIndex,
           validationRules: q.validationRules,
+          isActive: q.isActive ?? true,
+          version: q.version ?? 1,
           options: (q.options || []).map((o: any) => ({
             id: o.id,
             questionId: o.questionId,
             label: o.label,
             value: o.value,
             orderIndex: o.orderIndex,
+            isActive: o.isActive ?? true,
           })),
         })),
         responseCount: updated.responses?.length || 0,
@@ -438,7 +551,7 @@ export class FormsService {
   }
 
   /**
-   * Duplicates an existing form, cloning all its questions and options with fresh IDs in DRAFT status.
+   * Duplicates an existing form, cloning all its active questions and options with fresh IDs in DRAFT status.
    */
   async duplicateForm(companyId: string, formId: string): Promise<FeedbackForm> {
     if (!companyId || !formId) {
@@ -450,7 +563,14 @@ export class FormsService {
         where: { id: formId },
         include: {
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
           },
         },
       });
@@ -471,12 +591,15 @@ export class FormsService {
         isRequired: q.isRequired,
         orderIndex: q.orderIndex ?? idx,
         validationRules: q.validationRules || null,
+        isActive: true,
+        version: 1,
         options: {
           create: (q.options || []).map((opt: any, optIdx: number) => ({
             id: crypto.randomUUID(),
             label: opt.label,
             value: opt.value,
             orderIndex: opt.orderIndex ?? optIdx,
+            isActive: true,
           })),
         },
       }));
@@ -501,7 +624,14 @@ export class FormsService {
         } as any,
         include: {
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
           },
         },
       });
@@ -534,12 +664,15 @@ export class FormsService {
           isRequired: q.isRequired,
           orderIndex: q.orderIndex,
           validationRules: q.validationRules,
+          isActive: q.isActive ?? true,
+          version: q.version ?? 1,
           options: (q.options || []).map((o: any) => ({
             id: o.id,
             questionId: o.questionId,
             label: o.label,
             value: o.value,
             orderIndex: o.orderIndex,
+            isActive: o.isActive ?? true,
           })),
         })),
         responseCount: 0,
@@ -548,7 +681,7 @@ export class FormsService {
   }
 
   /**
-   * Publishes a draft form. Validates that the form has at least one question.
+   * Publishes a draft form. Validates that the form has at least one active question.
    */
   async publishForm(companyId: string, formId: string): Promise<FeedbackForm> {
     if (!companyId || !formId) {
@@ -558,7 +691,11 @@ export class FormsService {
     return this.prisma.withTenantContext(companyId, undefined, async (tx) => {
       const form = await tx.feedbackForm.findUnique({
         where: { id: formId },
-        include: { questions: true },
+        include: {
+          questions: {
+            where: { isActive: true },
+          },
+        },
       });
 
       if (!form || form.companyId !== companyId) {
@@ -566,7 +703,7 @@ export class FormsService {
       }
 
       if (!form.questions || form.questions.length === 0) {
-        throw new BadRequestException('Cannot publish a form without at least one question.');
+        throw new BadRequestException('Cannot publish a form without at least one active question.');
       }
 
       const updated = await tx.feedbackForm.update({
@@ -578,7 +715,14 @@ export class FormsService {
         },
         include: {
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
           },
           responses: true,
         },
@@ -612,12 +756,15 @@ export class FormsService {
           isRequired: q.isRequired,
           orderIndex: q.orderIndex,
           validationRules: q.validationRules,
+          isActive: q.isActive ?? true,
+          version: q.version ?? 1,
           options: (q.options || []).map((o: any) => ({
             id: o.id,
             questionId: o.questionId,
             label: o.label,
             value: o.value,
             orderIndex: o.orderIndex,
+            isActive: o.isActive ?? true,
           })),
         })),
         responseCount: updated.responses?.length || 0,
@@ -636,7 +783,19 @@ export class FormsService {
     return this.prisma.withTenantContext(companyId, undefined, async (tx) => {
       const form = await tx.feedbackForm.findUnique({
         where: { id: formId },
-        include: { questions: { include: { options: true } }, responses: true },
+        include: {
+          questions: {
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
+          },
+          responses: true,
+        },
       });
 
       if (!form || form.companyId !== companyId) {
@@ -650,7 +809,14 @@ export class FormsService {
         },
         include: {
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
           },
           responses: true,
         },
@@ -684,12 +850,15 @@ export class FormsService {
           isRequired: q.isRequired,
           orderIndex: q.orderIndex,
           validationRules: q.validationRules,
+          isActive: q.isActive ?? true,
+          version: q.version ?? 1,
           options: (q.options || []).map((o: any) => ({
             id: o.id,
             questionId: o.questionId,
             label: o.label,
             value: o.value,
             orderIndex: o.orderIndex,
+            isActive: o.isActive ?? true,
           })),
         })),
         responseCount: updated.responses?.length || 0,
@@ -708,7 +877,19 @@ export class FormsService {
     return this.prisma.withTenantContext(companyId, undefined, async (tx) => {
       const form = await tx.feedbackForm.findUnique({
         where: { id: formId },
-        include: { questions: { include: { options: true } }, responses: true },
+        include: {
+          questions: {
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
+          },
+          responses: true,
+        },
       });
 
       if (!form || form.companyId !== companyId) {
@@ -723,7 +904,14 @@ export class FormsService {
         },
         include: {
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
+            orderBy: { orderIndex: 'asc' },
           },
           responses: true,
         },
@@ -757,12 +945,15 @@ export class FormsService {
           isRequired: q.isRequired,
           orderIndex: q.orderIndex,
           validationRules: q.validationRules,
+          isActive: q.isActive ?? true,
+          version: q.version ?? 1,
           options: (q.options || []).map((o: any) => ({
             id: o.id,
             questionId: o.questionId,
             label: o.label,
             value: o.value,
             orderIndex: o.orderIndex,
+            isActive: o.isActive ?? true,
           })),
         })),
         responseCount: updated.responses?.length || 0,
@@ -786,6 +977,11 @@ export class FormsService {
       if (!form || form.companyId !== companyId) {
         throw new NotFoundException('Feedback form not found.');
       }
+
+      // Explicitly delete responses to satisfy ON DELETE RESTRICT on FeedbackAnswer -> question
+      await tx.feedbackResponse.deleteMany({
+        where: { formId },
+      });
 
       await tx.feedbackForm.delete({
         where: { id: formId },
@@ -812,7 +1008,13 @@ export class FormsService {
         include: {
           company: true,
           questions: {
-            include: { options: true },
+            where: { isActive: true },
+            include: {
+              options: {
+                where: { isActive: true },
+                orderBy: { orderIndex: 'asc' },
+              },
+            },
             orderBy: { orderIndex: 'asc' },
           },
         },
@@ -833,6 +1035,7 @@ export class FormsService {
         thankYouMessage: form.thankYouMessage || null,
         audienceType: form.audienceType as import('@feedbackhub/types').FeedbackAudience,
         anonymityMode: form.anonymityMode as import('@feedbackhub/types').AnonymityMode,
+        allowMultipleSubmissions: form.allowMultipleSubmissions,
         companyName: company?.name || 'Company',
         companyLogoUrl: company?.logoUrl || null,
         brandColorHex: company?.brandColorHex || '#8B5CF6',
@@ -846,11 +1049,14 @@ export class FormsService {
           isRequired: q.isRequired,
           orderIndex: q.orderIndex,
           validationRules: q.validationRules,
+          isActive: q.isActive ?? true,
+          version: q.version ?? 1,
           options: (q.options || []).map((o: any) => ({
             id: o.id,
             label: o.label,
             value: o.value,
             orderIndex: o.orderIndex,
+            isActive: o.isActive ?? true,
           })),
         })),
       };
@@ -876,7 +1082,13 @@ export class FormsService {
       include: {
         company: true,
         questions: {
-          include: { options: true },
+          where: { isActive: true },
+          include: {
+            options: {
+              where: { isActive: true },
+              orderBy: { orderIndex: 'asc' },
+            },
+          },
           orderBy: { orderIndex: 'asc' },
         },
       },
@@ -901,6 +1113,7 @@ export class FormsService {
       thankYouMessage: form.thankYouMessage || null,
       audienceType: form.audienceType as import('@feedbackhub/types').FeedbackAudience,
       anonymityMode: form.anonymityMode as import('@feedbackhub/types').AnonymityMode,
+      allowMultipleSubmissions: form.allowMultipleSubmissions,
       companyName: company.name,
       companyLogoUrl: company.logoUrl || null,
       brandColorHex: company.brandColorHex || '#8B5CF6',
@@ -914,11 +1127,14 @@ export class FormsService {
         isRequired: q.isRequired,
         orderIndex: q.orderIndex,
         validationRules: q.validationRules,
+        isActive: q.isActive ?? true,
+        version: q.version ?? 1,
         options: (q.options || []).map((o: any) => ({
           id: o.id,
           label: o.label,
           value: o.value,
           orderIndex: o.orderIndex,
+          isActive: o.isActive ?? true,
         })),
       })),
     };
@@ -926,7 +1142,8 @@ export class FormsService {
 
   /**
    * Unauthenticated endpoint: Submits a feedback response to a published form.
-   * Performs rate limiting, comprehensive answer validation, and decoupled persistence.
+   * Performs rate limiting, server-side anonymity policy enforcement, duplicate prevention,
+   * comprehensive answer validation, and decoupled persistence within dedicated public submission context.
    */
   async submitPublicFeedback(
     slug: string,
@@ -950,7 +1167,7 @@ export class FormsService {
       throw new BadRequestException('Too many feedback submissions. Please wait a few moments before trying again.');
     }
 
-    // 2. Validate submission payload
+    // 2. Validate submission payload structure
     const parseResult = publicFeedbackSubmissionSchema.safeParse(body);
     if (!parseResult.success) {
       const issue = parseResult.error.issues[0];
@@ -968,7 +1185,14 @@ export class FormsService {
       include: {
         company: true,
         questions: {
-          include: { options: true },
+          where: { isActive: true },
+          include: {
+            options: {
+              where: { isActive: true },
+              orderBy: { orderIndex: 'asc' },
+            },
+          },
+          orderBy: { orderIndex: 'asc' },
         },
       },
     });
@@ -982,42 +1206,176 @@ export class FormsService {
       throw new NotFoundException('This company is currently inactive and cannot accept feedback.');
     }
 
-    // 4. Validate submitted answers against form question definitions
+    // 4. Server-Side Anonymity Policy Enforcement (Server is the security boundary)
+    let resolvedIsAnonymous = true;
+    let resolvedRespondentName: string | null = null;
+    let resolvedRespondentEmail: string | null = null;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    switch (form.anonymityMode) {
+      case 'ANONYMOUS_ONLY': {
+        if (data.isAnonymous === false) {
+          throw new BadRequestException(
+            'This form is configured as anonymous-only. Identified submissions are not accepted.'
+          );
+        }
+        if (
+          (data.respondentName && data.respondentName.trim().length > 0) ||
+          (data.respondentEmail && data.respondentEmail.trim().length > 0)
+        ) {
+          throw new BadRequestException(
+            'This form is configured as anonymous-only. Personal identity fields must not be provided.'
+          );
+        }
+        resolvedIsAnonymous = true;
+        resolvedRespondentName = null;
+        resolvedRespondentEmail = null;
+        break;
+      }
+
+      case 'IDENTIFIED_ONLY': {
+        if (data.isAnonymous === true) {
+          throw new BadRequestException(
+            'This form requires respondent identification. Anonymous submissions are not accepted.'
+          );
+        }
+        if (!data.respondentEmail || !data.respondentEmail.trim() || !data.respondentName || !data.respondentName.trim()) {
+          throw new BadRequestException(
+            'Respondent name and a valid email address are required for this form.'
+          );
+        }
+        const trimmedEmail = data.respondentEmail.trim().toLowerCase();
+        if (!emailRegex.test(trimmedEmail)) {
+          throw new BadRequestException('A valid email address is required.');
+        }
+        resolvedIsAnonymous = false;
+        resolvedRespondentName = data.respondentName.trim();
+        resolvedRespondentEmail = trimmedEmail;
+        break;
+      }
+
+      case 'RESPONDENT_CHOICE': {
+        if (data.isAnonymous) {
+          resolvedIsAnonymous = true;
+          resolvedRespondentName = null;
+          resolvedRespondentEmail = null;
+        } else {
+          if (!data.respondentEmail || !data.respondentEmail.trim() || !data.respondentName || !data.respondentName.trim()) {
+            throw new BadRequestException(
+              'Respondent name and a valid email address are required when submitting as an identified respondent.'
+            );
+          }
+          const trimmedEmail = data.respondentEmail.trim().toLowerCase();
+          if (!emailRegex.test(trimmedEmail)) {
+            throw new BadRequestException('A valid email address is required.');
+          }
+          resolvedIsAnonymous = false;
+          resolvedRespondentName = data.respondentName.trim();
+          resolvedRespondentEmail = trimmedEmail;
+        }
+        break;
+      }
+    }
+
+    // 5. Anti-duplicate and Rate-Limiting Hash (Salted SHA-256)
+    const salt = process.env.APP_SECRET || 'feedbackhub_privacy_salt_2026';
+    const ipHash = crypto
+      .createHash('sha256')
+      .update(`${form.id}:${rateLimitIdentifier}:${salt}`)
+      .digest('hex');
+
+    // 6. Enforce Multiple Submission Policy
+    if (!form.allowMultipleSubmissions) {
+      if (!resolvedIsAnonymous && resolvedRespondentEmail) {
+        const existingIdentified = await this.prisma.feedbackResponse.findFirst({
+          where: {
+            formId: form.id,
+            respondentEmail: resolvedRespondentEmail,
+          },
+        });
+        if (existingIdentified) {
+          throw new ConflictException('You have already submitted feedback for this form.');
+        }
+      } else {
+        // Anonymous anti-duplicate check: cooldown window (24h)
+        const cooldownStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const existingAnonymous = await this.prisma.feedbackResponse.findFirst({
+          where: {
+            formId: form.id,
+            ipHash,
+            submittedAt: { gte: cooldownStart },
+          },
+        });
+        if (existingAnonymous) {
+          throw new ConflictException(
+            'A response has already been submitted for this form from your network recently. Multiple submissions are disabled.'
+          );
+        }
+      }
+    }
+
+    // 7. Validate submitted answers against active form question definitions
     const questionMap = new Map<string, any>();
     for (const q of form.questions || []) {
-      questionMap.set(q.id, q);
+      if (q.isActive !== false) {
+        questionMap.set(q.id, q);
+      }
     }
 
     const answeredQuestionIds = new Set<string>();
+    const sanitizedAnswers: Array<{
+      questionId: string;
+      questionTitle: string;
+      questionType: string;
+      textValue: string | null;
+      numberValue: number | null;
+      booleanValue: boolean | null;
+      jsonValue: any | null;
+    }> = [];
 
     for (const answer of data.answers) {
       const question = questionMap.get(answer.questionId);
       if (!question) {
-        throw new BadRequestException(`Question ID "${answer.questionId}" does not belong to this form.`);
+        throw new BadRequestException(`Question ID "${answer.questionId}" does not belong to this form or is inactive.`);
       }
 
-      answeredQuestionIds.add(answer.questionId);
-
-      // Validate by question type
       const qType = question.questionType;
       const rules = question.validationRules || {};
+      let isAnswerEmpty = false;
+
+      let textValue: string | null = null;
+      let numberValue: number | null = null;
+      let booleanValue: boolean | null = null;
+      let jsonValue: any | null = null;
 
       switch (qType) {
         case 'SHORT_TEXT':
         case 'LONG_TEXT': {
           if (answer.textValue !== undefined && answer.textValue !== null) {
-            const maxLen = rules.maxLength || MAX_TEXT_ANSWER_LENGTH;
-            if (answer.textValue.length > maxLen) {
-              throw new BadRequestException(
-                `Answer for "${question.title}" exceeds maximum length of ${maxLen} characters.`
-              );
+            const trimmed = typeof answer.textValue === 'string' ? answer.textValue.trim() : String(answer.textValue);
+            if (trimmed.length === 0) {
+              isAnswerEmpty = true;
+            } else {
+              const maxLen = rules.maxLength || MAX_TEXT_ANSWER_LENGTH;
+              if (trimmed.length > maxLen) {
+                throw new BadRequestException(
+                  `Answer for "${question.title}" exceeds maximum length of ${maxLen} characters.`
+                );
+              }
+              textValue = trimmed;
             }
+          } else {
+            isAnswerEmpty = true;
           }
           break;
         }
 
         case 'RATING': {
           if (answer.numberValue !== undefined && answer.numberValue !== null) {
+            if (typeof answer.numberValue !== 'number' || !Number.isInteger(answer.numberValue)) {
+              throw new BadRequestException(`Rating for "${question.title}" must be an integer score.`);
+            }
             const minRating = rules.minRating !== undefined ? rules.minRating : 1;
             const maxRating = rules.maxRating !== undefined ? rules.maxRating : 5;
             if (answer.numberValue < minRating || answer.numberValue > maxRating) {
@@ -1025,88 +1383,156 @@ export class FormsService {
                 `Rating for "${question.title}" must be between ${minRating} and ${maxRating}.`
               );
             }
+            numberValue = answer.numberValue;
+          } else {
+            isAnswerEmpty = true;
           }
           break;
         }
 
         case 'SINGLE_CHOICE': {
-          if (answer.textValue) {
-            const validOptions = (question.options || []).map((o: any) => o.value);
-            if (!validOptions.includes(answer.textValue)) {
+          if (answer.textValue && typeof answer.textValue === 'string' && answer.textValue.trim() !== '') {
+            const trimmed = answer.textValue.trim();
+            const validOptions = (question.options || [])
+              .filter((o: any) => o.isActive !== false)
+              .map((o: any) => o.value);
+            if (!validOptions.includes(trimmed)) {
               throw new BadRequestException(
-                `Invalid choice "${answer.textValue}" selected for "${question.title}".`
+                `Invalid choice "${trimmed}" selected for "${question.title}".`
               );
             }
+            textValue = trimmed;
+          } else {
+            isAnswerEmpty = true;
           }
           break;
         }
 
         case 'MULTIPLE_CHOICE': {
-          if (answer.jsonValue) {
+          if (answer.jsonValue !== undefined && answer.jsonValue !== null) {
             if (!Array.isArray(answer.jsonValue)) {
-              throw new BadRequestException(`Multiple choice answer for "${question.title}" must be an array.`);
+              throw new BadRequestException(`Multiple choice answer for "${question.title}" must be an array of selected options.`);
             }
-            const validOptions = (question.options || []).map((o: any) => o.value);
-            for (const val of answer.jsonValue) {
-              if (typeof val !== 'string' || !validOptions.includes(val)) {
-                throw new BadRequestException(`Invalid option "${val}" selected for "${question.title}".`);
+            if (answer.jsonValue.length === 0) {
+              isAnswerEmpty = true;
+            } else {
+              // Check duplicate selections within array
+              if (new Set(answer.jsonValue).size !== answer.jsonValue.length) {
+                throw new BadRequestException(`Duplicate options are not permitted in answer for "${question.title}".`);
               }
+              const validOptions = (question.options || [])
+                .filter((o: any) => o.isActive !== false)
+                .map((o: any) => o.value);
+
+              for (const val of answer.jsonValue) {
+                if (typeof val !== 'string' || !validOptions.includes(val)) {
+                  throw new BadRequestException(`Invalid option "${val}" selected for "${question.title}".`);
+                }
+              }
+              if (rules.maxSelect && answer.jsonValue.length > rules.maxSelect) {
+                throw new BadRequestException(
+                  `You may select at most ${rules.maxSelect} options for "${question.title}".`
+                );
+              }
+              jsonValue = answer.jsonValue;
             }
-            if (rules.maxSelect && answer.jsonValue.length > rules.maxSelect) {
-              throw new BadRequestException(
-                `You may select at most ${rules.maxSelect} options for "${question.title}".`
-              );
-            }
+          } else {
+            isAnswerEmpty = true;
           }
           break;
         }
 
         case 'YES_NO': {
-          if (answer.booleanValue === undefined && answer.textValue) {
-            const val = answer.textValue.toLowerCase();
-            if (val !== 'yes' && val !== 'no' && val !== 'true' && val !== 'false') {
+          if (answer.booleanValue !== undefined && answer.booleanValue !== null) {
+            booleanValue = Boolean(answer.booleanValue);
+            textValue = booleanValue ? 'yes' : 'no';
+          } else if (answer.textValue && typeof answer.textValue === 'string') {
+            const val = answer.textValue.toLowerCase().trim();
+            if (val === 'yes' || val === 'true') {
+              booleanValue = true;
+              textValue = 'yes';
+            } else if (val === 'no' || val === 'false') {
+              booleanValue = false;
+              textValue = 'no';
+            } else {
               throw new BadRequestException(`Answer for "${question.title}" must be Yes or No.`);
             }
+          } else {
+            isAnswerEmpty = true;
           }
           break;
         }
+
+        default: {
+          textValue = answer.textValue ? String(answer.textValue) : null;
+          numberValue = answer.numberValue ?? null;
+          booleanValue = answer.booleanValue ?? null;
+          jsonValue = answer.jsonValue ?? null;
+          if (!textValue && numberValue === null && booleanValue === null && !jsonValue) {
+            isAnswerEmpty = true;
+          }
+        }
+      }
+
+      if (!isAnswerEmpty) {
+        answeredQuestionIds.add(answer.questionId);
+        sanitizedAnswers.push({
+          questionId: answer.questionId,
+          questionTitle: question.title,
+          questionType: qType,
+          textValue,
+          numberValue,
+          booleanValue,
+          jsonValue,
+        });
       }
     }
 
-    // Check required questions
+    // Check that all required active questions were answered
     for (const q of form.questions || []) {
-      if (q.isRequired && !answeredQuestionIds.has(q.id)) {
+      if (q.isActive !== false && q.isRequired && !answeredQuestionIds.has(q.id)) {
         throw new BadRequestException(`Question "${q.title}" is required.`);
       }
     }
 
-    // 5. Persist submission transactionally
+    // 8. Persist submission transactionally inside dedicated public submission context
     const submissionToken = `sub_${crypto.randomBytes(24).toString('hex')}`;
     const submittedAt = new Date();
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.withPublicSubmissionContext(form.companyId, form.id, async (tx) => {
+      // Re-verify form status inside transaction to prevent publish/archive race conditions
+      const currentForm = await tx.feedbackForm.findUnique({
+        where: { id: form.id },
+      });
+      if (!currentForm || currentForm.status !== 'PUBLISHED') {
+        throw new BadRequestException('Feedback form is no longer accepting submissions.');
+      }
+
       const response = await tx.feedbackResponse.create({
         data: {
           companyId: form.companyId,
           formId: form.id,
           submissionToken,
-          isAnonymous: data.isAnonymous ?? true,
-          respondentName: data.isAnonymous ? null : (data.respondentName || null),
-          respondentEmail: data.isAnonymous ? null : (data.respondentEmail || null),
+          isAnonymous: resolvedIsAnonymous,
+          respondentName: resolvedRespondentName,
+          respondentEmail: resolvedRespondentEmail,
+          ipHash,
           status: 'NEW',
           submittedAt,
         },
       });
 
-      for (const answer of data.answers) {
+      for (const answer of sanitizedAnswers) {
         await tx.feedbackAnswer.create({
           data: {
             responseId: response.id,
             questionId: answer.questionId,
-            textValue: answer.textValue || null,
-            numberValue: answer.numberValue ?? null,
-            booleanValue: answer.booleanValue ?? null,
-            jsonValue: answer.jsonValue || null,
+            questionTitle: answer.questionTitle,
+            questionType: answer.questionType,
+            textValue: answer.textValue,
+            numberValue: answer.numberValue,
+            booleanValue: answer.booleanValue,
+            jsonValue: answer.jsonValue,
           },
         });
       }

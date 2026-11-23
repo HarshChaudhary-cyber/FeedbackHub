@@ -27,6 +27,7 @@ export interface FormQuestionOption {
   label: string;
   value: string;
   orderIndex: number;
+  isActive?: boolean;
 }
 
 export interface QuestionValidationRules {
@@ -48,6 +49,8 @@ export interface FormQuestion {
   orderIndex: number;
   validationRules?: QuestionValidationRules | null;
   options?: FormQuestionOption[];
+  isActive?: boolean;
+  version?: number;
 }
 
 export interface FeedbackForm {
@@ -97,11 +100,13 @@ export interface CreateFormQuestionDto {
   isRequired?: boolean;
   orderIndex?: number;
   validationRules?: QuestionValidationRules | null;
+  isActive?: boolean;
   options?: Array<{
     id?: string;
     label: string;
     value: string;
     orderIndex?: number;
+    isActive?: boolean;
   }>;
 }
 
@@ -138,6 +143,7 @@ export interface PublicFormQuestionOption {
   label: string;
   value: string;
   orderIndex: number;
+  isActive?: boolean;
 }
 
 export interface PublicFormQuestion {
@@ -150,6 +156,8 @@ export interface PublicFormQuestion {
   orderIndex: number;
   validationRules?: QuestionValidationRules | null;
   options?: PublicFormQuestionOption[];
+  isActive?: boolean;
+  version?: number;
 }
 
 export interface PublicFeedbackForm {
@@ -161,6 +169,7 @@ export interface PublicFeedbackForm {
   thankYouMessage?: string | null;
   audienceType: FeedbackAudience;
   anonymityMode: AnonymityMode;
+  allowMultipleSubmissions?: boolean;
   companyName: string;
   companyLogoUrl?: string | null;
   brandColorHex: string;
@@ -170,6 +179,8 @@ export interface PublicFeedbackForm {
 
 export interface PublicAnswerSubmission {
   questionId: string;
+  questionTitle?: string;
+  questionType?: string;
   textValue?: string;
   numberValue?: number;
   booleanValue?: boolean;

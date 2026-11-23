@@ -264,6 +264,8 @@ model FormQuestion {
   orderIndex      Int      @default(0)
   validationRules Json?    // Min/max rating, character limits
   branchingLogic  Json?    // Conditional logic rules
+  isActive        Boolean  @default(true)
+  version         Int      @default(1)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -272,6 +274,7 @@ model FormQuestion {
   answers FeedbackAnswer[]
 
   @@index([formId, orderIndex])
+  @@index([formId, isActive])
 }
 
 model FormQuestionOption {
@@ -280,10 +283,12 @@ model FormQuestionOption {
   label      String @db.VarChar(255)
   value      String @db.VarChar(255)
   orderIndex Int    @default(0)
+  isActive   Boolean @default(true)
 
   question FormQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([questionId, orderIndex])
+  @@index([questionId, isActive])
 }
 
 // ------------------------------------------------------------------------------
@@ -302,6 +307,9 @@ model FeedbackResponse {
   respondentEmail  String?   @db.VarChar(255)
   respondentName   String?   @db.VarChar(150)
   
+  // Privacy-preserving salted SHA-256 hash for abuse mitigation and duplicate prevention
+  ipHash           String?   @db.VarChar(64)
+  
   status           String    @default("NEW") @db.VarChar(30) // NEW, IN_REVIEW, IN_PROGRESS, RESOLVED, ARCHIVED
   sentimentScore   Float?
   tags             Json?     // Array of category tags
@@ -314,24 +322,28 @@ model FeedbackResponse {
   respondentUser PlatformUser?    @relation("IdentifiedUserResponses", fields: [respondentUserId], references: [id], onDelete: SetNull)
   answers        FeedbackAnswer[]
 
-  // Anti-fingerprinting rule: Zero IP or User-Agent columns in this table
+  // Anti-fingerprinting rule: Zero raw IP or User-Agent columns in this table
   @@index([companyId, formId])
   @@index([companyId, submittedAt(sort: Desc)])
   @@index([companyId, status])
+  @@index([formId, ipHash])
+  @@index([formId, respondentEmail])
 }
 
 model FeedbackAnswer {
-  id          String   @id @default(uuid()) @db.Uuid
-  responseId  String   @db.Uuid
-  questionId  String   @db.Uuid
-  textValue   String?  @db.Text
-  numberValue Float?
-  booleanValue Boolean?
-  jsonValue   Json?    // Multi-choice selection or structured payload
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid()) @db.Uuid
+  responseId    String   @db.Uuid
+  questionId    String   @db.Uuid
+  questionTitle String?  @db.VarChar(500) // Question title snapshot at submission time
+  questionType  String?  @db.VarChar(30)  // Question type snapshot at submission time
+  textValue     String?  @db.Text
+  numberValue   Float?
+  booleanValue  Boolean?
+  jsonValue     Json?    // Multi-choice selection or structured payload
+  createdAt     DateTime @default(now())
 
   response FeedbackResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
-  question FormQuestion     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question FormQuestion     @relation(fields: [questionId], references: [id], onDelete: Restrict)
 
   @@index([responseId])
   @@index([questionId])

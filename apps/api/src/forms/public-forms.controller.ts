@@ -36,6 +36,7 @@ export class PublicFormsController {
 
   /**
    * Helper to safely extract client IP without spoofing.
+   * Only honors X-Forwarded-For if TRUSTED_PROXY is explicitly enabled.
    */
   private extractClientIp(req: Request): string {
     const isTrustedProxy = process.env.TRUSTED_PROXY === 'true' || process.env.TRUSTED_PROXY === '1';
@@ -43,7 +44,9 @@ export class PublicFormsController {
       const forwarded = req.headers['x-forwarded-for'];
       if (typeof forwarded === 'string' && forwarded.trim() !== '') {
         const firstHop = forwarded.split(',')[0].trim();
-        if (firstHop) return firstHop;
+        if (firstHop && /^[0-9a-fA-F:.]+$/.test(firstHop)) {
+          return firstHop;
+        }
       }
     }
     return req.ip || req.socket.remoteAddress || '127.0.0.1';

@@ -142,9 +142,25 @@ All form management endpoints (`/api/v1/tenant/forms/*`) enforce four layers of 
 3. `TenantMembershipGuard`: Validates active membership within the company.
 4. `TenantRoleGuard`: Restricts create/update/publish/archive to `OWNER`, `ADMIN`, `MANAGER`, and delete to `OWNER`, `ADMIN`.
 
-### 9.2 Public Endpoint Hardening
+### 9.2 Public Endpoint Hardening & RLS Isolation
 1. **No Sensitive Leaks**: `GET /api/v1/public/forms/:slug` returns only the public presentation schema (prompt, choices, welcome/thank you text, public company branding). Internal user IDs, company IDs, creation metadata, and response records are omitted.
 2. **Abuse & DoS Throttling**: `POST /api/v1/public/forms/:slug/submit` enforces sliding-window rate limiting (20 requests per 5 minutes per IP) via HMAC-normalized keys in `RateLimiterService`.
-3. **Server-Side Answer Validation**: All submitted answers are verified against the form's question types, rating bounds, choice option values, and character limits (maximum 2,000 characters for text answers). Unknown question IDs are rejected.
-4. **Decoupled Anonymity**: For anonymous forms, `respondentName` and `respondentEmail` are set to `null` before persistence. Zero IP addresses or browser fingerprints are stored in `FeedbackResponse` or `FeedbackAnswer`.
+3. **Safe Proxy Trust & Client IP Extraction**: Client IP is extracted strictly from direct connection socket (`req.ip` / `req.socket.remoteAddress`) unless `TRUSTED_PROXY=true` is explicitly enabled in the environment. All forwarded headers (`X-Forwarded-For`) are strictly validated against IPv4 and IPv6 format regex to prevent header injection or spoofing.
+4. **Server-Side Anonymity Policy Enforcement**:
+   - `ANONYMOUS_ONLY`: Always forces `isAnonymous = true`. Rejects client requests that include `respondentName` or `respondentEmail` or provide `isAnonymous: false`.
+   - `IDENTIFIED_ONLY`: Rejects anonymous submissions (`isAnonymous: true`). Requires valid `respondentName` and well-formed `respondentEmail`.
+   - `RESPONDENT_CHOICE`: If respondent chooses anonymity, strips identity fields and sets `isAnonymous = true`. If identified, validates name and email.
+   - *Terminology Policy*: Privacy copy in the public form accurately communicates that answers are decoupled from identity and IP address, without unsupported claims of mathematical or cryptographic zero-knowledge proofs.
+5. **Comprehensive Server-Side Answer Validation**: All submitted answers are verified against the form's active questions. All 6 question types (`SHORT_TEXT`, `LONG_TEXT`, `RATING`, `SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `YES_NO`) are strictly validated:
+   - Unknown or inactive questions are rejected with `BadRequestException`.
+   - Required questions must have non-empty, non-whitespace answers.
+   - Text questions enforce length constraints (maximum 2,000 characters).
+   - Rating questions enforce integer bounds (`minRating` to `maxRating`).
+   - Single-choice and multiple-choice answers are validated against configured question options.
+   - `YES_NO` answers enforce boolean type validity.
+6. **Multiple Submission Policy & Duplicate Prevention**:
+   - When `allowMultipleSubmissions: false`, repeat identified submissions with matching email are rejected with HTTP 409 Conflict.
+   - Anonymous submissions compute an irreversible HMAC-SHA256 `ipHash` with a server-side salt, enforcing a 24-hour cooldown period to prevent automated spamming while preserving anonymity.
+   - When `allowMultipleSubmissions: true`, multiple submissions are permitted.
+7. **PostgreSQL RLS Transaction-Local Public Insertion**: Public submissions execute within a dedicated transaction calling `withPublicSubmissionContext(companyId, formId, tx)`. The database Row-Level Security policy checks `app.is_public_submission = 'true'`, confirms that the form is `PUBLISHED` and the company is `ACTIVE`, ensuring that unauthenticated connections can never insert arbitrary rows into other tenants or forms.
 

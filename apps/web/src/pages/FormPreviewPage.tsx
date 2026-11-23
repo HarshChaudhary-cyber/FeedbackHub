@@ -145,7 +145,7 @@ export const FormPreviewPage: React.FC = () => {
 
             {/* Questions Form */}
             <form onSubmit={handleSimulatedSubmit} className="p-8 space-y-8">
-              {form.questions.map((q, idx) => (
+              {form.questions.filter((q) => q.isActive !== false).map((q, idx) => (
                 <div key={q.id} className="space-y-3">
                   <label className="block">
                     <span className="font-bold text-slate-900 text-sm flex items-center gap-1">

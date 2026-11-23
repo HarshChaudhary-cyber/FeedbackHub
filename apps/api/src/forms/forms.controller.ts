@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
@@ -85,6 +86,18 @@ export class FormsController {
   @ApiOperation({ summary: 'Update a feedback form and synchronize its questions' })
   @ApiResponse({ status: 200, description: 'Feedback form updated' })
   async updateForm(
+    @CurrentTenant('companyId') companyId: string,
+    @Param('id') formId: string,
+    @Body() body: unknown
+  ): Promise<FeedbackForm> {
+    return this.formsService.updateForm(companyId, formId, body);
+  }
+
+  @Put(':id')
+  @RequireRoles('OWNER', 'ADMIN', 'MANAGER')
+  @ApiOperation({ summary: 'Update a feedback form and synchronize its questions (PUT alias)' })
+  @ApiResponse({ status: 200, description: 'Feedback form updated' })
+  async updateFormPut(
     @CurrentTenant('companyId') companyId: string,
     @Param('id') formId: string,
     @Body() body: unknown

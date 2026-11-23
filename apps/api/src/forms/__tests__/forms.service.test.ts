@@ -503,4 +503,662 @@ describe('FormsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('Historical Data & Response Preservation (Non-Destructive Question Sync)', () => {
+    it('preserves historical feedback answers and question snapshots when questions are updated in-place', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Survey Before Edits',
+        questions: [
+          {
+            questionType: 'SHORT_TEXT',
+            title: 'Initial Question Title',
+            isRequired: true,
+          },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+      const q1Id = form.questions![0].id;
+
+      // Collect a public response to initial question
+      await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: q1Id, textValue: 'Historical response text' }],
+        },
+        '10.0.0.1'
+      );
+
+      // Verify answer exists in database
+      const initialAnswers = await prisma.feedbackAnswer.findMany({ where: { questionId: q1Id } });
+      expect(initialAnswers).toHaveLength(1);
+      expect(initialAnswers[0].textValue).toBe('Historical response text');
+      expect(initialAnswers[0].questionTitle).toBe('Initial Question Title');
+
+      // Admin updates question title to "Renamed Question Title"
+      await service.updateForm(tenantA, form.id, {
+        title: 'Survey After Edits',
+        questions: [
+          {
+            id: q1Id, // Preserving existing question ID
+            questionType: 'SHORT_TEXT',
+            title: 'Renamed Question Title',
+            isRequired: true,
+          },
+        ],
+      });
+
+      // Historical answers MUST still exist and remain associated with question ID and snapshot title
+      const preservedAnswers = await prisma.feedbackAnswer.findMany({ where: { questionId: q1Id } });
+      expect(preservedAnswers).toHaveLength(1);
+      expect(preservedAnswers[0].textValue).toBe('Historical response text');
+      expect(preservedAnswers[0].questionTitle).toBe('Initial Question Title');
+
+      // The question itself was updated in-place
+      const updatedForm = await service.getForm(tenantA, form.id);
+      expect(updatedForm.questions![0].id).toBe(q1Id);
+      expect(updatedForm.questions![0].title).toBe('Renamed Question Title');
+      expect(updatedForm.questions![0].version).toBe(2);
+    });
+
+    it('preserves historical answers when a question is removed from the form (soft-deleted)', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Multi-Question Survey',
+        questions: [
+          { questionType: 'SHORT_TEXT', title: 'Question To Keep', isRequired: true },
+          { questionType: 'RATING', title: 'Question To Remove Later', isRequired: true },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+      const keepQId = form.questions![0].id;
+      const removeQId = form.questions![1].id;
+
+      // Submit feedback answering BOTH questions
+      await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [
+            { questionId: keepQId, textValue: 'Keep this answer' },
+            { questionId: removeQId, numberValue: 4 },
+          ],
+        },
+        '10.0.0.2'
+      );
+
+      // Verify answers are stored
+      const preAnswersKeep = await prisma.feedbackAnswer.findMany({ where: { questionId: keepQId } });
+      const preAnswersRemove = await prisma.feedbackAnswer.findMany({ where: { questionId: removeQId } });
+      expect(preAnswersKeep).toHaveLength(1);
+      expect(preAnswersRemove).toHaveLength(1);
+      expect(preAnswersRemove[0].numberValue).toBe(4);
+
+      // Admin updates the form, omitting the second question
+      await service.updateForm(tenantA, form.id, {
+        title: 'Multi-Question Survey (Updated)',
+        questions: [
+          {
+            id: keepQId,
+            questionType: 'SHORT_TEXT',
+            title: 'Question To Keep',
+            isRequired: true,
+          },
+        ],
+      });
+
+      // The active questions on the form now only list the remaining question
+      const updatedForm = await service.getForm(tenantA, form.id);
+      expect(updatedForm.questions).toHaveLength(1);
+      expect(updatedForm.questions![0].id).toBe(keepQId);
+
+      // CRITICAL: The removed question's historical answers MUST NOT BE DESTROYED!
+      const postAnswersRemove = await prisma.feedbackAnswer.findMany({ where: { questionId: removeQId } });
+      expect(postAnswersRemove).toHaveLength(1);
+      expect(postAnswersRemove[0].numberValue).toBe(4);
+      expect(postAnswersRemove[0].questionTitle).toBe('Question To Remove Later');
+
+      // The removed question record still exists in the database as inactive
+      const softDeletedQ = await prisma.formQuestion.findUnique({ where: { id: removeQId } });
+      expect(softDeletedQ).toBeDefined();
+      expect(softDeletedQ?.isActive).toBe(false);
+    });
+
+    it('preserves existing responses and answers when questions are reordered', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Reorder Survey',
+        questions: [
+          { questionType: 'SHORT_TEXT', title: 'First Q', isRequired: true, orderIndex: 0 },
+          { questionType: 'SHORT_TEXT', title: 'Second Q', isRequired: true, orderIndex: 1 },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qFirst = form.questions![0].id;
+      const qSecond = form.questions![1].id;
+
+      await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [
+            { questionId: qFirst, textValue: 'Answer to First' },
+            { questionId: qSecond, textValue: 'Answer to Second' },
+          ],
+        },
+        '10.0.0.3'
+      );
+
+      // Reorder questions
+      await service.updateForm(tenantA, form.id, {
+        questions: [
+          { id: qSecond, questionType: 'SHORT_TEXT', title: 'Second Q', orderIndex: 0 },
+          { id: qFirst, questionType: 'SHORT_TEXT', title: 'First Q', orderIndex: 1 },
+        ],
+      });
+
+      const reorderedForm = await service.getForm(tenantA, form.id);
+      expect(reorderedForm.questions![0].id).toBe(qSecond);
+      expect(reorderedForm.questions![1].id).toBe(qFirst);
+
+      // Answers remain associated with their original questions
+      const ansFirst = await prisma.feedbackAnswer.findMany({ where: { questionId: qFirst } });
+      const ansSecond = await prisma.feedbackAnswer.findMany({ where: { questionId: qSecond } });
+      expect(ansFirst[0].textValue).toBe('Answer to First');
+      expect(ansSecond[0].textValue).toBe('Answer to Second');
+    });
+  });
+
+  describe('Anonymity Policy Server-Side Enforcement', () => {
+    it('ANONYMOUS_ONLY rejects identified submission when client passes isAnonymous: false', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Strict Anonymous Form',
+        anonymityMode: 'ANONYMOUS_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: false,
+            respondentName: 'John Doe',
+            respondentEmail: 'john@example.com',
+            answers: [{ questionId: form.questions![0].id, textValue: 'Test' }],
+          },
+          '10.1.1.1'
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('ANONYMOUS_ONLY rejects submission if personal identity fields are provided', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Strict Anonymous Form 2',
+        anonymityMode: 'ANONYMOUS_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            respondentEmail: 'leaked@example.com',
+            answers: [{ questionId: form.questions![0].id, textValue: 'Test' }],
+          },
+          '10.1.1.2'
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('ANONYMOUS_ONLY persists isAnonymous: true and NULL identity fields', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Strict Anonymous Form 3',
+        anonymityMode: 'ANONYMOUS_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      const result = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: form.questions![0].id, textValue: 'Completely anonymous' }],
+        },
+        '10.1.1.3'
+      );
+
+      expect(result.success).toBe(true);
+
+      const persisted = await prisma.feedbackResponse.findUnique({
+        where: { submissionToken: result.submissionToken },
+      });
+      expect(persisted).toBeDefined();
+      expect(persisted?.isAnonymous).toBe(true);
+      expect(persisted?.respondentName).toBeNull();
+      expect(persisted?.respondentEmail).toBeNull();
+      expect(persisted?.respondentUserId).toBeNull();
+      expect(persisted?.ipHash).toBeDefined();
+    });
+
+    it('IDENTIFIED_ONLY rejects anonymous submission (isAnonymous: true)', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Mandatory Identified Form',
+        anonymityMode: 'IDENTIFIED_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: form.questions![0].id, textValue: 'Trying to be anonymous' }],
+          },
+          '10.1.2.1'
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('IDENTIFIED_ONLY rejects submission with missing name or invalid email', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Mandatory Identified Form 2',
+        anonymityMode: 'IDENTIFIED_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      // Missing name
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: false,
+            respondentEmail: 'valid@example.com',
+            answers: [{ questionId: form.questions![0].id, textValue: 'Test' }],
+          },
+          '10.1.2.2'
+        )
+      ).rejects.toThrow(BadRequestException);
+
+      // Malformed email
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: false,
+            respondentName: 'Jane Doe',
+            respondentEmail: 'not-an-email',
+            answers: [{ questionId: form.questions![0].id, textValue: 'Test' }],
+          },
+          '10.1.2.3'
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('IDENTIFIED_ONLY persists isAnonymous: false and validated identity', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Mandatory Identified Form 3',
+        anonymityMode: 'IDENTIFIED_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      const result = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: false,
+          respondentName: 'Jane Doe',
+          respondentEmail: 'Jane@Example.COM',
+          answers: [{ questionId: form.questions![0].id, textValue: 'Identified answer' }],
+        },
+        '10.1.2.4'
+      );
+
+      expect(result.success).toBe(true);
+
+      const persisted = await prisma.feedbackResponse.findUnique({
+        where: { submissionToken: result.submissionToken },
+      });
+      expect(persisted).toBeDefined();
+      expect(persisted?.isAnonymous).toBe(false);
+      expect(persisted?.respondentName).toBe('Jane Doe');
+      expect(persisted?.respondentEmail).toBe('jane@example.com'); // Lowercase normalized
+    });
+
+    it('RESPONDENT_CHOICE accepts both anonymous and identified submissions correctly', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Choice Form',
+        anonymityMode: 'RESPONDENT_CHOICE',
+        allowMultipleSubmissions: true,
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      // 1. Submit anonymously
+      const anonResult = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: form.questions![0].id, textValue: 'Anonymous choice' }],
+        },
+        '10.1.3.1'
+      );
+      const anonPersisted = await prisma.feedbackResponse.findUnique({
+        where: { submissionToken: anonResult.submissionToken },
+      });
+      expect(anonPersisted?.isAnonymous).toBe(true);
+      expect(anonPersisted?.respondentEmail).toBeNull();
+
+      // 2. Submit identified
+      const identResult = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: false,
+          respondentName: 'Alice Smith',
+          respondentEmail: 'alice@example.com',
+          answers: [{ questionId: form.questions![0].id, textValue: 'Identified choice' }],
+        },
+        '10.1.3.2'
+      );
+      const identPersisted = await prisma.feedbackResponse.findUnique({
+        where: { submissionToken: identResult.submissionToken },
+      });
+      expect(identPersisted?.isAnonymous).toBe(false);
+      expect(identPersisted?.respondentName).toBe('Alice Smith');
+      expect(identPersisted?.respondentEmail).toBe('alice@example.com');
+    });
+  });
+
+  describe('Multiple Submission Policy & Duplicate Prevention', () => {
+    it('rejects repeat identified submission when allowMultipleSubmissions is false', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'No Multi Submit Form (Identified)',
+        anonymityMode: 'IDENTIFIED_ONLY',
+        allowMultipleSubmissions: false,
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      // First submission succeeds
+      const first = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: false,
+          respondentName: 'User One',
+          respondentEmail: 'one@example.com',
+          answers: [{ questionId: form.questions![0].id, textValue: 'First' }],
+        },
+        '10.2.0.1'
+      );
+      expect(first.success).toBe(true);
+
+      // Second submission with SAME email is rejected
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: false,
+            respondentName: 'User One',
+            respondentEmail: 'one@example.com',
+            answers: [{ questionId: form.questions![0].id, textValue: 'Second attempt' }],
+          },
+          '10.2.0.99' // Different IP, but same email
+        )
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('rejects repeat anonymous submission from same IP within cooldown when allowMultipleSubmissions is false', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'No Multi Submit Form (Anonymous)',
+        anonymityMode: 'ANONYMOUS_ONLY',
+        allowMultipleSubmissions: false,
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      // First submission succeeds
+      const first = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: form.questions![0].id, textValue: 'First anon' }],
+        },
+        '10.2.1.50'
+      );
+      expect(first.success).toBe(true);
+
+      // Second submission from SAME IP is rejected by anti-duplicate check
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: form.questions![0].id, textValue: 'Second anon' }],
+          },
+          '10.2.1.50'
+        )
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('permits multiple submissions when allowMultipleSubmissions is true', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Allow Multi Submit Form',
+        anonymityMode: 'IDENTIFIED_ONLY',
+        allowMultipleSubmissions: true,
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Q', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      // First submission
+      const first = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: false,
+          respondentName: 'Repeat User',
+          respondentEmail: 'repeat@example.com',
+          answers: [{ questionId: form.questions![0].id, textValue: 'First' }],
+        },
+        '10.2.2.1'
+      );
+      expect(first.success).toBe(true);
+
+      // Second submission allowed
+      const second = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: false,
+          respondentName: 'Repeat User',
+          respondentEmail: 'repeat@example.com',
+          answers: [{ questionId: form.questions![0].id, textValue: 'Second' }],
+        },
+        '10.2.2.1'
+      );
+      expect(second.success).toBe(true);
+
+      const check = await service.getForm(tenantA, form.id);
+      expect(check.responseCount).toBe(2);
+    });
+  });
+
+  describe('Comprehensive Question Type Validation', () => {
+    it('MULTIPLE_CHOICE rejects non-array, duplicates, and invalid choices', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Multi Choice Test',
+        questions: [
+          {
+            questionType: 'MULTIPLE_CHOICE',
+            title: 'Select up to 2 skills',
+            isRequired: true,
+            validationRules: { maxSelect: 2 },
+            options: [
+              { label: 'React', value: 'react' },
+              { label: 'Node', value: 'node' },
+              { label: 'Python', value: 'python' },
+            ],
+          },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      // 1. Non-array payload rejected
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: qId, jsonValue: 'not-an-array' }],
+          },
+          '10.3.1.1'
+        )
+      ).rejects.toThrow(BadRequestException);
+
+      // 2. Duplicate option selection rejected
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: qId, jsonValue: ['react', 'react'] }],
+          },
+          '10.3.1.2'
+        )
+      ).rejects.toThrow(BadRequestException);
+
+      // 3. Invalid option not in question options rejected
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: qId, jsonValue: ['react', 'cobol_invalid'] }],
+          },
+          '10.3.1.3'
+        )
+      ).rejects.toThrow(BadRequestException);
+
+      // 4. Exceeding maxSelect (3 > 2) rejected
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: qId, jsonValue: ['react', 'node', 'python'] }],
+          },
+          '10.3.1.4'
+        )
+      ).rejects.toThrow(BadRequestException);
+
+      // 5. Valid selection succeeds
+      const valid = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: qId, jsonValue: ['react', 'python'] }],
+        },
+        '10.3.1.5'
+      );
+      expect(valid.success).toBe(true);
+    });
+
+    it('RATING rejects non-integer floats', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Rating Float Test',
+        questions: [
+          { questionType: 'RATING', title: 'Score', isRequired: true, validationRules: { minRating: 1, maxRating: 5 } },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: form.questions![0].id, numberValue: 3.5 }],
+          },
+          '10.3.2.1'
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('YES_NO accepts valid representations and rejects invalid values', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Yes No Test',
+        allowMultipleSubmissions: true,
+        questions: [{ questionType: 'YES_NO', title: 'Agree?', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      // Valid boolean
+      const resBool = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: qId, booleanValue: true }],
+        },
+        '10.3.3.1'
+      );
+      expect(resBool.success).toBe(true);
+
+      // Valid string 'no'
+      const resStr = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: qId, textValue: 'no' }],
+        },
+        '10.3.3.2'
+      );
+      expect(resStr.success).toBe(true);
+
+      // Invalid string rejected
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [{ questionId: qId, textValue: 'maybe' }],
+          },
+          '10.3.3.3'
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects answers submitted to inactive/soft-deleted questions', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Inactive Q Test',
+        questions: [
+          { questionType: 'SHORT_TEXT', title: 'Q Active', isRequired: true },
+          { questionType: 'SHORT_TEXT', title: 'Q To Deactivate', isRequired: false },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+      const activeQId = form.questions![0].id;
+      const deactivatedQId = form.questions![1].id;
+
+      // Update form, omitting deactivated question
+      await service.updateForm(tenantA, form.id, {
+        questions: [{ id: activeQId, questionType: 'SHORT_TEXT', title: 'Q Active', isRequired: true }],
+      });
+
+      // Attempt to answer the deactivated question
+      await expect(
+        service.submitPublicFeedback(
+          form.slug,
+          {
+            isAnonymous: true,
+            answers: [
+              { questionId: activeQId, textValue: 'Valid answer' },
+              { questionId: deactivatedQId, textValue: 'Zombie answer' },
+            ],
+          },
+          '10.3.4.1'
+        )
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });
