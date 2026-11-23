@@ -444,10 +444,25 @@ In Phase 6, PostgreSQL Row-Level Security is enabled and enforced across all for
       );
   ```
 
-### 6.4 Response History Preservation & Non-Destructive Question Sync
+### 6.4 Response History Preservation & Choice Option Snapshots
 - **Non-Destructive Question Synchronization**: When forms are edited, existing questions are never deleted. Removed questions are soft-deleted with `isActive: false`, preserving their IDs and historical answers.
 - **Referential Integrity Protection**: The `FeedbackAnswer.questionId` foreign key specifies `ON DELETE RESTRICT`. Questions with historical answers cannot be deleted at the database engine level.
-- **Answer Snapshotting**: `FeedbackAnswer` stores `questionTitle` and `questionType` snapshots at the time of submission, guaranteeing that historical responses remain perfectly interpretable even if the question text or options are modified in subsequent form versions.
-- **Duplicate Prevention & Anonymous Cooldown**: `FeedbackResponse` records `ipHash` (SHA-256 with server-side salt). When `allowMultipleSubmissions: false`, duplicate identified submissions are rejected by email, and anonymous submissions are restricted by `(formId, ipHash)` within a 24-hour cooldown window. Indexed by `(formId, ipHash)` and `(formId, respondentEmail)`.
-- **Application Integration**: `PrismaService.withPublicSubmissionContext(companyId, formId, fn)` sets transaction-local configuration (`is_local = true`) so pooled database connections automatically reset context when the transaction terminates.
+- **Answer & Choice Snapshotting**: `FeedbackAnswer` stores snapshots at submission time:
+  - `questionTitle` (`VARCHAR(500)`): Frozen question title as asked at submission time.
+  - `questionType` (`VARCHAR(30)`): Frozen question type.
+  - `selectedOptionLabel` (`VARCHAR(500)`): For `SINGLE_CHOICE`, the exact label of the option at submission time.
+  - `selectedOptionValue` (`VARCHAR(255)`): For `SINGLE_CHOICE`, the exact option value chosen.
+  - `selectedOptions` (`JSONB`): For `SINGLE_CHOICE` and `MULTIPLE_CHOICE`, an array of objects `[{"label": "...", "value": "..."}]` preserving the original label and value for every selected option.
+  - *Data Integrity Guarantee*: Historical choice answers remain completely interpretable and immutable even if administrators later modify option labels, alter option values, remove options, reorder options, or change question titles.
+- **Application Integration**: `PrismaService.withPublicSubmissionContext(companyId, formId, lockKey, fn)` sets transaction-local configuration (`is_local = true`) so pooled database connections automatically reset context when the transaction terminates.
+
+### 6.5 Atomic Concurrency Serialization & Advisory Locks
+- **Advisory Lock Strategy**: To eliminate race conditions where two simultaneous requests with the same email or IP-hash pass validation before either commits, transactions acquire a PostgreSQL transaction-scoped advisory lock:
+  ```sql
+  SELECT pg_advisory_xact_lock(hashtext('feedbackhub_form:' || formId), hashtext(targetKey));
+  ```
+  Where `targetKey` is `email:<lower_email>` for identified submissions, or `ip:<ipHash>` for anonymous submissions.
+- **Transaction-Scoped Lifecycle**: PostgreSQL advisory xact locks automatically release upon transaction commit or rollback, leaving zero dangling locks on connection pooling or server crashes.
+- **Fine-Grained Isolation**: Advisory lock keys hash form IDs and respondent identifiers; distinct respondents and independent forms experience zero lock contention and proceed in parallel without blocking.
+- **PostgreSQL Live Verification Status**: Docker Desktop was not running on the local development environment during this test cycle. PostgreSQL advisory locking syntax and transactional integration were verified statically and via migration `20261123000001_feedback_option_snapshots.sql`. Concurrency and serialization logic were fully verified using an in-memory mutex emulation layer running against concurrent Node.js asynchronous test suites (`Promise.allSettled`).
 

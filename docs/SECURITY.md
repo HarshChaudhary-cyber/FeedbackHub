@@ -158,9 +158,15 @@ All form management endpoints (`/api/v1/tenant/forms/*`) enforce four layers of 
    - Rating questions enforce integer bounds (`minRating` to `maxRating`).
    - Single-choice and multiple-choice answers are validated against configured question options.
    - `YES_NO` answers enforce boolean type validity.
-6. **Multiple Submission Policy & Duplicate Prevention**:
-   - When `allowMultipleSubmissions: false`, repeat identified submissions with matching email are rejected with HTTP 409 Conflict.
+6. **Multiple Submission Policy & Concurrent Duplicate Prevention**:
+   - When `allowMultipleSubmissions: false`, the backend serializes submissions atomically using transaction-scoped advisory locks on `(formId, email)` or `(formId, ipHash)`.
+   - Identified repeat submissions with matching email are rejected with HTTP 409 Conflict.
    - Anonymous submissions compute an irreversible HMAC-SHA256 `ipHash` with a server-side salt, enforcing a 24-hour cooldown period to prevent automated spamming while preserving anonymity.
-   - When `allowMultipleSubmissions: true`, multiple submissions are permitted.
-7. **PostgreSQL RLS Transaction-Local Public Insertion**: Public submissions execute within a dedicated transaction calling `withPublicSubmissionContext(companyId, formId, tx)`. The database Row-Level Security policy checks `app.is_public_submission = 'true'`, confirms that the form is `PUBLISHED` and the company is `ACTIVE`, ensuring that unauthenticated connections can never insert arbitrary rows into other tenants or forms.
+   - When `allowMultipleSubmissions: true`, multiple submissions are permitted and advisory locks are bypassed.
+7. **Limitations of Anonymous IP-Based Duplicate Prevention**:
+   - *NAT / Shared Gateways*: Organizations, universities, or public networks sharing a single egress IP address will share the same `ipHash`. Legitimate separate respondents submitting from the same network within the 24-hour window may encounter cooldown blocks.
+   - *Dynamic IPs & Proxies*: An adversary or respondent utilizing VPNs, mobile network reconnects, or rotating proxies receives a new IP address, bypassing IP-based cooldowns.
+   - *IPv6 Privacy Extensions*: Operating systems employing temporary, rotating IPv6 privacy addresses generate new hashes over time.
+   - *Summary*: Anonymous cooldown is a defense-in-depth rate-limiting mechanism against casual duplicate submissions and automated flooding, not an absolute identity guarantee. Forms requiring strict one-per-person uniqueness should utilize `IDENTIFIED_ONLY` mode.
+8. **PostgreSQL RLS Transaction-Local Public Insertion**: Public submissions execute within a dedicated transaction calling `withPublicSubmissionContext(companyId, formId, lockKey, tx)`. The database Row-Level Security policy checks `app.is_public_submission = 'true'`, confirms that the form is `PUBLISHED` and the company is `ACTIVE`, ensuring that unauthenticated connections can never insert arbitrary rows into other tenants or forms.
 

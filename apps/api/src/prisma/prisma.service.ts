@@ -236,12 +236,17 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * In PostgreSQL mode, sets `app.is_public_submission = 'true'`, `app.public_submission_company_id`,
    * and `app.public_submission_form_id` strictly via transaction-local `set_config` (is_local = true)
    * so connection pooling never leaks submission state.
+   * When `lockKey` is provided, serializes concurrent submissions atomically via PostgreSQL transaction-scoped advisory locks.
    */
   async withPublicSubmissionContext<T>(
     companyId: string,
     formId: string,
-    fn: (tx: PrismaService) => Promise<T>
+    lockKeyOrFn: string | null | ((tx: PrismaService) => Promise<T>),
+    maybeFn?: (tx: PrismaService) => Promise<T>
   ): Promise<T> {
+    const fn = typeof lockKeyOrFn === 'function' ? lockKeyOrFn : maybeFn!;
+    const lockKey = typeof lockKeyOrFn === 'string' ? lockKeyOrFn : null;
+
     if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
       throw new Error('Public submission context required: companyId is missing or empty.');
     }
@@ -251,17 +256,93 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const cleanCompanyId = companyId.trim();
     const cleanFormId = formId.trim();
 
-    return this.$transaction(async (tx) => {
-      if (!this.isInMemory) {
-        await (tx as any).$executeRaw`SELECT set_config('app.is_public_submission', 'true', true)`;
-        await (tx as any).$executeRaw`SELECT set_config('app.public_submission_company_id', ${cleanCompanyId}, true)`;
-        await (tx as any).$executeRaw`SELECT set_config('app.public_submission_form_id', ${cleanFormId}, true)`;
+    const executeTx = async () => {
+      return this.$transaction(async (tx) => {
+        if (!this.isInMemory) {
+          await (tx as any).$executeRaw`SELECT set_config('app.is_public_submission', 'true', true)`;
+          await (tx as any).$executeRaw`SELECT set_config('app.public_submission_company_id', ${cleanCompanyId}, true)`;
+          await (tx as any).$executeRaw`SELECT set_config('app.public_submission_form_id', ${cleanFormId}, true)`;
+          if (lockKey) {
+            await (tx as any).$executeRawUnsafe(
+              'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+              `feedbackhub_form:${cleanFormId}`,
+              lockKey
+            );
+          }
+        }
+        return fn(tx as PrismaService);
+      });
+    };
+
+    if (this.isInMemory && lockKey) {
+      const releaseLock = await this.acquireSubmissionAdvisoryLock(null, cleanFormId, lockKey);
+      try {
+        return await executeTx();
+      } finally {
+        releaseLock();
       }
-      return fn(tx as PrismaService);
-    });
+    }
+
+    return executeTx();
   }
 
+  /**
+   * Acquires a fine-grained, transaction-scoped advisory lock for submission serialization.
+   * In PostgreSQL mode, calls `pg_advisory_xact_lock(hashtext($1), hashtext($2))` inside the transaction,
+   * which automatically releases when the transaction commits or rolls back.
+   * In in-memory mode, uses an in-memory lock map with timeout protection.
+   */
+  async acquireSubmissionAdvisoryLock(
+    tx: any,
+    formId: string,
+    targetKey: string,
+    timeoutMs = 5000
+  ): Promise<() => void> {
+    const key1 = `feedbackhub_form:${formId}`;
+    const key2 = targetKey;
+
+    if (!this.isInMemory) {
+      await tx.$executeRawUnsafe(
+        'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+        key1,
+        key2
+      );
+      return () => {};
+    }
+
+    const lockKey = `${key1}:${key2}`;
+    const start = Date.now();
+    while (this.inMemoryLocks.has(lockKey)) {
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`Advisory lock acquisition timed out for key: ${lockKey}`);
+      }
+      const existingPromise = this.inMemoryLocks.get(lockKey);
+      if (existingPromise) {
+        await Promise.race([
+          existingPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Lock acquisition timeout')), timeoutMs)),
+        ]).catch(() => {
+          // Re-evaluate loop
+        });
+      }
+    }
+
+    let unlockFn: () => void = () => {};
+    const lockPromise = new Promise<void>((resolve) => {
+      unlockFn = resolve;
+    });
+    this.inMemoryLocks.set(lockKey, lockPromise);
+
+    return () => {
+      this.inMemoryLocks.delete(lockKey);
+      unlockFn();
+    };
+  }
+
+  private inMemoryLocks = new Map<string, Promise<void>>();
+
   public resetMemoryStore() {
+    this.inMemoryLocks.clear();
     this.memoryStore.users.clear();
     this.memoryStore.verificationTokens.clear();
     this.memoryStore.resetTokens.clear();
@@ -1464,6 +1545,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
               questionId: ansData.questionId,
               questionTitle: ansData.questionTitle || null,
               questionType: ansData.questionType || null,
+              selectedOptionLabel: ansData.selectedOptionLabel || null,
+              selectedOptionValue: ansData.selectedOptionValue || null,
+              selectedOptions: ansData.selectedOptions || null,
               textValue: ansData.textValue || null,
               numberValue: ansData.numberValue ?? null,
               booleanValue: ansData.booleanValue ?? null,
@@ -1586,6 +1670,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           questionId: args.data.questionId,
           questionTitle: args.data.questionTitle || null,
           questionType: args.data.questionType || null,
+          selectedOptionLabel: args.data.selectedOptionLabel || null,
+          selectedOptionValue: args.data.selectedOptionValue || null,
+          selectedOptions: args.data.selectedOptions || null,
           textValue: args.data.textValue || null,
           numberValue: args.data.numberValue ?? null,
           booleanValue: args.data.booleanValue ?? null,

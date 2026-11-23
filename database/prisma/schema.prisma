@@ -331,16 +331,19 @@ model FeedbackResponse {
 }
 
 model FeedbackAnswer {
-  id            String   @id @default(uuid()) @db.Uuid
-  responseId    String   @db.Uuid
-  questionId    String   @db.Uuid
-  questionTitle String?  @db.VarChar(500) // Question title snapshot at submission time
-  questionType  String?  @db.VarChar(30)  // Question type snapshot at submission time
-  textValue     String?  @db.Text
-  numberValue   Float?
-  booleanValue  Boolean?
-  jsonValue     Json?    // Multi-choice selection or structured payload
-  createdAt     DateTime @default(now())
+  id                  String   @id @default(uuid()) @db.Uuid
+  responseId          String   @db.Uuid
+  questionId          String   @db.Uuid
+  questionTitle       String?  @db.VarChar(500) // Question title snapshot at submission time
+  questionType        String?  @db.VarChar(30)  // Question type snapshot at submission time
+  selectedOptionLabel String?  @db.VarChar(500) // Original option label snapshot at submission time
+  selectedOptionValue String?  @db.VarChar(255) // Original option value snapshot at submission time
+  selectedOptions     Json?                     // Array of { label, value } snapshots for multi/single choice
+  textValue           String?  @db.Text
+  numberValue         Float?
+  booleanValue        Boolean?
+  jsonValue           Json?    // Multi-choice selection or structured payload
+  createdAt           DateTime @default(now())
 
   response FeedbackResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
   question FormQuestion     @relation(fields: [questionId], references: [id], onDelete: Restrict)

@@ -1161,4 +1161,318 @@ describe('FormsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('Historical Choice-Option Interpretation Preservation', () => {
+    it('preserves SINGLE_CHOICE option label and value snapshots across subsequent form edits', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Customer Satisfaction Survey',
+        questions: [
+          {
+            questionType: 'SINGLE_CHOICE',
+            title: 'How satisfied are you?',
+            isRequired: true,
+            options: [
+              { label: 'Very Satisfied', value: 'very_sat' },
+              { label: 'Somewhat Satisfied', value: 'some_sat' },
+              { label: 'Dissatisfied', value: 'dissat' },
+            ],
+          },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      // Respondent submits "Very Satisfied" (value: "very_sat")
+      const submission = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: qId, textValue: 'very_sat' }],
+        },
+        '10.4.1.1'
+      );
+      expect(submission.success).toBe(true);
+
+      // Verify the initial snapshot was recorded
+      const answersInitial = await prisma.feedbackAnswer.findMany({ where: { questionId: qId } });
+      expect(answersInitial).toHaveLength(1);
+      const ans1 = answersInitial[0];
+      expect(ans1.questionTitle).toBe('How satisfied are you?');
+      expect(ans1.questionType).toBe('SINGLE_CHOICE');
+      expect(ans1.textValue).toBe('very_sat');
+      expect(ans1.selectedOptionLabel).toBe('Very Satisfied');
+      expect(ans1.selectedOptionValue).toBe('very_sat');
+      expect(ans1.selectedOptions).toEqual([{ label: 'Very Satisfied', value: 'very_sat' }]);
+
+      // Admin edits the form:
+      // 1. Changes option label "Very Satisfied" -> "Extremely Happy"
+      // 2. Changes option value "dissat" -> "unhappy"
+      // 3. Removes option "some_sat"
+      // 4. Changes question title "How satisfied are you?" -> "Overall Happiness"
+      await service.updateForm(tenantA, form.id, {
+        title: 'Customer Satisfaction Survey (v2)',
+        questions: [
+          {
+            id: qId,
+            questionType: 'SINGLE_CHOICE',
+            title: 'Overall Happiness',
+            isRequired: true,
+            options: [
+              { label: 'Extremely Happy', value: 'very_sat' },
+              { label: 'Unhappy', value: 'unhappy' },
+              { label: 'Brand New Option', value: 'neutral' },
+            ],
+          },
+        ],
+      });
+
+      // Submit a second response answering the modified form
+      const submission2 = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: qId, textValue: 'unhappy' }],
+        },
+        '10.4.1.2'
+      );
+      expect(submission2.success).toBe(true);
+
+      // CRITICAL ASSERTION: The FIRST answer record MUST NOT be rewritten or modified!
+      const allAnswers = await prisma.feedbackAnswer.findMany({ where: { questionId: qId } });
+      expect(allAnswers).toHaveLength(2);
+
+      const firstHistorical = allAnswers.find((a) => a.textValue === 'very_sat');
+      expect(firstHistorical).toBeDefined();
+      expect(firstHistorical!.questionTitle).toBe('How satisfied are you?');
+      expect(firstHistorical!.questionType).toBe('SINGLE_CHOICE');
+      expect(firstHistorical!.textValue).toBe('very_sat');
+      expect(firstHistorical!.selectedOptionLabel).toBe('Very Satisfied');
+      expect(firstHistorical!.selectedOptionValue).toBe('very_sat');
+      expect(firstHistorical!.selectedOptions).toEqual([{ label: 'Very Satisfied', value: 'very_sat' }]);
+
+      // The second response captures the updated question title and new option label
+      const secondAnswer = allAnswers.find((a) => a.textValue === 'unhappy');
+      expect(secondAnswer).toBeDefined();
+      expect(secondAnswer!.questionTitle).toBe('Overall Happiness');
+      expect(secondAnswer!.selectedOptionLabel).toBe('Unhappy');
+      expect(secondAnswer!.selectedOptionValue).toBe('unhappy');
+      expect(secondAnswer!.selectedOptions).toEqual([{ label: 'Unhappy', value: 'unhappy' }]);
+    });
+
+    it('preserves MULTIPLE_CHOICE option snapshots when choices are modified, reordered, or soft-deleted', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Tech Stack Survey',
+        questions: [
+          {
+            questionType: 'MULTIPLE_CHOICE',
+            title: 'Which languages do you use?',
+            isRequired: true,
+            options: [
+              { label: 'TypeScript', value: 'ts' },
+              { label: 'Python 3', value: 'py' },
+              { label: 'Rust Language', value: 'rs' },
+              { label: 'Go Language', value: 'go' },
+            ],
+          },
+        ],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      // Submit feedback choosing TypeScript and Rust
+      const submission = await service.submitPublicFeedback(
+        form.slug,
+        {
+          isAnonymous: true,
+          answers: [{ questionId: qId, jsonValue: ['ts', 'rs'] }],
+        },
+        '10.4.2.1'
+      );
+      expect(submission.success).toBe(true);
+
+      // Verify snapshots captured at submission time
+      const answersPre = await prisma.feedbackAnswer.findMany({ where: { questionId: qId } });
+      expect(answersPre).toHaveLength(1);
+      expect(answersPre[0].questionTitle).toBe('Which languages do you use?');
+      expect(answersPre[0].questionType).toBe('MULTIPLE_CHOICE');
+      expect(answersPre[0].selectedOptions).toEqual([
+        { label: 'TypeScript', value: 'ts' },
+        { label: 'Rust Language', value: 'rs' },
+      ]);
+
+      // Admin edits the form:
+      // - Removes 'rs' (soft-deleted)
+      // - Renames 'ts' -> 'TypeScript (Modern)'
+      // - Reorders options
+      await service.updateForm(tenantA, form.id, {
+        questions: [
+          {
+            id: qId,
+            questionType: 'MULTIPLE_CHOICE',
+            title: 'Languages Used at Work',
+            isRequired: true,
+            options: [
+              { label: 'Python 3', value: 'py', orderIndex: 0 },
+              { label: 'TypeScript (Modern)', value: 'ts', orderIndex: 1 },
+              { label: 'Go Language', value: 'go', orderIndex: 2 },
+            ],
+          },
+        ],
+      });
+
+      // Historical response remains completely interpretable:
+      // Even though 'rs' is no longer in active options and 'ts' label changed,
+      // the original answer still contains 'Rust Language' and 'TypeScript'
+      const answersPost = await prisma.feedbackAnswer.findMany({ where: { questionId: qId } });
+      expect(answersPost).toHaveLength(1);
+      expect(answersPost[0].questionTitle).toBe('Which languages do you use?');
+      expect(answersPost[0].selectedOptions).toEqual([
+        { label: 'TypeScript', value: 'ts' },
+        { label: 'Rust Language', value: 'rs' },
+      ]);
+    });
+  });
+
+  describe('Concurrent Duplicate-Submission Protection & Atomic Advisory Locks', () => {
+    it('simultaneous identified submissions with the same email result in exactly 1 success and 1 ConflictException', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Single-Submission Identified Form',
+        allowMultipleSubmissions: false,
+        anonymityMode: 'IDENTIFIED_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Feedback', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      const payload = {
+        isAnonymous: false,
+        respondentName: 'Concurrent User',
+        respondentEmail: 'concurrent.submitter@apex.com',
+        answers: [{ questionId: qId, textValue: 'Fast concurrent submission' }],
+      };
+
+      // Execute two identical submissions concurrently via Promise.allSettled
+      const [res1, res2] = await Promise.allSettled([
+        service.submitPublicFeedback(form.slug, payload, '10.5.1.1'),
+        service.submitPublicFeedback(form.slug, payload, '10.5.1.2'),
+      ]);
+
+      const fulfilled = [res1, res2].filter((r) => r.status === 'fulfilled');
+      const rejected = [res1, res2].filter((r) => r.status === 'rejected');
+
+      // Exactly one submission succeeded, the other was rejected with ConflictException
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+
+      // Verify that database contains exactly 1 response
+      const storedResponses = await prisma.feedbackResponse.findMany({
+        where: { formId: form.id, respondentEmail: 'concurrent.submitter@apex.com' },
+      });
+      expect(storedResponses).toHaveLength(1);
+    });
+
+    it('simultaneous anonymous submissions from the same IP hash result in exactly 1 success and 1 ConflictException', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Single-Submission Anonymous Form',
+        allowMultipleSubmissions: false,
+        anonymityMode: 'ANONYMOUS_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Feedback', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      const payload = {
+        isAnonymous: true,
+        answers: [{ questionId: qId, textValue: 'Anonymous concurrent attempt' }],
+      };
+
+      const sharedClientIp = '203.0.113.88';
+
+      // Execute two concurrent submissions from the identical IP
+      const [res1, res2] = await Promise.allSettled([
+        service.submitPublicFeedback(form.slug, payload, sharedClientIp),
+        service.submitPublicFeedback(form.slug, payload, sharedClientIp),
+      ]);
+
+      const fulfilled = [res1, res2].filter((r) => r.status === 'fulfilled');
+      const rejected = [res1, res2].filter((r) => r.status === 'rejected');
+
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+
+      // Verify only 1 response exists in storage
+      const totalResponses = await prisma.feedbackResponse.count({ where: { formId: form.id } });
+      expect(totalResponses).toBe(1);
+    });
+
+    it('independent respondents submitting concurrently both succeed without contention', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Multi-User Parallel Submission Form',
+        allowMultipleSubmissions: false,
+        anonymityMode: 'IDENTIFIED_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Feedback', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      const payloadA = {
+        isAnonymous: false,
+        respondentName: 'Alice Submitter',
+        respondentEmail: 'alice.parallel@apex.com',
+        answers: [{ questionId: qId, textValue: 'Alice feedback' }],
+      };
+
+      const payloadB = {
+        isAnonymous: false,
+        respondentName: 'Bob Submitter',
+        respondentEmail: 'bob.parallel@apex.com',
+        answers: [{ questionId: qId, textValue: 'Bob feedback' }],
+      };
+
+      // Fire independent respondents concurrently
+      const [resA, resB] = await Promise.allSettled([
+        service.submitPublicFeedback(form.slug, payloadA, '10.5.3.1'),
+        service.submitPublicFeedback(form.slug, payloadB, '10.5.3.2'),
+      ]);
+
+      // Both must succeed concurrently without blocking each other
+      expect(resA.status).toBe('fulfilled');
+      expect(resB.status).toBe('fulfilled');
+
+      const totalResponses = await prisma.feedbackResponse.count({ where: { formId: form.id } });
+      expect(totalResponses).toBe(2);
+    });
+
+    it('multiple submissions succeed concurrently when allowMultipleSubmissions is true', async () => {
+      const form = await service.createForm(tenantA, userA, {
+        title: 'Permissive Multiple Submissions Form',
+        allowMultipleSubmissions: true,
+        anonymityMode: 'IDENTIFIED_ONLY',
+        questions: [{ questionType: 'SHORT_TEXT', title: 'Feedback', isRequired: true }],
+      });
+      await service.publishForm(tenantA, form.id);
+      const qId = form.questions![0].id;
+
+      const payload = {
+        isAnonymous: false,
+        respondentName: 'Repeated Submitter',
+        respondentEmail: 'repeat.submitter@apex.com',
+        answers: [{ questionId: qId, textValue: 'Submission #1' }],
+      };
+
+      // Both concurrent requests with identical email should succeed when setting is true
+      const [res1, res2] = await Promise.allSettled([
+        service.submitPublicFeedback(form.slug, payload, '10.5.4.1'),
+        service.submitPublicFeedback(form.slug, payload, '10.5.4.1'),
+      ]);
+
+      expect(res1.status).toBe('fulfilled');
+      expect(res2.status).toBe('fulfilled');
+
+      const totalResponses = await prisma.feedbackResponse.count({ where: { formId: form.id } });
+      expect(totalResponses).toBe(2);
+    });
+  });
 });

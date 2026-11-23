@@ -1285,37 +1285,17 @@ export class FormsService {
       .update(`${form.id}:${rateLimitIdentifier}:${salt}`)
       .digest('hex');
 
-    // 6. Enforce Multiple Submission Policy
+    // Concurrency lock key for atomic duplicate serialization if multiple submissions are disabled
+    let lockKey: string | null = null;
     if (!form.allowMultipleSubmissions) {
       if (!resolvedIsAnonymous && resolvedRespondentEmail) {
-        const existingIdentified = await this.prisma.feedbackResponse.findFirst({
-          where: {
-            formId: form.id,
-            respondentEmail: resolvedRespondentEmail,
-          },
-        });
-        if (existingIdentified) {
-          throw new ConflictException('You have already submitted feedback for this form.');
-        }
-      } else {
-        // Anonymous anti-duplicate check: cooldown window (24h)
-        const cooldownStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const existingAnonymous = await this.prisma.feedbackResponse.findFirst({
-          where: {
-            formId: form.id,
-            ipHash,
-            submittedAt: { gte: cooldownStart },
-          },
-        });
-        if (existingAnonymous) {
-          throw new ConflictException(
-            'A response has already been submitted for this form from your network recently. Multiple submissions are disabled.'
-          );
-        }
+        lockKey = `email:${resolvedRespondentEmail.toLowerCase()}`;
+      } else if (resolvedIsAnonymous && ipHash) {
+        lockKey = `ip:${ipHash}`;
       }
     }
 
-    // 7. Validate submitted answers against active form question definitions
+    // 6. Validate submitted answers against active form question definitions
     const questionMap = new Map<string, any>();
     for (const q of form.questions || []) {
       if (q.isActive !== false) {
@@ -1328,6 +1308,9 @@ export class FormsService {
       questionId: string;
       questionTitle: string;
       questionType: string;
+      selectedOptionLabel: string | null;
+      selectedOptionValue: string | null;
+      selectedOptions: Array<{ label: string; value: string }> | null;
       textValue: string | null;
       numberValue: number | null;
       booleanValue: boolean | null;
@@ -1348,6 +1331,9 @@ export class FormsService {
       let numberValue: number | null = null;
       let booleanValue: boolean | null = null;
       let jsonValue: any | null = null;
+      let selectedOptionLabel: string | null = null;
+      let selectedOptionValue: string | null = null;
+      let selectedOptions: Array<{ label: string; value: string }> | null = null;
 
       switch (qType) {
         case 'SHORT_TEXT':
@@ -1393,15 +1379,22 @@ export class FormsService {
         case 'SINGLE_CHOICE': {
           if (answer.textValue && typeof answer.textValue === 'string' && answer.textValue.trim() !== '') {
             const trimmed = answer.textValue.trim();
-            const validOptions = (question.options || [])
-              .filter((o: any) => o.isActive !== false)
-              .map((o: any) => o.value);
-            if (!validOptions.includes(trimmed)) {
+            const matchedOption = (question.options || []).find(
+              (o: any) => o.isActive !== false && o.value === trimmed
+            );
+            if (!matchedOption) {
               throw new BadRequestException(
                 `Invalid choice "${trimmed}" selected for "${question.title}".`
               );
             }
             textValue = trimmed;
+            selectedOptionLabel = matchedOption.label;
+            selectedOptionValue = matchedOption.value;
+            selectedOptions = [{ label: matchedOption.label, value: matchedOption.value }];
+            jsonValue = {
+              selectedOption: { label: matchedOption.label, value: matchedOption.value },
+              selectedOptions: [{ label: matchedOption.label, value: matchedOption.value }],
+            };
           } else {
             isAnswerEmpty = true;
           }
@@ -1420,20 +1413,27 @@ export class FormsService {
               if (new Set(answer.jsonValue).size !== answer.jsonValue.length) {
                 throw new BadRequestException(`Duplicate options are not permitted in answer for "${question.title}".`);
               }
-              const validOptions = (question.options || [])
-                .filter((o: any) => o.isActive !== false)
-                .map((o: any) => o.value);
+              const validOptionMap = new Map<string, any>();
+              for (const o of question.options || []) {
+                if (o.isActive !== false) {
+                  validOptionMap.set(o.value, o);
+                }
+              }
 
+              const snapshots: Array<{ label: string; value: string }> = [];
               for (const val of answer.jsonValue) {
-                if (typeof val !== 'string' || !validOptions.includes(val)) {
+                if (typeof val !== 'string' || !validOptionMap.has(val)) {
                   throw new BadRequestException(`Invalid option "${val}" selected for "${question.title}".`);
                 }
+                const opt = validOptionMap.get(val);
+                snapshots.push({ label: opt.label, value: opt.value });
               }
               if (rules.maxSelect && answer.jsonValue.length > rules.maxSelect) {
                 throw new BadRequestException(
                   `You may select at most ${rules.maxSelect} options for "${question.title}".`
                 );
               }
+              selectedOptions = snapshots;
               jsonValue = answer.jsonValue;
             }
           } else {
@@ -1480,6 +1480,9 @@ export class FormsService {
           questionId: answer.questionId,
           questionTitle: question.title,
           questionType: qType,
+          selectedOptionLabel,
+          selectedOptionValue,
+          selectedOptions,
           textValue,
           numberValue,
           booleanValue,
@@ -1495,17 +1498,46 @@ export class FormsService {
       }
     }
 
-    // 8. Persist submission transactionally inside dedicated public submission context
+    // 7. Persist submission transactionally inside dedicated public submission context with concurrency lock
     const submissionToken = `sub_${crypto.randomBytes(24).toString('hex')}`;
     const submittedAt = new Date();
 
-    await this.prisma.withPublicSubmissionContext(form.companyId, form.id, async (tx) => {
+    await this.prisma.withPublicSubmissionContext(form.companyId, form.id, lockKey, async (tx) => {
       // Re-verify form status inside transaction to prevent publish/archive race conditions
       const currentForm = await tx.feedbackForm.findUnique({
         where: { id: form.id },
       });
       if (!currentForm || currentForm.status !== 'PUBLISHED') {
         throw new BadRequestException('Feedback form is no longer accepting submissions.');
+      }
+
+      // Atomic duplicate check inside the transaction under the advisory lock
+      if (!form.allowMultipleSubmissions) {
+        if (!resolvedIsAnonymous && resolvedRespondentEmail) {
+          const existingIdentified = await tx.feedbackResponse.findFirst({
+            where: {
+              formId: form.id,
+              respondentEmail: resolvedRespondentEmail,
+            },
+          });
+          if (existingIdentified) {
+            throw new ConflictException('You have already submitted feedback for this form.');
+          }
+        } else if (resolvedIsAnonymous && ipHash) {
+          const cooldownStart = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const existingAnonymous = await tx.feedbackResponse.findFirst({
+            where: {
+              formId: form.id,
+              ipHash,
+              submittedAt: { gte: cooldownStart },
+            },
+          });
+          if (existingAnonymous) {
+            throw new ConflictException(
+              'A response has already been submitted for this form from your network recently. Multiple submissions are disabled.'
+            );
+          }
+        }
       }
 
       const response = await tx.feedbackResponse.create({
@@ -1529,10 +1561,13 @@ export class FormsService {
             questionId: answer.questionId,
             questionTitle: answer.questionTitle,
             questionType: answer.questionType,
+            selectedOptionLabel: answer.selectedOptionLabel,
+            selectedOptionValue: answer.selectedOptionValue,
+            selectedOptions: (answer.selectedOptions as any) ?? undefined,
             textValue: answer.textValue,
             numberValue: answer.numberValue,
             booleanValue: answer.booleanValue,
-            jsonValue: answer.jsonValue,
+            jsonValue: (answer.jsonValue as any) ?? undefined,
           },
         });
       }

@@ -177,10 +177,34 @@ export interface PublicFeedbackForm {
   questions: PublicFormQuestion[];
 }
 
+export interface ChoiceOptionSnapshot {
+  label: string;
+  value: string;
+}
+
+export interface FeedbackAnswer {
+  id: string;
+  responseId: string;
+  questionId: string;
+  questionTitle?: string | null;
+  questionType?: string | null;
+  selectedOptionLabel?: string | null;
+  selectedOptionValue?: string | null;
+  selectedOptions?: ChoiceOptionSnapshot[] | null;
+  textValue?: string | null;
+  numberValue?: number | null;
+  booleanValue?: boolean | null;
+  jsonValue?: unknown;
+  createdAt: string;
+}
+
 export interface PublicAnswerSubmission {
   questionId: string;
   questionTitle?: string;
   questionType?: string;
+  selectedOptionLabel?: string;
+  selectedOptionValue?: string;
+  selectedOptions?: ChoiceOptionSnapshot[];
   textValue?: string;
   numberValue?: number;
   booleanValue?: boolean;
