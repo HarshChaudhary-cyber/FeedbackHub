@@ -20,12 +20,31 @@ export interface PreviousPeriodSummary {
   ratingChange: number | null;
 }
 
+export interface RatingScoreDistribution {
+  rating: number;
+  count: number;
+  percentage: number;
+}
+
+export interface RatingScaleBreakdown {
+  minRating: number;
+  maxRating: number;
+  averageRating: number;
+  count: number;
+  distribution: RatingScoreDistribution[];
+}
+
 export interface AnalyticsOverviewResponse {
   totalResponses: number;
   filteredResponses: number;
   publishedFormsCount: number;
   averageRating: number | null;
   ratingResponsesCount: number;
+  ratingScale?: {
+    minRating: number;
+    maxRating: number;
+  } | null;
+  ratingScales?: RatingScaleBreakdown[];
   previousPeriod: PreviousPeriodSummary;
 }
 
@@ -51,20 +70,6 @@ export interface AnalyticsTrendsResponse {
 
 export interface AnalyticsRatingsQuery extends DateRangeFilter {
   formId?: string;
-}
-
-export interface RatingScoreDistribution {
-  rating: number;
-  count: number;
-  percentage: number;
-}
-
-export interface RatingScaleBreakdown {
-  minRating: number;
-  maxRating: number;
-  averageRating: number;
-  count: number;
-  distribution: RatingScoreDistribution[];
 }
 
 export interface RatingQuestionBreakdown {
@@ -98,6 +103,7 @@ export interface ChoiceOptionAnalytics {
   value: string;
   count: number;
   percentage: number;
+  historicalLabels?: string[];
 }
 
 export interface TextQuestionMetrics {
@@ -128,6 +134,7 @@ export interface YesNoQuestionMetrics {
 export interface QuestionAnalyticsItem {
   questionId: string;
   questionTitle: string;
+  historicalTitles?: string[];
   questionType: QuestionType;
   isRequired: boolean;
   orderIndex: number;
@@ -178,6 +185,10 @@ export interface FormAnalyticsSummary {
   responseCount: number;
   latestResponseAt: string | null;
   averageRating: number | null;
+  ratingScale?: {
+    minRating: number;
+    maxRating: number;
+  } | null;
 }
 
 export interface PaginationMeta {

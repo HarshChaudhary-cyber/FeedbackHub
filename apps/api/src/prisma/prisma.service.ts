@@ -1070,29 +1070,33 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     };
 
     // FeedbackForm memory delegates
-    const enrichForm = (form: any, include?: any) => {
+    const enrichForm = (form: any, includeOrSelect?: any) => {
       if (!form) return null;
       const copy = { ...form };
-      if (include?.questions) {
+      if (includeOrSelect?.questions) {
         const formQuestions = Array.from(this.memoryStore.questions.values())
           .filter((q) => {
             if (q.formId !== form.id) return false;
             const qActive = q.isActive ?? true;
-            if (include?.questions?.where?.isActive !== undefined) {
-              return qActive === include.questions.where.isActive;
+            if (includeOrSelect?.questions?.where?.isActive !== undefined) {
+              return qActive === includeOrSelect.questions.where.isActive;
+            }
+            if (includeOrSelect?.questions?.where?.questionType?.in) {
+              if (!includeOrSelect.questions.where.questionType.in.includes(q.questionType)) return false;
             }
             return qActive !== false;
           })
           .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0))
           .map((q) => {
             const qCopy = { ...q, isActive: q.isActive ?? true, version: q.version ?? 1 };
-            if (include.questions === true || include.questions?.include?.options) {
+            if (includeOrSelect.questions === true || includeOrSelect.questions?.include?.options || includeOrSelect.questions?.select?.options) {
               qCopy.options = Array.from(this.memoryStore.options.values())
                 .filter((o) => {
                   if (o.questionId !== q.id) return false;
                   const oActive = o.isActive ?? true;
-                  if (include?.questions?.include?.options?.where?.isActive !== undefined) {
-                    return oActive === include.questions.include.options.where.isActive;
+                  const optWhere = includeOrSelect?.questions?.include?.options?.where || includeOrSelect?.questions?.select?.options?.where;
+                  if (optWhere?.isActive !== undefined) {
+                    return oActive === optWhere.isActive;
                   }
                   return oActive !== false;
                 })
@@ -1103,13 +1107,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           });
         copy.questions = formQuestions;
       }
-      if (include?.company) {
+      if (includeOrSelect?.company) {
         copy.company = this.memoryStore.companies.get(form.companyId) || null;
       }
-      if (include?.responses) {
+      if (includeOrSelect?.responses) {
         copy.responses = Array.from(this.memoryStore.responses.values()).filter((r) => r.formId === form.id);
       }
-      if (include?._count) {
+      if (includeOrSelect?._count) {
         const qCount = Array.from(this.memoryStore.questions.values()).filter((q) => q.formId === form.id && (q.isActive ?? true)).length;
         const rCount = Array.from(this.memoryStore.responses.values()).filter((r) => r.formId === form.id).length;
         copy._count = { questions: qCount, responses: rCount };
@@ -1138,9 +1142,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             }
           }
         }
-        return enrichForm(form, args.include);
+        return enrichForm(form, args?.include || (args as any)?.select);
       },
-      findFirst: async (args: { where: any; include?: any }) => {
+      findFirst: async (args: { where: any; include?: any; select?: any }) => {
         if (!this.isInMemory) return realFeedbackForm.findFirst(args as any);
         for (const f of this.memoryStore.forms.values()) {
           let match = true;
@@ -1148,11 +1152,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           if (args.where?.slug && f.slug !== args.where.slug) match = false;
           if (args.where?.companyId && f.companyId !== args.where.companyId) match = false;
           if (args.where?.status && f.status !== args.where.status) match = false;
-          if (match) return enrichForm(f, args.include);
+          if (match) return enrichForm(f, args?.include || args?.select);
         }
         return null;
       },
-      findMany: async (args?: { where?: any; include?: any; orderBy?: any; skip?: number; take?: number }) => {
+      findMany: async (args?: { where?: any; include?: any; select?: any; orderBy?: any; skip?: number; take?: number }) => {
         if (!this.isInMemory) return realFeedbackForm.findMany(args as any);
         let list = Array.from(this.memoryStore.forms.values());
         if (args?.where) {
@@ -1200,7 +1204,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         if (args?.take !== undefined) {
           list = list.slice(0, args.take);
         }
-        return list.map((f) => enrichForm(f, args?.include));
+        return list.map((f) => enrichForm(f, args?.include || args?.select));
       },
       create: async (args: { data: any; include?: any }) => {
         if (!this.isInMemory) return realFeedbackForm.create(args as any);
@@ -1358,9 +1362,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         const q = this.memoryStore.questions.get(args.where.id);
         if (!q) return null;
         const item: any = { ...q };
-        if (args.include?.options) {
+        if (args?.include?.options) {
+          const optWhere = typeof args.include.options === 'object' ? args.include.options.where : undefined;
           item.options = Array.from(this.memoryStore.options.values())
-            .filter((o) => o.questionId === q.id && (args.include.options.where?.isActive !== undefined ? o.isActive === args.include.options.where.isActive : o.isActive !== false))
+            .filter((o) => o.questionId === q.id && (optWhere?.isActive !== undefined ? o.isActive === optWhere.isActive : true))
             .sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
         }
         if (args.include?.answers) {
@@ -1589,7 +1594,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
         return { ...resp };
       },
-      findFirst: async (args: { where: any; include?: any }) => {
+      findFirst: async (args: { where: any; include?: any; select?: any }) => {
         if (!this.isInMemory) return realFeedbackResponse.findFirst(args as any);
         for (const r of this.memoryStore.responses.values()) {
           let match = true;
@@ -1634,7 +1639,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
         return null;
       },
-      findMany: async (args?: { where?: any; include?: any; orderBy?: any; skip?: number; take?: number }) => {
+      findMany: async (args?: { where?: any; include?: any; select?: any; orderBy?: any; skip?: number; take?: number }) => {
         if (!this.isInMemory) return realFeedbackResponse.findMany(args as any);
         let list = Array.from(this.memoryStore.responses.values());
         if (args?.where) {
@@ -1690,10 +1695,22 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
         return list.map((r) => {
           const res: any = { ...r };
-          if (args?.include?.answers) {
-            res.answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id);
+          if (args?.include?.answers || args?.select?.answers) {
+            let ansList = Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id);
+            const ansWhere = args.select?.answers?.where || args.include?.answers?.where;
+            if (ansWhere?.questionType?.in && Array.isArray(ansWhere.questionType.in)) {
+              ansList = ansList.filter((a) => ansWhere.questionType.in.includes(a.questionType));
+            }
+            const needsQuestion = Boolean(args.select?.answers?.select?.question || args.include?.answers?.include?.question);
+            if (needsQuestion) {
+              ansList = ansList.map((a) => ({
+                ...a,
+                question: this.memoryStore.questions.get(a.questionId) || null,
+              }));
+            }
+            res.answers = ansList;
           }
-          if (args?.include?.form) {
+          if (args?.include?.form || args?.select?.form) {
             res.form = this.memoryStore.forms.get(r.formId) || null;
           }
           return res;

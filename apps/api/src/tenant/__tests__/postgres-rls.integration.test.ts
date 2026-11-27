@@ -410,4 +410,105 @@ describe.skipIf(!hasRealPostgres)('PostgreSQL Row-Level Security (RLS) Integrati
       expect(resB).toBe(tenantB.id);
     });
   });
+
+  describe('Analytics APIs Row-Level Security (RLS) Integration', () => {
+    let analyticsService: any;
+    let formA: any;
+    let formB: any;
+    let questionA: any;
+
+    beforeAll(async () => {
+      const { AnalyticsService } = await import('../../analytics/analytics.service');
+      const { PrismaService } = await import('../../prisma/prisma.service');
+      const apiPrisma = new PrismaService();
+      (apiPrisma as any).isInMemory = false;
+      analyticsService = new AnalyticsService(apiPrisma);
+
+      // Seed form for Tenant A under Tenant A context
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantA.id}, true)`;
+        formA = await tx.feedbackForm.create({
+          data: {
+            companyId: tenantA.id,
+            title: 'Tenant Alpha CSAT',
+            slug: `alpha-csat-${Date.now()}`,
+            status: 'PUBLISHED',
+          },
+        });
+
+        questionA = await tx.formQuestion.create({
+          data: {
+            formId: formA.id,
+            questionType: 'RATING',
+            title: 'Rate your experience',
+            orderIndex: 0,
+            validationRules: { minRating: 1, maxRating: 5 },
+          },
+        });
+
+        const respA = await tx.feedbackResponse.create({
+          data: {
+            companyId: tenantA.id,
+            formId: formA.id,
+            submissionToken: `tok_a_${Date.now()}`,
+            isAnonymous: true,
+          },
+        });
+
+        await tx.feedbackAnswer.create({
+          data: {
+            responseId: respA.id,
+            questionId: questionA.id,
+            questionTitle: 'Rate your experience',
+            questionType: 'RATING',
+            numberValue: 5,
+          },
+        });
+      });
+
+      // Seed form for Tenant B under Tenant B context
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantB.id}, true)`;
+        formB = await tx.feedbackForm.create({
+          data: {
+            companyId: tenantB.id,
+            title: 'Tenant Beta Feedback',
+            slug: `beta-feedback-${Date.now()}`,
+            status: 'PUBLISHED',
+          },
+        });
+
+        await tx.feedbackResponse.create({
+          data: {
+            companyId: tenantB.id,
+            formId: formB.id,
+            submissionToken: `tok_b_${Date.now()}`,
+            isAnonymous: true,
+          },
+        });
+      });
+    });
+
+    it('allows Tenant A to retrieve its own analytics with correct response counts', async () => {
+      const overviewA = await analyticsService.getOverview(tenantA.id, {});
+      expect(overviewA.totalResponses).toBe(1);
+      expect(overviewA.publishedFormsCount).toBeGreaterThanOrEqual(1);
+      expect(overviewA.averageRating).toBe(5);
+    });
+
+    it('allows Tenant B to retrieve its own analytics strictly isolated from Tenant A', async () => {
+      const overviewB = await analyticsService.getOverview(tenantB.id, {});
+      expect(overviewB.totalResponses).toBe(1);
+    });
+
+    it('prevents Tenant A from retrieving question analytics for Tenant B form', async () => {
+      await expect(
+        analyticsService.getQuestionAnalytics(tenantA.id, formB.id, { formId: formB.id })
+      ).rejects.toThrow();
+    });
+
+    it('fails closed when tenantId is missing or empty', async () => {
+      await expect(analyticsService.getOverview('', {})).rejects.toThrow();
+    });
+  });
 });
