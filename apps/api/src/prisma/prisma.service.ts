@@ -1152,13 +1152,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
         return null;
       },
-      findMany: async (args?: { where?: any; include?: any; orderBy?: any }) => {
+      findMany: async (args?: { where?: any; include?: any; orderBy?: any; skip?: number; take?: number }) => {
         if (!this.isInMemory) return realFeedbackForm.findMany(args as any);
         let list = Array.from(this.memoryStore.forms.values());
         if (args?.where) {
           list = list.filter((f) => {
+            if (args.where.id) {
+              if (typeof args.where.id === 'string' && f.id !== args.where.id) return false;
+              if (args.where.id?.in && Array.isArray(args.where.id.in) && !args.where.id.in.includes(f.id)) return false;
+            }
             if (args.where.companyId && f.companyId !== args.where.companyId) return false;
-            if (args.where.status && f.status !== args.where.status) return false;
+            if (args.where.status) {
+              if (typeof args.where.status === 'string' && f.status !== args.where.status) return false;
+              if (args.where.status?.in && Array.isArray(args.where.status.in) && !args.where.status.in.includes(f.status)) return false;
+            }
             if (args.where.OR) {
               const matchesOr = args.where.OR.some((clause: any) => {
                 if (clause.title?.contains) {
@@ -1174,9 +1181,26 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
             return true;
           });
         }
-        return list
-          .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-          .map((f) => enrichForm(f, args?.include));
+        if (args?.orderBy) {
+          const field = Object.keys(args.orderBy)[0];
+          const direction = args.orderBy[field] === 'asc' ? 1 : -1;
+          list.sort((a, b) => {
+            const valA = a[field] instanceof Date ? a[field].getTime() : (a[field] ?? 0);
+            const valB = b[field] instanceof Date ? b[field].getTime() : (b[field] ?? 0);
+            if (valA < valB) return -1 * direction;
+            if (valA > valB) return 1 * direction;
+            return 0;
+          });
+        } else {
+          list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        }
+        if (args?.skip !== undefined) {
+          list = list.slice(args.skip);
+        }
+        if (args?.take !== undefined) {
+          list = list.slice(0, args.take);
+        }
+        return list.map((f) => enrichForm(f, args?.include));
       },
       create: async (args: { data: any; include?: any }) => {
         if (!this.isInMemory) return realFeedbackForm.create(args as any);
@@ -1570,41 +1594,110 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         for (const r of this.memoryStore.responses.values()) {
           let match = true;
           if (args.where?.id && r.id !== args.where.id) match = false;
-          if (args.where?.formId && r.formId !== args.where.formId) match = false;
+          if (args.where?.formId) {
+            if (typeof args.where.formId === 'string' && r.formId !== args.where.formId) match = false;
+            if (args.where.formId?.in && Array.isArray(args.where.formId.in) && !args.where.formId.in.includes(r.formId)) match = false;
+          }
           if (args.where?.companyId && r.companyId !== args.where.companyId) match = false;
+          if (args.where?.status && r.status !== args.where.status) match = false;
           if (args.where?.respondentEmail && r.respondentEmail?.toLowerCase() !== args.where.respondentEmail.toLowerCase()) match = false;
           if (args.where?.ipHash && r.ipHash !== args.where.ipHash) match = false;
-          if (args.where?.submittedAt?.gte) {
-            const gteTime = args.where.submittedAt.gte instanceof Date ? args.where.submittedAt.gte.getTime() : new Date(args.where.submittedAt.gte).getTime();
+          if (args.where?.submittedAt) {
             const subTime = r.submittedAt instanceof Date ? r.submittedAt.getTime() : new Date(r.submittedAt).getTime();
-            if (!(subTime >= gteTime)) match = false;
+            if (args.where.submittedAt.gte) {
+              const gteTime = args.where.submittedAt.gte instanceof Date ? args.where.submittedAt.gte.getTime() : new Date(args.where.submittedAt.gte).getTime();
+              if (!(subTime >= gteTime)) match = false;
+            }
+            if (args.where.submittedAt.gt) {
+              const gtTime = args.where.submittedAt.gt instanceof Date ? args.where.submittedAt.gt.getTime() : new Date(args.where.submittedAt.gt).getTime();
+              if (!(subTime > gtTime)) match = false;
+            }
+            if (args.where.submittedAt.lte) {
+              const lteTime = args.where.submittedAt.lte instanceof Date ? args.where.submittedAt.lte.getTime() : new Date(args.where.submittedAt.lte).getTime();
+              if (!(subTime <= lteTime)) match = false;
+            }
+            if (args.where.submittedAt.lt) {
+              const ltTime = args.where.submittedAt.lt instanceof Date ? args.where.submittedAt.lt.getTime() : new Date(args.where.submittedAt.lt).getTime();
+              if (!(subTime < ltTime)) match = false;
+            }
           }
           if (match) {
+            const res: any = { ...r };
             if (args.include?.answers) {
-              return {
-                ...r,
-                answers: Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id),
-              };
+              res.answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id);
             }
-            return { ...r };
+            if (args.include?.form) {
+              res.form = this.memoryStore.forms.get(r.formId) || null;
+            }
+            return res;
           }
         }
         return null;
       },
-      findMany: async (args?: { where?: any; include?: any }) => {
+      findMany: async (args?: { where?: any; include?: any; orderBy?: any; skip?: number; take?: number }) => {
         if (!this.isInMemory) return realFeedbackResponse.findMany(args as any);
         let list = Array.from(this.memoryStore.responses.values());
         if (args?.where) {
-          if (args.where.companyId) list = list.filter((r) => r.companyId === args.where.companyId);
-          if (args.where.formId) list = list.filter((r) => r.formId === args.where.formId);
+          list = list.filter((r) => {
+            if (args.where.id && r.id !== args.where.id) return false;
+            if (args.where.companyId && r.companyId !== args.where.companyId) return false;
+            if (args.where.formId) {
+              if (typeof args.where.formId === 'string' && r.formId !== args.where.formId) return false;
+              if (args.where.formId?.in && Array.isArray(args.where.formId.in) && !args.where.formId.in.includes(r.formId)) return false;
+            }
+            if (args.where.status) {
+              if (typeof args.where.status === 'string' && r.status !== args.where.status) return false;
+              if (args.where.status?.in && Array.isArray(args.where.status.in) && !args.where.status.in.includes(r.status)) return false;
+            }
+            if (args.where.submittedAt) {
+              const subTime = r.submittedAt instanceof Date ? r.submittedAt.getTime() : new Date(r.submittedAt).getTime();
+              if (args.where.submittedAt.gte) {
+                const gteTime = args.where.submittedAt.gte instanceof Date ? args.where.submittedAt.gte.getTime() : new Date(args.where.submittedAt.gte).getTime();
+                if (!(subTime >= gteTime)) return false;
+              }
+              if (args.where.submittedAt.gt) {
+                const gtTime = args.where.submittedAt.gt instanceof Date ? args.where.submittedAt.gt.getTime() : new Date(args.where.submittedAt.gt).getTime();
+                if (!(subTime > gtTime)) return false;
+              }
+              if (args.where.submittedAt.lte) {
+                const lteTime = args.where.submittedAt.lte instanceof Date ? args.where.submittedAt.lte.getTime() : new Date(args.where.submittedAt.lte).getTime();
+                if (!(subTime <= lteTime)) return false;
+              }
+              if (args.where.submittedAt.lt) {
+                const ltTime = args.where.submittedAt.lt instanceof Date ? args.where.submittedAt.lt.getTime() : new Date(args.where.submittedAt.lt).getTime();
+                if (!(subTime < ltTime)) return false;
+              }
+            }
+            return true;
+          });
         }
-        if (args?.include?.answers) {
-          return list.map((r) => ({
-            ...r,
-            answers: Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id),
-          }));
+        if (args?.orderBy) {
+          const field = Object.keys(args.orderBy)[0];
+          const direction = args.orderBy[field] === 'asc' ? 1 : -1;
+          list.sort((a, b) => {
+            const valA = a[field] instanceof Date ? a[field].getTime() : a[field];
+            const valB = b[field] instanceof Date ? b[field].getTime() : b[field];
+            if (valA < valB) return -1 * direction;
+            if (valA > valB) return 1 * direction;
+            return 0;
+          });
         }
-        return list;
+        if (args?.skip !== undefined) {
+          list = list.slice(args.skip);
+        }
+        if (args?.take !== undefined) {
+          list = list.slice(0, args.take);
+        }
+        return list.map((r) => {
+          const res: any = { ...r };
+          if (args?.include?.answers) {
+            res.answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id);
+          }
+          if (args?.include?.form) {
+            res.form = this.memoryStore.forms.get(r.formId) || null;
+          }
+          return res;
+        });
       },
       findUnique: async (args: { where: any; include?: any }) => {
         if (!this.isInMemory) return realFeedbackResponse.findUnique(args as any);
@@ -1619,13 +1712,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           }
         }
         if (!r) return null;
+        const res: any = { ...r };
         if (args.include?.answers) {
-          return {
-            ...r,
-            answers: Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id),
-          };
+          res.answers = Array.from(this.memoryStore.answers.values()).filter((a) => a.responseId === r.id);
         }
-        return { ...r };
+        if (args.include?.form) {
+          res.form = this.memoryStore.forms.get(r.formId) || null;
+        }
+        return res;
       },
       count: async (args?: { where?: any }) => {
         if (!this.isInMemory) return realFeedbackResponse.count(args as any);
@@ -1634,7 +1728,33 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         for (const r of this.memoryStore.responses.values()) {
           let match = true;
           if (args.where.companyId && r.companyId !== args.where.companyId) match = false;
-          if (args.where.formId && r.formId !== args.where.formId) match = false;
+          if (args.where.formId) {
+            if (typeof args.where.formId === 'string' && r.formId !== args.where.formId) match = false;
+            if (args.where.formId?.in && Array.isArray(args.where.formId.in) && !args.where.formId.in.includes(r.formId)) match = false;
+          }
+          if (args.where.status) {
+            if (typeof args.where.status === 'string' && r.status !== args.where.status) match = false;
+            if (args.where.status?.in && Array.isArray(args.where.status.in) && !args.where.status.in.includes(r.status)) match = false;
+          }
+          if (args.where.submittedAt) {
+            const subTime = r.submittedAt instanceof Date ? r.submittedAt.getTime() : new Date(r.submittedAt).getTime();
+            if (args.where.submittedAt.gte) {
+              const gteTime = args.where.submittedAt.gte instanceof Date ? args.where.submittedAt.gte.getTime() : new Date(args.where.submittedAt.gte).getTime();
+              if (!(subTime >= gteTime)) match = false;
+            }
+            if (args.where.submittedAt.gt) {
+              const gtTime = args.where.submittedAt.gt instanceof Date ? args.where.submittedAt.gt.getTime() : new Date(args.where.submittedAt.gt).getTime();
+              if (!(subTime > gtTime)) match = false;
+            }
+            if (args.where.submittedAt.lte) {
+              const lteTime = args.where.submittedAt.lte instanceof Date ? args.where.submittedAt.lte.getTime() : new Date(args.where.submittedAt.lte).getTime();
+              if (!(subTime <= lteTime)) match = false;
+            }
+            if (args.where.submittedAt.lt) {
+              const ltTime = args.where.submittedAt.lt instanceof Date ? args.where.submittedAt.lt.getTime() : new Date(args.where.submittedAt.lt).getTime();
+              if (!(subTime < ltTime)) match = false;
+            }
+          }
           if (match) count++;
         }
         return count;
@@ -1682,18 +1802,71 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         this.memoryStore.answers.set(id, ans);
         return { ...ans };
       },
-      findMany: async (args?: { where?: any }) => {
+      findMany: async (args?: { where?: any; include?: any }) => {
         if (!this.isInMemory) return realFeedbackAnswer.findMany(args as any);
         let list = Array.from(this.memoryStore.answers.values());
         if (args?.where) {
+          list = list.filter((a) => {
+            if (args.where.responseId) {
+              if (typeof args.where.responseId === 'string' && a.responseId !== args.where.responseId) return false;
+              if (args.where.responseId?.in && Array.isArray(args.where.responseId.in) && !args.where.responseId.in.includes(a.responseId)) return false;
+            }
+            if (args.where.questionId) {
+              if (typeof args.where.questionId === 'string' && a.questionId !== args.where.questionId) return false;
+              if (args.where.questionId?.in && Array.isArray(args.where.questionId.in) && !args.where.questionId.in.includes(a.questionId)) return false;
+            }
+            if (args.where.questionType) {
+              if (typeof args.where.questionType === 'string' && a.questionType !== args.where.questionType) return false;
+              if (args.where.questionType?.in && Array.isArray(args.where.questionType.in) && !args.where.questionType.in.includes(a.questionType)) return false;
+            }
+            if (args.where.response) {
+              const resp = this.memoryStore.responses.get(a.responseId);
+              if (!resp) return false;
+              if (args.where.response.companyId && resp.companyId !== args.where.response.companyId) return false;
+              if (args.where.response.formId && resp.formId !== args.where.response.formId) return false;
+              if (args.where.response.submittedAt) {
+                const subTime = resp.submittedAt instanceof Date ? resp.submittedAt.getTime() : new Date(resp.submittedAt).getTime();
+                if (args.where.response.submittedAt.gte) {
+                  const gteTime = args.where.response.submittedAt.gte instanceof Date ? args.where.response.submittedAt.gte.getTime() : new Date(args.where.response.submittedAt.gte).getTime();
+                  if (!(subTime >= gteTime)) return false;
+                }
+                if (args.where.response.submittedAt.lte) {
+                  const lteTime = args.where.response.submittedAt.lte instanceof Date ? args.where.response.submittedAt.lte.getTime() : new Date(args.where.response.submittedAt.lte).getTime();
+                  if (!(subTime <= lteTime)) return false;
+                }
+              }
+            }
+            return true;
+          });
+        }
+        return list.map((a) => {
+          const res: any = { ...a };
+          if (args?.include?.response) {
+            res.response = this.memoryStore.responses.get(a.responseId) || null;
+          }
+          if (args?.include?.question) {
+            res.question = this.memoryStore.questions.get(a.questionId) || null;
+          }
+          return res;
+        });
+      },
+      count: async (args?: { where?: any }) => {
+        if (!this.isInMemory) return realFeedbackAnswer.count(args as any);
+        if (!args?.where) return this.memoryStore.answers.size;
+        let count = 0;
+        for (const a of this.memoryStore.answers.values()) {
+          let match = true;
           if (args.where.responseId) {
-            list = list.filter((a) => a.responseId === args.where.responseId);
+            if (typeof args.where.responseId === 'string' && a.responseId !== args.where.responseId) match = false;
+            if (args.where.responseId?.in && Array.isArray(args.where.responseId.in) && !args.where.responseId.in.includes(a.responseId)) match = false;
           }
           if (args.where.questionId) {
-            list = list.filter((a) => a.questionId === args.where.questionId);
+            if (typeof args.where.questionId === 'string' && a.questionId !== args.where.questionId) match = false;
+            if (args.where.questionId?.in && Array.isArray(args.where.questionId.in) && !args.where.questionId.in.includes(a.questionId)) match = false;
           }
+          if (match) count++;
         }
-        return list;
+        return count;
       },
       deleteMany: async (args?: { where?: any }) => {
         if (!this.isInMemory) return realFeedbackAnswer.deleteMany(args as any);
